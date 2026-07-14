@@ -65,7 +65,7 @@ def train_variant(
         for enc, fut, anchor, y in tr:
             enc, fut, anchor, y = enc.to(dev), fut.to(dev), anchor.to(dev), y.to(dev)
             opt.zero_grad()
-            loss = pinball(net(enc, fut, anchor), y, q)
+            loss = pinball(net(enc, fut, anchor, y_teacher=y), y, q)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(net.parameters(), 5.0)
             opt.step()

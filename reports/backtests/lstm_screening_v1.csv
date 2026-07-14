@@ -1,0 +1,13 @@
+variant,best_val_pinball_norm,best_epoch,train_s,seed,test_mape,test_pinball_p10,test_pinball_p50,test_pinball_p90,checkpoint
+enc_direct,0.11531919240951538,40,28.2,42,4.458,225.22,380.08,171.46,outputs/checkpoints/enc_direct_seed42.pt
+enc_direct,0.12429606169462204,27,22.1,7,5.472,239.28,462.49,174.79,outputs/checkpoints/enc_direct_seed7.pt
+enc_direct,0.13014721870422363,29,22.6,2026,5.355,242.17,454.34,170.55,outputs/checkpoints/enc_direct_seed2026.pt
+enc_futmlp,0.07821081578731537,45,31.6,42,3.248,131.11,275.69,125.83,outputs/checkpoints/enc_futmlp_seed42.pt
+enc_futmlp,0.08007024228572845,36,27.6,7,3.546,140.68,301.41,143.87,outputs/checkpoints/enc_futmlp_seed7.pt
+enc_futmlp,0.0754382312297821,28,22.2,2026,3.366,142.32,283.77,123.51,outputs/checkpoints/enc_futmlp_seed2026.pt
+enc_dec,0.07359544187784195,21,19.0,42,3.047,129.87,262.36,118.02,outputs/checkpoints/enc_dec_seed42.pt
+enc_dec,0.07878121733665466,13,14.1,7,3.1,130.81,265.19,120.72,outputs/checkpoints/enc_dec_seed7.pt
+enc_dec,0.07509297132492065,20,18.4,2026,3.344,131.38,287.02,119.02,outputs/checkpoints/enc_dec_seed2026.pt
+residual,0.07592202723026276,27,22.0,42,3.548,146.26,302.27,130.54,outputs/checkpoints/residual_seed42.pt
+residual,0.07598945498466492,28,22.8,7,3.289,137.83,279.25,121.97,outputs/checkpoints/residual_seed7.pt
+residual,0.08450528234243393,16,15.9,2026,3.775,160.79,317.69,146.72,outputs/checkpoints/residual_seed2026.pt
