@@ -92,7 +92,14 @@ def run(cfg: Config, today_local: pd.Timestamp) -> str:
     fc_path = cfg.paths["forecasts"] / f"{tomorrow.date()}.csv"
     fc.rename_axis("time_utc").to_csv(fc_path, float_format="%.1f")
 
-    # 4. Report.
+    # 4. Report, with the fan chart embedded.
+    from src.viz.plots import plot_forecast_band
+
+    chart_path = (
+        cfg.paths["reports_daily"].parent / "figures" / "daily" / f"{tomorrow.date()}.png"
+    )
+    plot_forecast_band(fc, str(tomorrow.date()), chart_path)
+
     oddities: list[str] = []
     n_missing = int(actual_y.isna().sum())
     if n_missing:

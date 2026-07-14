@@ -63,7 +63,13 @@ def write_report(
         "",
     ]
     lines += [f"- {o}" for o in oddities] if oddities else ["- None."]
-    lines += ["", "_Chart lands in M3. Full hourly quantiles: see `data/forecasts/`._", ""]
+    lines += [
+        "",
+        f"![Day-ahead forecast fan chart](../figures/daily/{tomorrow}.png)",
+        "",
+        "_Full hourly quantiles: see `data/forecasts/`._",
+        "",
+    ]
 
     cfg.paths["reports_daily"].mkdir(parents=True, exist_ok=True)
     path = cfg.paths["reports_daily"] / f"{today_local.date()}.md"
