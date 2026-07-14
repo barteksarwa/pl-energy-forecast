@@ -1,0 +1,56 @@
+\section{Metrics: what we score and why}
+
+\subsection{The four we use}
+
+For actual $y_t$ and forecast $\hat{y}_t$ over $n$ hours:
+
+\begin{align}
+  \mathrm{MAE}  &= \tfrac{1}{n}\sum_t |y_t - \hat{y}_t|
+  &\mathrm{RMSE} &= \sqrt{\tfrac{1}{n}\sum_t (y_t - \hat{y}_t)^2} \\
+  \mathrm{MAPE} &= \tfrac{100}{n}\sum_t \left|\tfrac{y_t - \hat{y}_t}{y_t}\right|
+  &\mathrm{PB}_q &= \tfrac{1}{n}\sum_t \max\!\big(q\,d_t,\,(q-1)\,d_t\big),\; d_t = y_t - \hat{y}_t
+\end{align}
+
+\subsection{Pros and cons, one by one}
+
+\textbf{MAE (MW).} Average miss in physical units.
+Pro: robust, every hour counts equally, easy to explain to a manager.
+Con: blind to whether errors cluster into rare disasters.
+
+\textbf{RMSE (MW).} Squares errors before averaging.
+Pro: punishes big misses --- and big misses are what cost money on the
+balancing market. Con: one broken hour can dominate the score; sensitive to
+data glitches.
+
+\textbf{MAPE (\%).} Scale-free.
+Pro: comparable across zones and seasons; the industry's headline number.
+Con: explodes when $y_t \to 0$ (not an issue for country load, fatal for
+prices, which cross zero --- we will NOT use MAPE for prices);
+asymmetric --- over-forecasting scores slightly better than under-forecasting.
+
+\textbf{Pinball loss (MW).} The only one that scores a \emph{quantile}.
+For P90, under-prediction costs $0.9$ per MW, over-prediction $0.1$.
+Pro: rewards honest uncertainty bands; a P90 that is too safe or too tight
+both lose. Con: harder to explain; one number per quantile, not one overall.
+
+\subsection{The headline: skill over seasonal naive}
+
+\begin{equation}
+  \mathrm{skill} = 1 - \frac{\mathrm{MAE}_{\mathrm{model}}}{\mathrm{MAE}_{\mathrm{naive}}}
+\end{equation}
+
+Skill $= 0.25$ means: 25\% less error than copying last week.
+Raw MAE flatters everyone in calm weeks; skill cannot be gamed that way,
+because the naive baseline enjoys the same calm.
+
+\subsection{Trap to remember}
+
+Never rank models on pooled $R^2$: near-flat periods shrink its denominator
+and one pooled number can hide many negative-$R^2$ windows.
+RMSE at fixed horizon plus skill-over-naive; per-window breakdowns.
+
+\subsection{Interview line}
+
+``MAPE for the manager, RMSE for the balancing-cost risk, pinball for the
+quantiles, and skill-over-naive as the headline --- because a model that
+cannot beat last week's copy has learned nothing.''
