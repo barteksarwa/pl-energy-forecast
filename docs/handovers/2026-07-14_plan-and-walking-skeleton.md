@@ -1,55 +1,40 @@
-# Handover — 2026-07-14 — plan, skeleton, M1 data, M2 features
+# Handover — 2026-07-14 — plan → skeleton → real data → first results
 
-## What I did
+One huge day. Keep this page; details live in git log and DECISIONS.md.
 
-- Researched PL/EU job market. Wrote `docs/PLAN.md`; owner approved v2.
-- Built M0: config, ENTSO-E + Open-Meteo clients, seasonal naive P10/P50/P90,
-  metrics, daily_run pipeline, report writer. 21 unit tests green.
-- LaTeX notes system: `docs/notes/learning/` + `docs/notes/model_selection/`,
-  each with `main.tex` + one note. Both compile. Owner convention in CLAUDE.md.
-- Viz module (`src/viz`, `make viz`): weather panels, load vs TSO, forecast fan,
-  temperature history. CVD-safe validated palette.
-- M1 partial: `docs/DATA_CATALOG.md`; backfill scripts with gap log;
-  weather backfilled live — 10 cities × 30,840 h (2023-01-01→2026-07-08), 0 gaps.
-- Fixed "no module named src": project is now an installed package (hatchling).
-- GitHub connected: private repo `barteksarwa/pl-energy-forecast`, pushed.
-- Verified industry usage: ENTSO-E = the EU standard (with known quality quirks
-  → our gap log). Open-Meteo = legit for backtests/prototyping; desks buy
-  Meteomatics/DTN for production. Documented in DATA_CATALOG.
+## What works now
 
-## State of things
+- `make dry-run` — real daily report from PSE data (report + fan chart done today).
+- `make backtest` — walk-forward, 4 baselines + TSO row, writes reports/backtests/.
+- `make backfill` — weather actuals (0 gaps), weather forecasts (lead 1–2 d,
+  running), PSE load + TSO forecast 2024-06-14→now (0 gaps), ENTSO-E pending token.
+- `make viz` — 5 figures. `make test` — 39 green. All pushed to
+  github.com/barteksarwa/pl-energy-forecast (private).
 
-- Works: `make setup/test/smoke/lint/viz/backfill` (weather part).
-- Blocked on owner: ENTSO-E token → then `make backfill` (load) + `make dry-run`.
-- Weather-leakage trap documented: backtests must use historical weather
-  *forecasts*, not ERA5 actuals. Endpoint verification = M2 task. [TBC]
+## First honest numbers (12-month walk-forward, ERA5-actuals weather)
 
-## Decisions made
+ridge MAPE 4.00% (skill 0.31) > lasso 4.13% > naive 5.62% > climatology 8.59%.
+TSO ≈ 2.6%. Gap to TSO = M4 LightGBM's job. Full table: reports/backtests/.
 
-- Load first, price Phase 2 (DECISIONS.md). LaTeX for owner notes, md for ops.
-- Permissions pre-approved in `.claude/settings.json` (uv/make/git/gh).
+## Key decisions today (all in DECISIONS.md)
 
-## Also done (M2, same session)
-
-- `src/features/`: calendar (holidays, bridge days, cyclic encodings),
-  population-weighted weather + heating/cooling degrees, cutoff-safe lags
-  (48/72/168/336 h; lag 24 raises as leakage), `build_features()` contract.
-- Leakage proof test: corrupt all post-cutoff data → features byte-identical.
-- 33 unit tests green. Feature matrix verified against real backfilled weather.
-- Open-Meteo Historical Forecast + Previous Runs APIs verified (lead-time
-  1–7 d, from ~2022). DATA_CATALOG updated — backtest weather input solved.
-- Learning notes 02 (market + cutoff), 03 (leakage), 04 (metrics). PDF compiles.
+- PSE API v2 = primary load source (keyless). ENTSO-E = deep history + cross-check.
+- Weather leakage: backtests use archived lead-2 forecasts (Previous Runs API).
+- Load first, price Phase 2. Neighbor holidays Phase 2. LaTeX notes, owner compiles.
 
 ## Next steps
 
-1. Owner: add ENTSO-E token → `make backfill` → `make dry-run` → `make viz`.
-2. M1 close: gap report + DST checks on real load data.
-3. M2 close: backfill historical weather *forecasts* (Previous Runs API client).
-4. M3: baseline campaign (walk-forward engine, seasonal naive vs linear vs
-   LASSO-AR vs TSO). Learning notes 05 (walk-forward CV), 06 (baselines).
+1. Rerun backtest with `--weather forecast` once forecast backfill finishes
+   (was 6/10 cities at handover time). Compare vs actuals run — quantifies
+   the weather-leakage effect. Good DECISIONS/note material.
+2. M4: LightGBM quantile + SHAP + model card. Then swap into daily loop.
+3. Daily report: embed the fan chart (report says "chart lands in M3").
+4. ENTSO-E token arrives → backfill 2023+, cross-check PSE vs ENTSO-E.
+5. Learning notes: 06 baselines-reading (what the table says), model card 01.
 
 ## Watch out for
 
-- `energy-forecast-kickstart/` is leftover; ask owner before deleting.
-- Free ENTSO-E rate limits: backfill chunks 90 d + 1 s sleep. Watch for 429s.
-- City weights are approximate GUS metro populations.
+- PSE v2 history starts 2024-06-14. Nothing earlier exists on v2.
+- sklearn 1.9: LassoCV uses `alphas=int`, not `n_alphas`.
+- Previous Runs API: 120-day chunks max, else timeouts.
+- `energy-forecast-kickstart/` still awaiting owner delete decision.
