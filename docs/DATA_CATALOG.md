@@ -8,7 +8,9 @@ Updated: 2026-07-14 (M1).
 
 | Data | Source | Access | Cost | Resolution | Status |
 |---|---|---|---|---|---|
-| Actual load PL | ENTSO-E Transparency | `entsoe-py` `query_load` | free, token | 15 min → we store hourly | verified, live call pending token |
+| Actual load PL | **PSE API v2** `kse-load` | keyless HTTP | free | 15 min → hourly, from 2024-06-14 | **verified, backfilled, 0 gaps** |
+| TSO day-ahead load forecast | **PSE API v2** `kse-load.load_fcst` | keyless | free | publishes ~09:00 D-1 (= our cutoff) | **verified, backfilled** |
+| Actual load PL (deeper history) | ENTSO-E Transparency | `entsoe-py` `query_load` | free, token | 15 min → hourly, 2015+ | verified, live call pending token |
 | TSO day-ahead load forecast | ENTSO-E | `query_load_forecast` | free | hourly | verified |
 | Weather history (actuals, ERA5) | Open-Meteo Archive API | `archive-api.open-meteo.com/v1/archive` | free non-commercial | hourly, ~5 day delay | verified, called live |
 | Weather forecasts (operational) | Open-Meteo Forecast API | `api.open-meteo.com/v1/forecast` | free | hourly, 16 days ahead | verified, called live |
@@ -36,7 +38,7 @@ lead-time offsets (1–7 days ahead), from ~2022. Our backtest uses the
 | Generation per fuel type | ENTSO-E | `entsoe-py` | free | [TBC] |
 | Cross-border flows + capacity | ENTSO-E | `entsoe-py` | free | [TBC] |
 | Unit/grid outages | ENTSO-E UMM | `entsoe-py` | free | [TBC] |
-| PL balancing prices, KSE demand | PSE API v2 | `api.raporty.pse.pl` | free | verified exists; endpoints [TBC] |
+| PL balancing prices, KSE demand | PSE API v2 | `api.raporty.pse.pl` | free | verified, called live |
 | Gas price (TTF) | public proxies (e.g. energy-charts, EIA daily) | HTTP | free proxies | [TBC — desks pay for ICE/EEX feeds] |
 | CO2 (EUA) | public settlement data | HTTP | free proxies | [TBC] |
 | Coal (API2) | mostly paid | — | paid | likely skip; document impact |

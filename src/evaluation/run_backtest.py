@@ -46,6 +46,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--models", default=",".join(REGISTRY))
     parser.add_argument("--test-start", default=None, help="YYYY-MM-DD local")
+    parser.add_argument(
+        "--weather", choices=["auto", "forecast", "actuals"], default="auto",
+        help="forecast = archived lead-2 (honest); actuals = ERA5 (optimistic)",
+    )
     args = parser.parse_args()
 
     load_path = cfg.paths["data_processed"] / "load.parquet"
@@ -55,12 +59,18 @@ def main() -> int:
         return 1
     load = pd.read_parquet(load_path).iloc[:, 0]
 
-    try:
-        weather = load_weather_forecast_history(cfg)
-        weather_source = "archived forecasts, lead 2 days (honest)"
-    except (FileNotFoundError, KeyError):
+    if args.weather == "actuals":
         weather = load_weather_history(cfg)
         weather_source = "ERA5 ACTUALS — optimistic, see DATA_CATALOG leakage note"
+    else:
+        try:
+            weather = load_weather_forecast_history(cfg)
+            weather_source = "archived forecasts, lead 2 days (honest)"
+        except (FileNotFoundError, KeyError):
+            if args.weather == "forecast":
+                raise
+            weather = load_weather_history(cfg)
+            weather_source = "ERA5 ACTUALS — optimistic, see DATA_CATALOG leakage note"
 
     tz = cfg.timezone_local
     first = load.index[0].tz_convert(tz) + pd.Timedelta(days=30)
@@ -82,6 +92,17 @@ def main() -> int:
         results.append(
             walk_forward_backtest(REGISTRY[name], x, y, test_start.tz_convert("UTC"))
         )
+
+    # The external benchmark: the TSO's own day-ahead forecast (point only).
+    tso_path = cfg.paths["data_processed"] / "tso_forecast.parquet"
+    if tso_path.exists():
+        tso = pd.read_parquet(tso_path).iloc[:, 0]
+        test_hours = results[0].predictions.index
+        tso_pred = pd.DataFrame(
+            {"p10": float("nan"), "p50": tso.reindex(test_hours), "p90": float("nan")},
+            index=test_hours,
+        )
+        results.append(BacktestResult(model_name="tso_forecast", predictions=tso_pred))
 
     table = summarize(results, y)
     out_dir = cfg.paths["data_processed"].parent.parent / "reports" / "backtests"

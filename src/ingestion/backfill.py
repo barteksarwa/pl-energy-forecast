@@ -154,6 +154,39 @@ def backfill_weather_forecasts(cfg: Config) -> None:
             )
 
 
+def backfill_pse(cfg: Config) -> None:
+    """Load + TSO forecast from PSE API v2. Keyless. Data from 2024-06-14."""
+    from src.clients.pse_client import fetch_kse_load
+
+    gap_log = cfg.paths["data_processed"] / "gap_log.csv"
+    load_path = cfg.paths["data_processed"] / "load.parquet"
+    tso_path = cfg.paths["data_processed"] / "tso_forecast.parquet"
+    pse_start = max(pd.Timestamp(cfg.backfill_start, tz="UTC"),
+                    pd.Timestamp("2024-06-14", tz="UTC"))
+    start_ts = _resume_start(load_path, pse_start)
+    # TSO forecast exists through tomorrow; fetch that far.
+    end_date = (pd.Timestamp.now(tz="Europe/Warsaw") + pd.Timedelta(days=1)).date()
+    if start_ts.date() > end_date:
+        print("pse: up to date")
+        return
+    chunk_start = start_ts.date()
+    while chunk_start <= end_date:
+        chunk_end = min(chunk_start + pd.Timedelta(days=60), end_date)
+        df = fetch_kse_load(str(chunk_start), str(chunk_end))
+        if not df.empty:
+            _merge_save(load_path, df[["load_mw"]].dropna())
+            _merge_save(tso_path, df[["tso_forecast_mw"]].dropna())
+            print(f"pse: {chunk_start} → {chunk_end}, {len(df)} hours")
+        else:
+            print(f"pse: {chunk_start} → {chunk_end}, empty")
+        chunk_start = chunk_end + pd.Timedelta(days=1)
+        time.sleep(cfg.request_sleep_s)
+    for name, path in [("load", load_path), ("tso_forecast", tso_path)]:
+        if path.exists():
+            gaps = log_gaps(pd.read_parquet(path).iloc[:, 0], f"pse_{name}", gap_log)
+            print(f"pse {name}: {len(gaps)} new gap(s) logged")
+
+
 def backfill_entsoe(cfg: Config) -> None:
     if not os.environ.get("ENTSOE_API_TOKEN"):
         print("entsoe: skipped — ENTSOE_API_TOKEN not set in .env")
@@ -189,13 +222,15 @@ def main() -> int:
     cfg = load_config()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--only", choices=["weather", "weather_forecast", "entsoe"], default=None
+        "--only", choices=["weather", "weather_forecast", "pse", "entsoe"], default=None
     )
     args = parser.parse_args()
     if args.only in (None, "weather"):
         backfill_weather(cfg)
     if args.only in (None, "weather_forecast"):
         backfill_weather_forecasts(cfg)
+    if args.only in (None, "pse"):
+        backfill_pse(cfg)
     if args.only in (None, "entsoe"):
         backfill_entsoe(cfg)
     return 0

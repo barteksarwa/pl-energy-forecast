@@ -23,6 +23,7 @@ class City:
 class Config:
     zone: str
     timezone_local: str
+    data_source: str
     cities: list[City]
     weather_vars: list[str]
     paths: dict[str, Path]
@@ -42,6 +43,7 @@ def load_config(path: Path = CONFIG_PATH) -> Config:
     return Config(
         zone=raw["zone"],
         timezone_local=raw["timezone_local"],
+        data_source=raw.get("data_source", "pse"),
         cities=[City(**c) for c in raw["cities"]],
         weather_vars=list(raw["weather_vars"]),
         paths={k: REPO_ROOT / v for k, v in raw["paths"].items()},

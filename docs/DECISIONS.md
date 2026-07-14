@@ -4,6 +4,11 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-07-14 — PSE API v2 as primary load source, ENTSO-E for deep history**
+Context: ENTSO-E token stuck in email queue; PSE API v2 needs no key and has load + TSO forecast from 2024-06-14.
+Decision: backfill and daily ops run on PSE now. ENTSO-E extends history to 2023 and cross-validates once the token arrives.
+Why: unblocks the whole pipeline today; two independent sources for the same series is desk-grade hygiene anyway.
+
 **2026-07-14 — Neighbor-country holidays deferred to Phase 2**
 Context: PL trades power with DE, CZ, SK, LT, SE, UA; their holidays shift flows.
 Decision: Phase 1 load models use PL calendar only. Neighbor holidays join in Phase 2 (price).

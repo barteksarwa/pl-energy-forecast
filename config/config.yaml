@@ -3,6 +3,9 @@
 zone: PL
 timezone_local: Europe/Warsaw
 
+# Load + TSO forecast source: pse (keyless, 2024-06+) or entsoe (token, 2015+).
+data_source: pse
+
 # Cities for population-weighted weather.
 # Coordinates: city centers. Weights: approximate metro population, millions (GUS, rounded).
 # M0 uses only the first city. M1 uses all with weights.

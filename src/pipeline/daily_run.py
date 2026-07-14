@@ -50,10 +50,19 @@ def run(cfg: Config, today_local: pd.Timestamp) -> str:
 
     # 1. Fetch. History window ends now; naive only looks backwards.
     hist_start = today_local - pd.Timedelta(days=cfg.history_days)
-    load = fetch_load(cfg.zone, start=hist_start, end=today_local + pd.Timedelta(days=1))
-    tso = fetch_tso_forecast(
-        cfg.zone, start=yesterday, end=tomorrow + pd.Timedelta(days=2)
-    )
+    if cfg.data_source == "pse":
+        from src.clients.pse_client import fetch_kse_load
+
+        kse = fetch_kse_load(str(hist_start.date()), str(tomorrow.date()))
+        load = kse["load_mw"].dropna()
+        tso = kse["tso_forecast_mw"]
+    else:
+        load = fetch_load(
+            cfg.zone, start=hist_start, end=today_local + pd.Timedelta(days=1)
+        )
+        tso = fetch_tso_forecast(
+            cfg.zone, start=yesterday, end=tomorrow + pd.Timedelta(days=2)
+        )
     city = cfg.cities[0]
     weather = fetch_weather_forecast(
         city.lat, city.lon, cfg.weather_vars, forecast_days=3, past_days=2
