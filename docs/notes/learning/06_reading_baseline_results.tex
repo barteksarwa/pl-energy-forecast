@@ -11,15 +11,20 @@ actuals --- optimistic; honest rerun with archived forecasts follows.
 \toprule
 Model & MAPE (\%) & MAE (MW) & Skill vs naive \\
 \midrule
-ridge          & 4.00 & 713  & 0.31 \\
-LASSO-AR       & 4.13 & 747  & 0.28 \\
-seasonal naive & 5.62 & 1030 & 0.00 \\
-climatology    & 8.59 & 1628 & $-0.58$ \\
+LightGBM quantile (untuned) & 3.16 & 579 & 0.43 \\
+ridge          & 4.03 & 718  & 0.30 \\
+LASSO-AR       & 4.10 & 736  & 0.28 \\
+seasonal naive & 5.60 & 1025 & 0.00 \\
+climatology    & 8.57 & 1621 & $-0.58$ \\
 \midrule
-TSO (PSE)      & $\approx$2.0--2.6 & --- & --- \\
+TSO (PSE), same hours & 2.31 & 418 & 0.59 \\
 \bottomrule
 \end{tabular}
 \end{center}
+
+(Updated same day: honest lead-2 forecast weather, LightGBM row added.
+Weather-leakage check: linear models moved $<0.05$ pp between actual and
+forecast weather --- lags dominate linear load models.)
 
 \subsection{What each number says}
 
