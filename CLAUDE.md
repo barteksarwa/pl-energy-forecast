@@ -116,6 +116,11 @@ Verify current API details from official docs before implementing. Do not trust 
 9. **Keep git and GitHub updated. Don't ask.** Commit after every coherent chunk.
    Push to the remote after every work session (and after milestones at minimum).
    Small conventional commits. The commit history is part of the product.
+10. **Modular inputs, always.** Models receive a feature list from config,
+    never a hardcoded set. Adding an input (new weather var, neighbor-country
+    holidays, gas price) or excluding one = a config/one-file change,
+    zero edits in model or pipeline code. Feature functions live in
+    `src/features/`, one concern per file, composed in `matrix.py`.
 
 ## The daily dry run — the "job simulation"
 
@@ -159,6 +164,8 @@ Rules:
   `\input{NN_topic.tex}`. Nothing else changes in main.
 - Number notes in order: `01_`, `02_`, ...
 - Same writing style as everything: short sentences, worked examples, interview lines.
+- **Do not compile PDFs.** The owner compiles LaTeX himself. Only keep the
+  `.tex` files and `main.tex` input lines correct.
 
 ## Visualize what we fetch
 

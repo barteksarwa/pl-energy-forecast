@@ -4,6 +4,11 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-07-14 — Neighbor-country holidays deferred to Phase 2**
+Context: PL trades power with DE, CZ, SK, LT, SE, UA; their holidays shift flows.
+Decision: Phase 1 load models use PL calendar only. Neighbor holidays join in Phase 2 (price).
+Why: PL demand follows the PL calendar; neighbor calendars move prices via cross-border flows, not PL load. Calendar module takes a country list, so adding them later is a config change.
+
 **2026-07-14 — Load first, price second, on shared infrastructure**
 Context: job research shows trading desks forecast price; utilities forecast load. Owner wants both markets open.
 Decision: Phase 1 = load forecasting daily loop. Phase 2 = PL day-ahead price on the same pipeline. Not optional.

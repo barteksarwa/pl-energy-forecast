@@ -49,6 +49,32 @@ Never rank models on pooled $R^2$: near-flat periods shrink its denominator
 and one pooled number can hide many negative-$R^2$ windows.
 RMSE at fixed horizon plus skill-over-naive; per-window breakdowns.
 
+\subsection{Pinball loss: where it comes from}
+
+The name: the error line bends at the quantile like a pinball off a flipper.
+Worked example, P90 forecast $\hat{y} = 21{,}000$~MW, quantile $q = 0.9$:
+
+\begin{itemize}
+  \item Actual 22,000 (under-predicted, $d = +1000$): loss $= 0.9 \cdot 1000 = 900$.
+  \item Actual 20,000 (over-predicted, $d = -1000$): loss $= 0.1 \cdot 1000 = 100$.
+\end{itemize}
+
+A well-calibrated P90 sits above the actual $\sim$90\% of the time; the
+$9{:}1$ penalty ratio enforces exactly that. Minimizing pinball loss recovers
+the true quantile --- it is a \emph{proper scoring rule} for quantiles.
+
+Sources:
+\begin{itemize}
+  \item Koenker \& Bassett (1978), ``Regression Quantiles'', \emph{Econometrica}
+        46(1) --- the original quantile-regression loss.
+  \item Gneiting \& Raftery (2007), ``Strictly Proper Scoring Rules, Prediction,
+        and Estimation'', \emph{JASA} 102(477) --- why minimizing it gives
+        honest quantiles.
+  \item Hong et al. (2016), ``Probabilistic energy forecasting: GEFCom2014 and
+        beyond'', \emph{Int.\ J.\ Forecasting} 32(3) --- pinball as the official
+        score of the largest energy-forecasting competition.
+\end{itemize}
+
 \subsection{Interview line}
 
 ``MAPE for the manager, RMSE for the balancing-cost risk, pinball for the
