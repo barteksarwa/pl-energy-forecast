@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv run *)",
+      "Bash(uv sync *)",
+      "Bash(uv add *)",
+      "Bash(uv lock *)",
+      "Bash(make *)",
+      "Bash(git *)",
+      "Bash(gh *)",
+      "Bash(latexmk *)",
+      "Bash(pytest *)",
+      "WebSearch"
+    ]
+  }
+}

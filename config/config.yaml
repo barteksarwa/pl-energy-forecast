@@ -40,3 +40,9 @@ naive:
 # History window the daily run keeps warm (days).
 daily_run:
   history_days: 35
+
+backfill:
+  start_date: "2023-01-01"   # ~3.5 years of history
+  entsoe_chunk_days: 90      # request window per ENTSO-E call
+  archive_lag_days: 6        # ERA5 publishes with ~5 day delay
+  request_sleep_s: 1.0       # politeness between API calls

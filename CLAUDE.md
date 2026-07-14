@@ -137,6 +137,15 @@ Steps, in order:
 
 The report must be readable by a non-technical manager in 60 seconds.
 
+## Dev workflow
+
+- Everything runs through `uv run` (or the `make` targets that wrap it).
+  Never bare `python`. Permissions for `uv run`, `make`, `git`, `gh` are
+  pre-approved in `.claude/settings.json` — do not ask.
+- The project is an installed package (hatchling, `packages = ["src"]`).
+  `import src.*` works from any directory. If imports break: `uv sync`.
+- After changing scripts, run them once. Never hand over an untested command.
+
 ## Owner-facing notes are LaTeX
 
 Markdown is for agents and ops (reports, handovers, decision log).

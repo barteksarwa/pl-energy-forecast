@@ -79,6 +79,28 @@ def plot_forecast_band(forecast: pd.DataFrame, target_date: str, out: Path) -> P
     return _finish(fig, out)
 
 
+def plot_temperature_history(
+    city_temps: dict[str, pd.Series], weights: dict[str, float], out: Path
+) -> Path:
+    """Population-weighted daily mean temperature over the full backfill.
+
+    Sanity check for the backfill and a preview of the M2 weather feature.
+    """
+    apply_style()
+    total = sum(weights.values())
+    weighted = sum(s * (weights[name] / total) for name, s in city_temps.items())
+    daily = weighted.resample("1D").mean()
+    fig, ax = plt.subplots(figsize=(9, 3.5))
+    ax.plot(daily.index, daily.values, color=BLUE, linewidth=1.0)
+    ax.set_ylabel("Temperature (°C)")
+    ax.set_xlabel("Time (UTC)")
+    ax.set_title(
+        f"Population-weighted daily mean temperature, {len(weights)} cities (Open-Meteo ERA5)",
+        loc="left",
+    )
+    return _finish(fig, out)
+
+
 def plot_load_history(load: pd.Series, out: Path) -> Path:
     """Long-history overview: daily mean load. For backfill sanity checks."""
     apply_style()

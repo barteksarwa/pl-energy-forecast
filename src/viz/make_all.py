@@ -15,6 +15,7 @@ from src.viz.plots import (
     plot_forecast_band,
     plot_load_history,
     plot_load_vs_tso,
+    plot_temperature_history,
     plot_weather_overview,
 )
 
@@ -54,6 +55,19 @@ def main() -> int:
         made.append(plot_forecast_band(fc, newest.stem, FIGURES / "forecast_latest.png"))
     else:
         skipped.append("data/forecasts/*.csv (no forecast yet)")
+
+    # Backfilled weather history, if present.
+    weather_dir = raw / "weather"
+    temps = {
+        c.name: pd.read_parquet(weather_dir / f"{c.name}.parquet")["temperature_2m"]
+        for c in cfg.cities
+        if (weather_dir / f"{c.name}.parquet").exists()
+    }
+    if temps:
+        weights = {c.name: c.weight for c in cfg.cities if c.name in temps}
+        made.append(
+            plot_temperature_history(temps, weights, FIGURES / "temperature_history.png")
+        )
 
     # Full backfilled history, if present.
     hist_p = cfg.paths["data_processed"] / "load.parquet"

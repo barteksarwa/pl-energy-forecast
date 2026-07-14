@@ -1,37 +1,43 @@
-# Handover — 2026-07-14 — plan approved, walking skeleton built
+# Handover — 2026-07-14 — plan, skeleton, M1 data foundation
 
 ## What I did
 
-- Researched PL/EU job market. Trading desks forecast price; utilities forecast load.
-- Wrote and revised `docs/PLAN.md`. Owner approved v2 (3 phases, 11 milestones).
-- Built M0 skeleton: config, ENTSO-E + Open-Meteo clients, seasonal naive with
-  P10/P50/P90, metrics (MAE/RMSE/MAPE/pinball), daily_run pipeline, report writer.
-- 14 unit tests pass. Open-Meteo live smoke test passes.
-- Wrote first learning explainer: seasonality and seasonal naive.
+- Researched PL/EU job market. Wrote `docs/PLAN.md`; owner approved v2.
+- Built M0: config, ENTSO-E + Open-Meteo clients, seasonal naive P10/P50/P90,
+  metrics, daily_run pipeline, report writer. 21 unit tests green.
+- LaTeX notes system: `docs/notes/learning/` + `docs/notes/model_selection/`,
+  each with `main.tex` + one note. Both compile. Owner convention in CLAUDE.md.
+- Viz module (`src/viz`, `make viz`): weather panels, load vs TSO, forecast fan,
+  temperature history. CVD-safe validated palette.
+- M1 partial: `docs/DATA_CATALOG.md`; backfill scripts with gap log;
+  weather backfilled live — 10 cities × 30,840 h (2023-01-01→2026-07-08), 0 gaps.
+- Fixed "no module named src": project is now an installed package (hatchling).
+- GitHub connected: private repo `barteksarwa/pl-energy-forecast`, pushed.
+- Verified industry usage: ENTSO-E = the EU standard (with known quality quirks
+  → our gap log). Open-Meteo = legit for backtests/prototyping; desks buy
+  Meteomatics/DTN for production. Documented in DATA_CATALOG.
 
 ## State of things
 
-- Works: `make setup`, `make test`, `make smoke`, `make lint`.
-- Blocked: `make dry-run` needs `ENTSOE_API_TOKEN` in `.env`. Owner must register
-  at transparency.entsoe.eu and request RESTful API access.
-- Caught and fixed a real DST bug: `+ Timedelta(days=1)` is 24h, not a calendar
-  day. Calendar shifts now via `shift_local_day()` in `src/pipeline/daily_run.py`.
+- Works: `make setup/test/smoke/lint/viz/backfill` (weather part).
+- Blocked on owner: ENTSO-E token → then `make backfill` (load) + `make dry-run`.
+- Weather-leakage trap documented: backtests must use historical weather
+  *forecasts*, not ERA5 actuals. Endpoint verification = M2 task. [TBC]
 
 ## Decisions made
 
-- Load first, price Phase 2, shared pipeline. Logged in DECISIONS.md.
-- POC automation (GitHub Actions, 7–14 days) before full 30-day unattended run.
-- ENTSO-E data resampled to hourly mean (PL may switch to 15-min resolution).
+- Load first, price Phase 2 (DECISIONS.md). LaTeX for owner notes, md for ops.
+- Permissions pre-approved in `.claude/settings.json` (uv/make/git/gh).
 
 ## Next steps
 
-1. Owner adds ENTSO-E token → run `make dry-run` → verify first report. Closes M0.
-2. M1 prep: owner wants online research (papers, docs) on data sources first.
-3. M1: `docs/DATA_CATALOG.md`, 3-year backfill, gap log.
+1. Owner: add ENTSO-E token → `make backfill` → `make dry-run` → `make viz`.
+2. M1 close: gap report over load data; DST tests against real ENTSO-E data.
+3. M2: features + Open-Meteo historical-forecast endpoint verification.
+4. Learning note 02 (day-ahead market + 09:00 cutoff) in LaTeX.
 
 ## Watch out for
 
-- `energy-forecast-kickstart/` folder is a leftover template. Root README now
-  supersedes it. Ask owner before deleting.
-- City weights in config are approximate GUS metro populations. Refine in M1.
-- ENTSO-E rate limits unknown; backfill in M1 should chunk requests and sleep.
+- `energy-forecast-kickstart/` is leftover; ask owner before deleting.
+- Free ENTSO-E rate limits: backfill chunks 90 d + 1 s sleep. Watch for 429s.
+- City weights are approximate GUS metro populations.

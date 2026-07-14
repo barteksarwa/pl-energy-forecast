@@ -29,6 +29,10 @@ class Config:
     naive_season_days: int
     naive_n_seasons: int
     history_days: int
+    backfill_start: str
+    entsoe_chunk_days: int
+    archive_lag_days: int
+    request_sleep_s: float
 
 
 def load_config(path: Path = CONFIG_PATH) -> Config:
@@ -42,4 +46,8 @@ def load_config(path: Path = CONFIG_PATH) -> Config:
         naive_season_days=int(raw["naive"]["season_days"]),
         naive_n_seasons=int(raw["naive"]["n_seasons"]),
         history_days=int(raw["daily_run"]["history_days"]),
+        backfill_start=str(raw["backfill"]["start_date"]),
+        entsoe_chunk_days=int(raw["backfill"]["entsoe_chunk_days"]),
+        archive_lag_days=int(raw["backfill"]["archive_lag_days"]),
+        request_sleep_s=float(raw["backfill"]["request_sleep_s"]),
     )
