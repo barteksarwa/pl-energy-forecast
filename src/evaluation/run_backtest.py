@@ -1,0 +1,107 @@
+"""The baseline campaign runner: `make backtest`.
+
+Loads real data, builds a cutoff-safe feature matrix day by day, walks every
+registered model forward, writes an honest summary table.
+
+Needs: data/processed/load.parquet (ENTSO-E backfill) + backfilled weather.
+Weather input: archived forecasts at lead 2 when available (honest), else
+ERA5 actuals with a loud warning in the report.
+
+Run: python -m src.evaluation.run_backtest [--models seasonal_naive,ridge]
+     [--test-start 2025-07-01]
+"""
+
+from __future__ import annotations
+
+import argparse
+import sys
+
+import pandas as pd
+
+import src.models.baselines  # noqa: F401  (populates REGISTRY)
+from src.config import Config, load_config
+from src.evaluation.backtest import BacktestResult, summarize, walk_forward_backtest
+from src.features.matrix import build_features
+from src.features.weather import load_weather_forecast_history, load_weather_history
+from src.models.base import REGISTRY
+from src.pipeline.daily_run import local_day_hours_utc, shift_local_day
+
+
+def assemble_features(
+    load: pd.Series, weather: pd.DataFrame, tz: str, start: pd.Timestamp, end: pd.Timestamp
+) -> pd.DataFrame:
+    """Cutoff-safe X for every local day in [start, end]. One build per day."""
+    frames = []
+    day = start
+    while day <= end:
+        hours = local_day_hours_utc(day, tz)
+        cutoff = shift_local_day(day, -1, tz) + pd.Timedelta(hours=9)
+        frames.append(build_features(hours, load, weather, cutoff))
+        day = shift_local_day(day, 1, tz)
+    return pd.concat(frames)
+
+
+def main() -> int:
+    cfg: Config = load_config()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--models", default=",".join(REGISTRY))
+    parser.add_argument("--test-start", default=None, help="YYYY-MM-DD local")
+    args = parser.parse_args()
+
+    load_path = cfg.paths["data_processed"] / "load.parquet"
+    if not load_path.exists():
+        print("Missing data/processed/load.parquet — run `make backfill` with an "
+              "ENTSO-E token first.")
+        return 1
+    load = pd.read_parquet(load_path).iloc[:, 0]
+
+    try:
+        weather = load_weather_forecast_history(cfg)
+        weather_source = "archived forecasts, lead 2 days (honest)"
+    except (FileNotFoundError, KeyError):
+        weather = load_weather_history(cfg)
+        weather_source = "ERA5 ACTUALS — optimistic, see DATA_CATALOG leakage note"
+
+    tz = cfg.timezone_local
+    first = load.index[0].tz_convert(tz) + pd.Timedelta(days=30)
+    last = load.index[-1].tz_convert(tz) - pd.Timedelta(days=1)
+    test_start = (
+        pd.Timestamp(args.test_start, tz=tz)
+        if args.test_start
+        else shift_local_day(last, -365, tz)
+    )
+
+    print(f"Assembling features {first.date()} → {last.date()} ...")
+    x = assemble_features(load, weather, tz, pd.Timestamp(first.date(), tz=tz),
+                          pd.Timestamp(last.date(), tz=tz))
+    y = load.reindex(x.index)
+
+    results: list[BacktestResult] = []
+    for name in args.models.split(","):
+        print(f"Backtesting {name} ...")
+        results.append(
+            walk_forward_backtest(REGISTRY[name], x, y, test_start.tz_convert("UTC"))
+        )
+
+    table = summarize(results, y)
+    out_dir = cfg.paths["data_processed"].parent.parent / "reports" / "backtests"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    stamp = pd.Timestamp.now(tz).date()
+    table.to_csv(out_dir / f"{stamp}_summary.csv")
+    md = [
+        f"# Backtest summary — {stamp}",
+        "",
+        f"Test period: {test_start.date()} → {last.date()}. "
+        f"Weather input: {weather_source}.",
+        "",
+        table.round(2).to_markdown(),
+        "",
+    ]
+    (out_dir / f"{stamp}_summary.md").write_text("\n".join(md))
+    print(table.round(2).to_string())
+    print(f"\nWritten to {out_dir}/{stamp}_summary.(csv|md)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

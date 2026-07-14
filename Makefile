@@ -19,7 +19,7 @@ dry-run:
 	uv run python -m src.pipeline.daily_run
 
 backtest:
-	@echo "Backtest lands in Milestone 3."
+	uv run python -m src.evaluation.run_backtest
 
 lint:
 	uv run ruff check src tests

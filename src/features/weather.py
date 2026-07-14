@@ -38,14 +38,33 @@ def add_degree_signals(weather: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def load_weather_history(cfg: Config) -> pd.DataFrame:
-    """Read backfilled per-city weather, return weighted + degree features."""
+def _weighted_from_dir(cfg: Config, subdir: str) -> pd.DataFrame:
     frames: dict[str, pd.DataFrame] = {}
     for city in cfg.cities:
-        path = cfg.paths["data_raw"] / "weather" / f"{city.name}.parquet"
+        path = cfg.paths["data_raw"] / subdir / f"{city.name}.parquet"
         if path.exists():
             frames[city.name] = pd.read_parquet(path)
     if not frames:
-        raise FileNotFoundError("No backfilled weather found. Run: make backfill")
+        raise FileNotFoundError(f"No data in data/raw/{subdir}. Run: make backfill")
     weights = {name: c.weight for c in cfg.cities for name in [c.name] if name in frames}
-    return add_degree_signals(population_weighted(frames, weights))
+    return population_weighted(frames, weights)
+
+
+def load_weather_history(cfg: Config) -> pd.DataFrame:
+    """Backfilled weather actuals (ERA5), weighted + degree features."""
+    return add_degree_signals(_weighted_from_dir(cfg, "weather"))
+
+
+def load_weather_forecast_history(cfg: Config, lead_days: int = 2) -> pd.DataFrame:
+    """Backfilled weather *forecasts* at fixed lead, renamed to base var names.
+
+    lead 2 = known at the 09:00 D-1 cutoff (see DATA_CATALOG). Renaming to the
+    base names keeps the feature matrix identical between training on actuals
+    and evaluating on forecasts.
+    """
+    wide = _weighted_from_dir(cfg, "weather_forecast")
+    suffix = f"_lead{lead_days}d"
+    cols = {c: c.removesuffix(suffix) for c in wide.columns if c.endswith(suffix)}
+    if not cols:
+        raise KeyError(f"No columns with suffix {suffix} in weather_forecast data")
+    return add_degree_signals(wide[list(cols)].rename(columns=cols))
