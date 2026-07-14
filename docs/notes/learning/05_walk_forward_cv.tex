@@ -39,6 +39,28 @@ after it. Our engine: \texttt{src/evaluation/backtest.py}.
         Debatable both ways; we test the choice in M3 rather than argue it.
 \end{itemize}
 
+\subsection{The menu of validation schemes}
+
+\begin{center}
+\begin{tabular}{lp{6.5cm}l}
+\toprule
+Scheme & What it does & Verdict here \\
+\midrule
+Random $k$-fold & shuffles hours across folds & banned (leakage) \\
+Single holdout & one fixed test block at the end & too weak: one period, one regime \\
+Blocked CV + embargo & contiguous folds, gap around test block & fine for tuning; finance standard \\
+Expanding walk-forward & train = everything before test day & remembers old regimes forever \\
+Rolling walk-forward & train = last $N$ days before test day & \textbf{ours} ($N=365$) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Why rolling: it mirrors desk operations (models retire old data), adapts to
+regime change (post-2022 demand shifts), and one year of window still sees
+every season. Rolling vs expanding is an empirical question, not doctrine ---
+the M3 campaign runs the ablation and the table decides. Blocked CV
+returns when we tune LightGBM hyperparameters \emph{inside} training windows.
+
 \subsection{Proof, not promise}
 
 Test in \texttt{tests/test\_backtest.py}: corrupt the target with garbage

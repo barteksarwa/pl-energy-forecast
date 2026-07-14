@@ -33,8 +33,10 @@ def write_report(
     lines = [
         f"# Daily forecast report — {today_local.date()}",
         "",
-        f"Model: seasonal naive (same hour, last {cfg.naive_season_days} days; "
-        f"quantiles from last {cfg.naive_n_seasons} weeks).",
+        f"Model: seasonal naive — **BASELINE**, not the final model. "
+        f"P50 copies the same hour {cfg.naive_season_days} days ago; the band is the "
+        f"spread of the last {cfg.naive_n_seasons} weeks. Serves until a trained "
+        f"model earns promotion (see docs/PLAN.md M4, UAT rules M9).",
         "",
         f"## Yesterday ({yesterday}) — how did we do?",
         "",

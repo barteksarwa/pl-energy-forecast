@@ -1,0 +1,54 @@
+\section{Who pays for load forecasts, and how}
+
+Load forecasting is not one job. Different actors, different money.
+
+\subsection{The balancing mechanism --- where errors become invoices}
+
+Every market participant belongs to a balancing group run by a
+\emph{Balance Responsible Party} (BRP). Day-ahead, the BRP declares a
+schedule: how much its group will consume or produce, hour by hour.
+On delivery day, reality deviates. The TSO fixes the gap in real time and
+bills the BRP at the \emph{balancing price} --- systematically worse than the
+day-ahead price you could have traded at. Forecast error $\to$ imbalance
+$\to$ money burned. This mechanism, not fines or prestige, funds every
+forecasting desk.
+
+\subsection{The actors}
+
+\begin{itemize}
+  \item \textbf{TSO (PSE).} Forecasts national load for system security:
+        reserves, grid limits, unit commitment. Not a trading goal.
+        Their forecast is public --- that is why it is our benchmark.
+  \item \textbf{Retailers (B2C/B2B sellers --- PGE, Tauron, Orlen Energa).}
+        Forecast \emph{their own customers'} consumption, buy that amount
+        day-ahead. Goal: minimize their portfolio's imbalance cost.
+        They do not care about beating PSE's national number; they fight
+        their own error. A 1\% MAPE improvement on a big Polish portfolio
+        is millions of PLN per year in avoided balancing charges.
+  \item \textbf{Industrial consumers.} Same story, own plant load, often
+        outsourced to a vendor.
+  \item \textbf{Traders and prop desks (Axpo, Statkraft, Shell).} Load is an
+        \emph{input}, not the product. National load + wind + solar +
+        outages $\to$ price forecast $\to$ positions (day-ahead vs intraday
+        vs balancing spreads). Edge comes from having better fundamentals
+        than the consensus. If you predict demand better than the market
+        (whose anchor is often the TSO's public forecast), you predict
+        prices better. Closer to your ``arbitrage'' intuition --- but the
+        profit is realized through price positions, never by literally
+        betting against the TSO's MAPE.
+  \item \textbf{Forecast vendors (Volue, Meteomatics, Yes Energy).} Sell all
+        of the above to everyone. Accuracy tables are their marketing.
+\end{itemize}
+
+\subsection{So what is OUR goal?}
+
+This repo simulates the retailer/TSO-style desk first: lowest honest
+day-ahead MAPE/pinball vs the PSE benchmark, with explanations. Phase 2
+(price forecasting) adds the trader's angle, where our load forecast becomes
+one of the fundamental inputs.
+
+\subsection{Interview line}
+
+``A retailer's forecast error is an invoice: imbalance settled at worse
+prices. A trader's forecast error is a missed position. I built for the
+first and I am extending to the second.''
