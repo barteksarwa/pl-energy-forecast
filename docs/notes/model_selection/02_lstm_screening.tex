@@ -1,0 +1,57 @@
+\section{LSTM screening: design, capacity discipline, first results}
+
+\subsection{The four shapes}
+
+All output 24 hours $\times$ 3 quantiles, trained on pinball loss.
+Encoder sees 336~h of load + weather up to the 09:00 D-1 cutoff.
+Known-future covariates: weather forecast + calendar for the target day.
+
+\begin{center}
+\begin{tabular}{llp{6cm}}
+\toprule
+Variant & v1 params (h=96) & Idea \\
+\midrule
+enc\_direct & 126k & encoder state $\to$ MLP $\to$ all 24 h; no future covariates \\
+enc\_futmlp & 116k & encoder state + per-hour future covariates $\to$ shared MLP \\
+enc\_dec    & 233k & seq2seq: LSTM decoder over 24 h, fed future covariates \\
+residual    & 233k & enc\_dec predicting the correction to the lag-168 anchor \\
+deepar\_style & 70k & literature recreation: autoregressive decoder, 3$\times$40 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{The capacity confound, admitted and fixed}
+
+v1 compared shapes at one width (hidden 96). Parameter counts then differ
+(126k--233k), so shape and capacity were confounded --- a 100k model and a
+500k model are different animals. Fair-comparison rule: keep budgets
+comparable or say they are not.
+
+Fix (v2 sweep, running): every variant at hidden $\in \{32, 64, 128, 256\}$,
+two seeds, \texttt{n\_params} logged per run. The readout plots test pinball
+vs.\ parameter count per shape. A shape only wins if it wins \emph{along the
+capacity axis}, not at one arbitrary point.
+
+\subsection{v1 screening result (one width, so provisional)}
+
+Test slice 2026-04-16 $\to$ 2026-07-12, 3 seeds, mean MAPE:
+enc\_dec 3.16\% $<$ enc\_futmlp 3.39\% $<$ residual 3.54\%
+$\ll$ enc\_direct 5.10\%.
+
+Two things already solid despite the confound:
+(1) \textbf{future covariates are decisive} --- enc\_direct (no weather
+forecast, no calendar for the target day) barely beats seasonal naive;
+(2) all covariate-using shapes land in the LightGBM neighborhood.
+Screening split $\neq$ walk-forward: the winner still must run the full
+walk-forward before entering the README table.
+
+\subsection{Literature anchor}
+
+deepar\_style reproduces the DeepAR configuration (Salinas et al.\ 2020,
+IJF 36(3): 3 LSTM layers $\times$ 40 cells, dropout 0.1, autoregressive
+previous-target input). Deviations from the paper are logged in
+\texttt{docs/specs/deepar\_spec.md} --- main one: we have a single national
+series, so DeepAR's cross-series learning advantage does not apply.
+Next literature challenger after this readout: Temporal Fusion Transformer
+(Lim et al.\ 2021) --- attention over past + known-future inputs, built-in
+quantile heads; heavier, so it must earn its runtime.
