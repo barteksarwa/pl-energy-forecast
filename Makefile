@@ -3,6 +3,9 @@
 viz:
 	uv run python -m src.viz.make_all
 
+viz-diag:
+	uv run python -m src.viz.diagnostics
+
 backfill:
 	uv run python -m src.ingestion.backfill
 

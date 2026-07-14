@@ -104,6 +104,12 @@ def main() -> int:
         )
         results.append(BacktestResult(model_name="tso_forecast", predictions=tso_pred))
 
+    # Persist hourly predictions — diagnostics plots read these.
+    preds_dir = cfg.paths["data_processed"] / "backtest_preds"
+    preds_dir.mkdir(parents=True, exist_ok=True)
+    for r in results:
+        r.predictions.to_parquet(preds_dir / f"{r.model_name}.parquet")
+
     table = summarize(results, y)
     out_dir = cfg.paths["data_processed"].parent.parent / "reports" / "backtests"
     out_dir.mkdir(parents=True, exist_ok=True)

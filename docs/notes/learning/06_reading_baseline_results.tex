@@ -1,0 +1,74 @@
+\section{Reading the first baseline results}
+
+First real walk-forward backtest (2026-07-14). Test: 12 months of PL load,
+8{,}666 hours, day-ahead under the 09:00 D-1 cutoff. Weather input: ERA5
+actuals --- optimistic; honest rerun with archived forecasts follows.
+
+\subsection{The table}
+
+\begin{center}
+\begin{tabular}{lrrr}
+\toprule
+Model & MAPE (\%) & MAE (MW) & Skill vs naive \\
+\midrule
+ridge          & 4.00 & 713  & 0.31 \\
+LASSO-AR       & 4.13 & 747  & 0.28 \\
+seasonal naive & 5.62 & 1030 & 0.00 \\
+climatology    & 8.59 & 1628 & $-0.58$ \\
+\midrule
+TSO (PSE)      & $\approx$2.0--2.6 & --- & --- \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{What each number says}
+
+\begin{itemize}
+  \item \textbf{Climatology $<$ naive.} Expected. The long-run average ignores
+        the recent load level; last week carries far more signal than the
+        all-time hourly mean. Losing to naive here is normal, not a bug.
+  \item \textbf{Linear models remove $\sim$30\% of naive error.} Calendar +
+        weather + weekly lags explain a lot. Ridge $\approx$ LASSO: with only
+        $\sim$20 curated features there is little for LASSO's selection to prune.
+        LASSO earns its keep when we throw hundreds of candidate features at it
+        (the LEAR recipe for prices).
+  \item \textbf{The 1.4 pp gap to the TSO is the project.} It will not close
+        with linear models. Known missing pieces: nonlinear
+        temperature--hour interactions (gradient boosting, M4), holiday-specific
+        handling, and recency beyond day-old lags.
+\end{itemize}
+
+\subsection{Against the literature}
+
+\begin{itemize}
+  \item Grid operators typically report day-ahead MAPE below 3\%; competitive
+        ISO practice sits near or below 2.5\%. PSE at $\approx$2--2.6\% on our
+        own scoring is a normal, strong TSO.
+  \item CAISO's day-ahead forecast ran 4.55\% MAPE in July 2024 while a
+        commercial vendor scored 2.65\% on the same market --- TSO forecasts
+        are beatable, but not by baselines.
+  \item Academic national-level studies with tuned ML report 1--3\%.
+        Our ridge at 4.0\% before any nonlinear model is on the expected path;
+        gradient boosting typically lands in the 2.5--3.5\% range on
+        country-level load with weather forecasts as input.
+\end{itemize}
+
+Sources: Hong \& Fan (2016), ``Probabilistic electric load forecasting:
+A tutorial review'', \emph{Int.\ J.\ Forecasting} 32(3); CAISO/vendor
+comparison reported by commercial forecasting benchmarks (2024); systematic
+STLF review, \emph{Applied Energy} 326 (2022) 119851.
+
+\subsection{Why MAPE is the headline (and what it hides)}
+
+MAPE is scale-free and the industry's lingua franca --- PSE, ENTSO-E and
+vendors all quote it. But it treats a 700~MW miss at 3~a.m.\ the same as at
+the evening peak. RMSE (also in our table) punishes the big misses that cost
+real balancing money. Rule: rank on skill-vs-naive, report MAPE for
+comparability, watch RMSE and the per-hour breakdown for risk. Never MAPE
+for prices (they cross zero; division explodes).
+
+\subsection{Interview line}
+
+``My baselines put the TSO 1.4 percentage points ahead of my best linear
+model. That gap is exactly the value nonlinear models must prove --- and if
+they close only half of it, the table says so.''
