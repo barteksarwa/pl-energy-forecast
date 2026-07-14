@@ -1,4 +1,4 @@
-# Handover — 2026-07-14 — plan, skeleton, M1 data foundation
+# Handover — 2026-07-14 — plan, skeleton, M1 data, M2 features
 
 ## What I did
 
@@ -29,12 +29,24 @@
 - Load first, price Phase 2 (DECISIONS.md). LaTeX for owner notes, md for ops.
 - Permissions pre-approved in `.claude/settings.json` (uv/make/git/gh).
 
+## Also done (M2, same session)
+
+- `src/features/`: calendar (holidays, bridge days, cyclic encodings),
+  population-weighted weather + heating/cooling degrees, cutoff-safe lags
+  (48/72/168/336 h; lag 24 raises as leakage), `build_features()` contract.
+- Leakage proof test: corrupt all post-cutoff data → features byte-identical.
+- 33 unit tests green. Feature matrix verified against real backfilled weather.
+- Open-Meteo Historical Forecast + Previous Runs APIs verified (lead-time
+  1–7 d, from ~2022). DATA_CATALOG updated — backtest weather input solved.
+- Learning notes 02 (market + cutoff), 03 (leakage), 04 (metrics). PDF compiles.
+
 ## Next steps
 
 1. Owner: add ENTSO-E token → `make backfill` → `make dry-run` → `make viz`.
-2. M1 close: gap report over load data; DST tests against real ENTSO-E data.
-3. M2: features + Open-Meteo historical-forecast endpoint verification.
-4. Learning note 02 (day-ahead market + 09:00 cutoff) in LaTeX.
+2. M1 close: gap report + DST checks on real load data.
+3. M2 close: backfill historical weather *forecasts* (Previous Runs API client).
+4. M3: baseline campaign (walk-forward engine, seasonal naive vs linear vs
+   LASSO-AR vs TSO). Learning notes 05 (walk-forward CV), 06 (baselines).
 
 ## Watch out for
 
