@@ -19,6 +19,10 @@ QUANTILES = torch.tensor([0.1, 0.5, 0.9])
 
 
 def device() -> torch.device:
+    import os
+
+    if os.environ.get("FORCE_CPU"):  # smoke tests while an MPS job runs
+        return torch.device("cpu")
     if torch.cuda.is_available():
         return torch.device("cuda")
     if torch.backends.mps.is_available():

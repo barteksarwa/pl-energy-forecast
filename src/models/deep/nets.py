@@ -79,6 +79,71 @@ class ResidualEncDec(EncDec):
         return anchor.unsqueeze(-1) + correction
 
 
+class VanillaLSTM(nn.Module):
+    """The bottom rung: single LSTM layer over history, dense head, done.
+
+    Faithful to how basic STLF papers use LSTM: past window in, horizon out,
+    no future covariates. Literature configs vary wildly per dataset
+    (100/200/480 units all published) — so we sweep, and say so.
+    """
+
+    name = "vanilla_lstm"
+
+    def __init__(self, enc_feat: int, fut_feat: int, hidden: int = 100) -> None:
+        super().__init__()
+        self.lstm = nn.LSTM(enc_feat, hidden, num_layers=1, batch_first=True)
+        self.head = nn.Linear(hidden, 24 * N_Q)
+
+    def forward(self, enc: torch.Tensor, fut: torch.Tensor, anchor: torch.Tensor,
+                y_teacher: torch.Tensor | None = None):
+        _, (h, _) = self.lstm(enc)
+        return self.head(h[-1]).view(-1, 24, N_Q)
+
+
+class BiLSTM(nn.Module):
+    """Bidirectional single layer over the (all-past) window + linear head.
+
+    Legal despite "bi": the window is history only, so the backward pass
+    reads the same past, just from the other end. Common STLF upgrade.
+    """
+
+    name = "bilstm"
+
+    def __init__(self, enc_feat: int, fut_feat: int, hidden: int = 100) -> None:
+        super().__init__()
+        self.lstm = nn.LSTM(enc_feat, hidden, num_layers=1,
+                            batch_first=True, bidirectional=True)
+        self.head = nn.Linear(2 * hidden, 24 * N_Q)
+
+    def forward(self, enc: torch.Tensor, fut: torch.Tensor, anchor: torch.Tensor,
+                y_teacher: torch.Tensor | None = None):
+        _, (h, _) = self.lstm(enc)
+        both = torch.cat([h[-2], h[-1]], dim=-1)  # forward + backward final states
+        return self.head(both).view(-1, 24, N_Q)
+
+
+class LstmLuongAttn(EncDec):
+    """seq2seq + Luong (dot-product) attention over encoder outputs.
+
+    Each decoder step builds a time-varying context vector from the 336
+    encoder states — removes the fixed-vector bottleneck of plain seq2seq.
+    """
+
+    name = "lstm_attn"
+
+    def __init__(self, enc_feat: int, fut_feat: int, hidden: int = 96) -> None:
+        super().__init__(enc_feat, fut_feat, hidden)
+        self.head = nn.Linear(2 * hidden, N_Q)  # [decoder state; context]
+
+    def forward(self, enc: torch.Tensor, fut: torch.Tensor, anchor: torch.Tensor,
+                y_teacher: torch.Tensor | None = None):
+        enc_out, state = self.encoder(enc)
+        dec_out, _ = self.decoder(fut, state)
+        scores = torch.bmm(dec_out, enc_out.transpose(1, 2))  # (B, 24, 336)
+        context = torch.bmm(torch.softmax(scores, dim=-1), enc_out)
+        return self.head(torch.cat([dec_out, context], dim=-1))
+
+
 class DeepARStyle(nn.Module):
     """Literature recreation: DeepAR (Salinas et al. 2020), adapted.
 
@@ -125,4 +190,11 @@ VARIANTS = {
     "enc_futmlp": EncFutMLP,
     "enc_dec": EncDec,
     "residual": ResidualEncDec,
+}
+
+# The complexity ladder, bottom-up (v3 campaign):
+LADDER = {
+    "vanilla_lstm": (VanillaLSTM, [50, 100, 200]),
+    "bilstm": (BiLSTM, [50, 100]),
+    "lstm_attn": (LstmLuongAttn, [32, 64, 128, 256]),
 }
