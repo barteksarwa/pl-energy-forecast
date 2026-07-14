@@ -84,10 +84,17 @@ def plot_daily_mape_distribution(errs: dict[str, pd.Series], out: Path) -> Path:
 
 def main() -> int:
     cfg = load_config()
-    preds_dir = cfg.paths["data_processed"] / "backtest_preds"
-    if not preds_dir.exists():
+    # Prefer the honest run (forecast weather) when it exists.
+    candidates = ["backtest_preds_fcst", "backtest_preds_actuals"]
+    preds_dir = next(
+        (cfg.paths["data_processed"] / c for c in candidates
+         if (cfg.paths["data_processed"] / c).exists()),
+        None,
+    )
+    if preds_dir is None:
         print("No saved predictions. Run: make backtest")
         return 1
+    print(f"Using {preds_dir.name}")
     y = pd.read_parquet(cfg.paths["data_processed"] / "load.parquet").iloc[:, 0]
 
     errs: dict[str, pd.Series] = {}

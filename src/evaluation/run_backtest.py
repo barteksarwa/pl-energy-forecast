@@ -19,6 +19,7 @@ import sys
 import pandas as pd
 
 import src.models.baselines  # noqa: F401  (populates REGISTRY)
+import src.models.gbm  # noqa: F401
 from src.config import Config, load_config
 from src.evaluation.backtest import BacktestResult, summarize, walk_forward_backtest
 from src.features.matrix import build_features
@@ -104,8 +105,10 @@ def main() -> int:
         )
         results.append(BacktestResult(model_name="tso_forecast", predictions=tso_pred))
 
+    weather_tag = "fcst" if "forecasts" in weather_source else "actuals"
+
     # Persist hourly predictions — diagnostics plots read these.
-    preds_dir = cfg.paths["data_processed"] / "backtest_preds"
+    preds_dir = cfg.paths["data_processed"] / f"backtest_preds_{weather_tag}"
     preds_dir.mkdir(parents=True, exist_ok=True)
     for r in results:
         r.predictions.to_parquet(preds_dir / f"{r.model_name}.parquet")
@@ -113,7 +116,7 @@ def main() -> int:
     table = summarize(results, y)
     out_dir = cfg.paths["data_processed"].parent.parent / "reports" / "backtests"
     out_dir.mkdir(parents=True, exist_ok=True)
-    stamp = pd.Timestamp.now(tz).date()
+    stamp = f"{pd.Timestamp.now(tz).date()}_{weather_tag}"
     table.to_csv(out_dir / f"{stamp}_summary.csv")
     md = [
         f"# Backtest summary — {stamp}",
