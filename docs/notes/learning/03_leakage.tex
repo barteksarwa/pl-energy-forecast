@@ -1,0 +1,42 @@
+\section{Data leakage: the silent career killer}
+
+\subsection{What it is}
+
+Leakage = the model sees information during training or evaluation that it
+would not have at forecast time. The backtest looks brilliant. Production
+fails. Nobody knows why.
+
+\subsection{The three leaks in load forecasting}
+
+\begin{enumerate}
+  \item \textbf{Lag leakage.} Using yesterday's full load (lag 24 h) for a
+        day-ahead forecast. At the 09:00 cutoff most of yesterday is not
+        measured yet. Our code raises an error if a lag crosses the cutoff.
+  \item \textbf{Weather leakage.} Backtesting with \emph{actual} weather (ERA5
+        reanalysis) as input. The real desk only had a weather \emph{forecast}.
+        Actuals remove weather-forecast error and inflate accuracy.
+        Fix: evaluate with archived forecasts at 1--2 day lead time
+        (Open-Meteo Previous Runs API).
+  \item \textbf{Preprocessing leakage.} Fitting scalers, feature selection, or
+        early stopping on data that includes the test period. Everything is
+        fitted inside the training window only, then applied forward.
+\end{enumerate}
+
+\subsection{How we prove absence, not just claim it}
+
+Tests, not promises (\texttt{tests/test\_features.py}):
+
+\begin{itemize}
+  \item Corrupt every data point after the cutoff with garbage ($10^9$).
+        Recompute features. They must be byte-identical. If a feature changes,
+        it was reading the future.
+  \item Ask for lag 24 explicitly. The code must raise, not comply.
+\end{itemize}
+
+The corruption test is the strong one: it catches leaks we did not think of,
+because \emph{any} post-cutoff read changes the output.
+
+\subsection{Interview line}
+
+``I do not argue my pipeline is leak-free. I corrupt all post-cutoff data with
+garbage and show the forecast does not change. That is proof, not opinion.''

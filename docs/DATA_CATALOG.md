@@ -12,7 +12,8 @@ Updated: 2026-07-14 (M1).
 | TSO day-ahead load forecast | ENTSO-E | `query_load_forecast` | free | hourly | verified |
 | Weather history (actuals, ERA5) | Open-Meteo Archive API | `archive-api.open-meteo.com/v1/archive` | free non-commercial | hourly, ~5 day delay | verified, called live |
 | Weather forecasts (operational) | Open-Meteo Forecast API | `api.open-meteo.com/v1/forecast` | free | hourly, 16 days ahead | verified, called live |
-| Historical weather *forecasts* | Open-Meteo Historical Forecast API | `historical-forecast-api.open-meteo.com` [TBC endpoint] | free | hourly | [TBC] — needed for honest backtests, see below |
+| Historical weather *forecasts* | Open-Meteo Historical Forecast API | `historical-forecast-api.open-meteo.com/v1/forecast` | free | hourly, from ~2022 | verified (docs) |
+| Forecasts at fixed lead time | Open-Meteo Previous Runs API | offsets 1–7 days ahead | free | hourly, from ~2022 | verified (docs) — the honest backtest input |
 | Polish holidays | `holidays` package | offline | free | daily | verified |
 
 ### The weather leakage trap (important)
@@ -22,8 +23,9 @@ A backtest that feeds the model ERA5 actuals overstates accuracy —
 it silently removes weather-forecast error.
 
 Rule: train on archive actuals is fine; **evaluate with historical forecasts**
-as inputs. Open-Meteo explicitly supports "backtests without look-ahead bias"
-via its historical forecast data. Verify endpoint + earliest date in M2. [TBC]
+as inputs. Verified: the Previous Runs API serves each variable at fixed
+lead-time offsets (1–7 days ahead), from ~2022. Our backtest uses the
+1–2 day offsets to mimic what was known at 09:00 on D-1.
 
 ## Phase 2 — price forecasting (day-ahead PL)
 

@@ -1,0 +1,50 @@
+\section{The day-ahead market and our 09:00 cutoff}
+
+\subsection{The daily timeline (Poland, CET)}
+
+Same rhythm every day, weekends included:
+
+\begin{itemize}
+  \item \textbf{Morning, D-1.} Desks update forecasts: load, wind, solar, prices.
+        Traders build bids for every hour of tomorrow (day D).
+  \item \textbf{12:00, D-1.} Day-ahead auction closes (TGE locally; PL is coupled
+        with the EU market via SDAC --- one algorithm, EUPHEMIA, clears Europe).
+  \item \textbf{Early afternoon, D-1.} Clearing prices and volumes publish.
+        One price per hour for each bidding zone.
+  \item \textbf{Day D.} Deviations from the traded schedule settle on the
+        balancing market, usually at worse prices. Forecast errors cost money here.
+\end{itemize}
+
+\subsection{Why we cut off at 09:00 on D-1}
+
+Our rule: the forecast for day D uses only data that existed at 09:00 on D-1.
+
+\begin{itemize}
+  \item The auction closes at 12:00. A forecast delivered later is useless.
+  \item Three hours of margin covers data delays and rework --- desk reality.
+  \item Every backtest applies the same cutoff. Otherwise backtest accuracy
+        is fantasy (see leakage note~03).
+\end{itemize}
+
+\subsection{What is known at the cutoff, for day D}
+
+\begin{center}
+\begin{tabular}{lp{7cm}}
+\toprule
+Known & Load history to $\sim$08:00 D-1; weather \emph{forecasts} for D;
+        calendar (holidays, weekday) --- known years ahead \\
+\midrule
+Unknown & Actual load of D-1 afternoon and D; actual weather of D;
+          the auction price of D \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Consequence: the freshest usable ``same hour'' load lag is 48~hours
+(day D-2), not 24. Lag~24 would need data that arrives only after the cutoff.
+
+\subsection{Interview line}
+
+``I time-stamp every input against a 09:00 D-1 cutoff because that is when a
+day-ahead desk actually commits. My backtest cannot use anything the desk
+would not have had.''
