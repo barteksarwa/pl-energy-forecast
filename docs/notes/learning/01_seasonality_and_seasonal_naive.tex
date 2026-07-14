@@ -1,0 +1,55 @@
+\section{Seasonality and the seasonal naive model}
+
+\subsection{What seasonality is}
+
+A repeating pattern with a fixed period. Electricity load has three at once:
+
+\begin{itemize}
+  \item \textbf{Daily.} Night valley, morning ramp, evening peak. Period: 24 hours.
+  \item \textbf{Weekly.} Weekdays high, weekends low. Monday morning differs from
+        Saturday morning. Period: 7 days.
+  \item \textbf{Yearly.} Winter heating and dark hours push load up. Summer cooling
+        adds a smaller bump. Period: 365 days.
+\end{itemize}
+
+Key insight: the strongest predictor of load at hour $H$ is load at hour $H$ in a
+past period.
+
+\subsection{The seasonal naive model}
+
+Forecast = the value one season ago. Nothing else:
+\begin{equation}
+  \hat{y}_{t} = y_{t - m},
+\end{equation}
+where $m$ is the season length. Our choice: $m = 168$ hours (7 days).
+
+Why 7 days and not 1? A 1-day lag would predict Monday from Sunday. Wrong regime.
+The 7-day lag keeps the weekday pattern. It handles daily and weekly seasonality
+for free.
+
+\subsection{Worked example}
+
+Last Tuesday 18:00 the load was 21{,}400~MW. Tomorrow is Tuesday.
+Seasonal naive forecast for 18:00: 21{,}400~MW. Done.
+
+For uncertainty we take the last 4 same-weekday values at 18:00:
+21{,}400 / 20{,}900 / 22{,}100 / 21{,}000~MW.
+Empirical quantiles: P10 $\approx$ 20{,}930~MW, P90 $\approx$ 21{,}890~MW.
+The spread of recent history becomes the uncertainty band.
+
+\subsection{When it fails}
+
+\begin{itemize}
+  \item Holidays. Next Tuesday is a holiday, last Tuesday was not.
+  \item Weather swings. A cold snap raises load; last week was mild.
+  \item Trends. Slow economic or efficiency changes leak in over months.
+\end{itemize}
+
+Every fancy model must beat this first. In forecasting, many do not.
+That is why it is the mandatory baseline (\texttt{docs/PLAN.md}, M3).
+
+\subsection{Interview line}
+
+``My headline metric is skill over seasonal naive --- how much error the model
+removes relative to just copying last week. If a deep net has zero skill,
+it is not learning anything the calendar did not already know.''

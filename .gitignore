@@ -24,3 +24,13 @@ models_store/
 *.pkl
 *.pt
 .DS_Store
+
+# LaTeX build artifacts
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+docs/notes/**/main.pdf

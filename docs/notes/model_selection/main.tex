@@ -1,0 +1,26 @@
+% Model selection notes — which model, when, why, and honest verdicts.
+% One model/decision = one file. Add a new note by appending one \input line below.
+% Build: pdflatex main.tex (or latexmk -pdf main.tex)
+
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{parskip}
+\usepackage{hyperref}
+\usepackage[polish,english]{babel}
+
+\title{Energy Forecasting — Model Selection Notes}
+\author{Bart{\l}omiej Sarwa}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+\input{01_model_ladder.tex}
+
+\end{document}

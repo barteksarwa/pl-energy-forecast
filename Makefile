@@ -1,4 +1,10 @@
-.PHONY: setup test smoke dry-run backtest lint
+.PHONY: setup test smoke dry-run backtest lint viz backfill
+
+viz:
+	uv run python -m src.viz.make_all
+
+backfill:
+	uv run python -m src.ingestion.backfill
 
 setup:
 	uv sync

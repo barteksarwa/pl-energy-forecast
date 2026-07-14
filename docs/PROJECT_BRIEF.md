@@ -21,7 +21,7 @@ Track accuracy over time and publish it.
 
 In scope:
 - Zone PL first. One more EU zone later (nice-to-have) to show the code generalizes.
-- Weather, calendar, and lag features.
+- Weather, calendar, gas prices, and lag features.
 - Models: seasonal naive → linear → LightGBM (quantile) → LSTM → small transformer.
 - Rolling backtest over at least 12 months of history.
 - Daily automated dry run with a human-readable report.

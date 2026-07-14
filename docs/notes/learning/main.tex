@@ -1,0 +1,26 @@
+% Learning notes — energy forecasting concepts.
+% One concept = one file. Add a new note by appending one \input line below.
+% Build: pdflatex main.tex (or latexmk -pdf main.tex)
+
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{parskip}
+\usepackage{hyperref}
+\usepackage[polish,english]{babel}
+
+\title{Energy Forecasting — Learning Notes}
+\author{Bart{\l}omiej Sarwa}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+\input{01_seasonality_and_seasonal_naive.tex}
+
+\end{document}

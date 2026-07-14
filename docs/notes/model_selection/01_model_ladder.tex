@@ -1,0 +1,49 @@
+\section{The model ladder: cheap to expensive}
+
+Rule: move one rung up only when the current rung is beaten on the headline
+metric (skill over seasonal naive, and pinball loss for quantiles).
+Verdicts get filled in as backtests land (M3--M5). Empty verdict = not tested yet.
+
+\subsection{The ladder for load forecasting}
+
+\begin{center}
+\begin{tabular}{lllp{4.5cm}}
+\toprule
+Rung & Model & Cost to run & Use case \\
+\midrule
+1 & Seasonal naive        & none    & floor; sanity check; DST debugging \\
+2 & Linear / ridge        & seconds & ``is nonlinearity needed at all?'' \\
+3 & LASSO-AR (LEAR-style) & seconds & industry price baseline; feature selection built in \\
+4 & LightGBM quantile     & minutes & production candidate; nonlinear, interpretable via SHAP \\
+5 & LSTM                  & minutes--hours & sequence memory; known-future covariates \\
+6 & Small transformer     & hours   & challenger only; needs lots of data \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{What each rung needs (data availability)}
+
+\begin{itemize}
+  \item Rungs 1--2: load history only. Work from day one.
+  \item Rung 3: load + calendar. Stable with $\sim$1 year of history.
+  \item Rung 4: load + calendar + weather. Wants 2--3 years to see all seasons.
+  \item Rungs 5--6: same data, but hungrier. Below $\sim$2 years they usually
+        overfit and lose to rung 4. Literature agrees; we will verify on PL data.
+\end{itemize}
+
+\subsection{Known priors from literature (to verify, not trust)}
+
+\begin{itemize}
+  \item One-step-ahead metrics cannot separate models on smooth signals;
+        everything looks like persistence. Judge at the full 24--38h horizon.
+  \item LEAR-type linear models beat most deep nets on day-ahead \emph{price};
+        gradient boosting is the strongest tabular default for \emph{load}.
+  \item Deep nets win mainly when there is a lot of data and complex
+        covariate interactions. PL hourly load is $\sim$26k points in 3 years ---
+        modest.
+\end{itemize}
+
+\subsection{Verdicts from our backtests}
+
+To be filled at M3/M4/M5. Format: model, test period, headline number,
+keep/scrap decision, one-line reason.

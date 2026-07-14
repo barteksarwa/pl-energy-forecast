@@ -110,7 +110,12 @@ Verify current API details from official docs before implementing. Do not trust 
 6. **No secrets and no data in git.** `.env` and `data/` stay gitignored.
 7. **Small, tested, typed.** Type hints everywhere. Tests for pure logic (features, metrics, cutoffs).
    No test theater for API wrappers — one integration smoke test is enough.
-8. **Ask before adding dependencies.** Keep the stack boring: pandas, scikit-learn, lightgbm, shap, pytorch.
+8. **Dependencies: keep the stack boring** (pandas, scikit-learn, lightgbm, shap, pytorch).
+   Boring/support deps (plotting, IO, testing) are pre-approved — add without asking,
+   list them in the session handover. Ask only for heavy or exotic additions.
+9. **Keep git and GitHub updated. Don't ask.** Commit after every coherent chunk.
+   Push to the remote after every work session (and after milestones at minimum).
+   Small conventional commits. The commit history is part of the product.
 
 ## The daily dry run — the "job simulation"
 
@@ -131,6 +136,29 @@ Steps, in order:
 5. Commit the report. The commit history becomes proof of consistent operational work.
 
 The report must be readable by a non-technical manager in 60 seconds.
+
+## Owner-facing notes are LaTeX
+
+Markdown is for agents and ops (reports, handovers, decision log).
+The owner learns and keeps track from LaTeX notes. Two sets:
+
+- `docs/notes/learning/` — forecasting concepts. One concept = one `NN_topic.tex`.
+- `docs/notes/model_selection/` — which model, when, why, honest verdicts.
+
+Rules:
+- Each set has a `main.tex`. After creating a new note, add one line to it:
+  `\input{NN_topic.tex}`. Nothing else changes in main.
+- Number notes in order: `01_`, `02_`, ...
+- Same writing style as everything: short sentences, worked examples, interview lines.
+
+## Visualize what we fetch
+
+Data nobody looks at rots. So:
+
+- After a smoke test or backfill fetches data, run `make viz`.
+  It plots whatever is in `data/` (weather, load, forecasts) into `reports/figures/`.
+- Every new data source gets a plot function in `src/viz/` in the same milestone.
+- Plots must make sense down the road: label units, UTC vs local, data source.
 
 ## Session rituals
 
