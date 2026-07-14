@@ -34,3 +34,6 @@ models_store/
 *.fdb_latexmk
 *.synctex.gz
 docs/notes/**/main.pdf
+
+# Training outputs (checkpoints, logs, campaign results stay local)
+outputs/

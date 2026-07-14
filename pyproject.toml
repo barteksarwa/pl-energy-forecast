@@ -16,6 +16,7 @@ dependencies = [
     "tabulate>=0.10.0",
     "lightgbm>=4.6.0",
     "shap>=0.51.0",
+    "torch>=2.13.0",
 ]
 
 [build-system]

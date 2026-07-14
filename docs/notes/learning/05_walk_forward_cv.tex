@@ -61,6 +61,36 @@ every season. Rolling vs expanding is an empirical question, not doctrine ---
 the M3 campaign runs the ablation and the table decides. Blocked CV
 returns when we tune LightGBM hyperparameters \emph{inside} training windows.
 
+\subsection{Is shuffling whole blocks allowed?}
+
+Shuffle days or weeks as units, keep order inside each block: that is
+blocked CV. Whether it is valid depends on one question ---
+\textbf{are the blocks approximately independent?}
+
+\begin{itemize}
+  \item \textbf{Independent-event data: yes.} Isolated transients or triggered
+        events with no long-range correlation (e.g.\ fuel-cell transients from
+        separate experiments) are exchangeable units. Shuffling blocks is
+        legitimate there and gives better data efficiency than one holdout.
+  \item \textbf{National load: mostly no, for three reasons.}
+        (1) Blocks are strongly dependent --- week $t$ correlates with week
+        $t{+}1$ far beyond the boundary hours (an embargo only fixes edges).
+        (2) Regime leakage: training on 2026 blocks to predict 2025 teaches
+        the model demand levels and habits that did not exist yet.
+        (3) Our features cross block borders by construction --- lag-672
+        reaches four weeks back, straight into other blocks.
+  \item \textbf{The deeper point:} block shuffling answers ``can the model
+        interpolate between periods it has seen?'' Production asks ``can it
+        extrapolate forward?'' Only forward-in-time evaluation answers the
+        production question. Shuffled-block scores are systematically
+        optimistic on trending, seasonal series.
+\end{itemize}
+
+Where we DO shuffle: training \emph{samples} (whole forecast days) within a
+fixed training window are shuffled every epoch when fitting neural nets.
+That only reorders gradient updates inside data the model may legally see;
+the train/test frontier stays temporal.
+
 \subsection{Proof, not promise}
 
 Test in \texttt{tests/test\_backtest.py}: corrupt the target with garbage
