@@ -1,0 +1,52 @@
+\section{Walk-forward validation}
+
+\subsection{Why normal cross-validation is forbidden here}
+
+Standard $k$-fold CV shuffles data randomly. On time series that trains on
+Friday to predict the previous Monday. Two failures:
+
+\begin{itemize}
+  \item \textbf{Leakage.} Load is autocorrelated; a training hour 3 hours
+        after a test hour carries most of its information. Scores inflate.
+  \item \textbf{Wrong question.} Production always predicts \emph{forward}.
+        Only a forward-in-time evaluation estimates production error.
+\end{itemize}
+
+\subsection{How walk-forward works}
+
+Mimic the desk, day by day:
+
+\begin{enumerate}
+  \item Pick a test day $D$.
+  \item Train on a trailing window that ends before $D$
+        (ours: 365 days, so the model always sees every season once).
+  \item Forecast all hours of $D$ under the 09:00 D-1 cutoff.
+  \item Advance one day. Repeat over the whole test period.
+\end{enumerate}
+
+Every test day is scored by a model that knew nothing about it or anything
+after it. Our engine: \texttt{src/evaluation/backtest.py}.
+
+\subsection{Two engineering choices worth defending}
+
+\begin{itemize}
+  \item \textbf{Refit every 7 days, not daily.} Refitting LASSO daily over a
+        year of test days is slow and changes little. Between refits, the last
+        model keeps forecasting --- exactly how desks run models.
+  \item \textbf{Rolling window, not expanding.} A fixed 365-day window forgets
+        old regimes (fuel-cost shifts, post-2022 demand changes). An expanding
+        window remembers everything, including what no longer applies.
+        Debatable both ways; we test the choice in M3 rather than argue it.
+\end{itemize}
+
+\subsection{Proof, not promise}
+
+Test in \texttt{tests/test\_backtest.py}: corrupt the target with garbage
+($10^9$) everywhere after the test start; predictions must not change.
+If training ever touched the future, they would.
+
+\subsection{Interview line}
+
+``My backtest walks forward like the desk lives: trailing training window,
+weekly refits, the 09:00 cutoff enforced every single day. And I prove no
+future data leaks by corrupting it and showing nothing changes.''

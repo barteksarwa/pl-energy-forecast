@@ -33,6 +33,8 @@ class Config:
     entsoe_chunk_days: int
     archive_lag_days: int
     request_sleep_s: float
+    forecast_start: str
+    forecast_leads: list[int]
 
 
 def load_config(path: Path = CONFIG_PATH) -> Config:
@@ -50,4 +52,6 @@ def load_config(path: Path = CONFIG_PATH) -> Config:
         entsoe_chunk_days=int(raw["backfill"]["entsoe_chunk_days"]),
         archive_lag_days=int(raw["backfill"]["archive_lag_days"]),
         request_sleep_s=float(raw["backfill"]["request_sleep_s"]),
+        forecast_start=str(raw["backfill"]["forecast_start_date"]),
+        forecast_leads=[int(d) for d in raw["backfill"]["forecast_leads_days"]],
     )

@@ -24,6 +24,7 @@ from src.config import Config, load_config
 from src.ingestion.gaps import log_gaps
 
 ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
+PREVIOUS_RUNS_URL = "https://previous-runs-api.open-meteo.com/v1/forecast"
 TIMEOUT_S = 60
 
 
@@ -88,6 +89,71 @@ def backfill_weather(cfg: Config) -> None:
         time.sleep(cfg.request_sleep_s)
 
 
+def fetch_weather_forecast_archive(
+    lat: float, lon: float, hourly_vars: list[str], leads: list[int], start: str, end: str
+) -> pd.DataFrame:
+    """Archived forecasts at fixed lead times (Previous Runs API).
+
+    Column naming: temperature_2m_lead2d = value predicted 48h before valid time.
+    """
+    api_vars = [f"{v}_previous_day{d}" for v in hourly_vars for d in leads]
+    params: dict[str, str | float] = {
+        "latitude": lat,
+        "longitude": lon,
+        "hourly": ",".join(api_vars),
+        "timezone": "UTC",
+        "start_date": start,
+        "end_date": end,
+    }
+    resp = None
+    for attempt in range(3):
+        try:
+            resp = requests.get(PREVIOUS_RUNS_URL, params=params, timeout=120)
+            resp.raise_for_status()
+            break
+        except (requests.Timeout, requests.ConnectionError):
+            if attempt == 2:
+                raise
+            time.sleep(5 * (attempt + 1))
+    assert resp is not None
+    hourly = resp.json()["hourly"]
+    index = pd.DatetimeIndex(pd.to_datetime(hourly["time"], utc=True), name="time")
+    frame = pd.DataFrame({v: hourly[v] for v in api_vars}, index=index)
+    return frame.rename(
+        columns={
+            f"{v}_previous_day{d}": f"{v}_lead{d}d" for v in hourly_vars for d in leads
+        }
+    )
+
+
+def backfill_weather_forecasts(cfg: Config) -> None:
+    """Archived weather forecasts per city, yearly chunks, resumable."""
+    gap_log = cfg.paths["data_processed"] / "gap_log.csv"
+    end_date = (pd.Timestamp.now(tz="UTC") - pd.Timedelta(days=2)).date()
+    for city in cfg.cities:
+        path = cfg.paths["data_raw"] / "weather_forecast" / f"{city.name}.parquet"
+        start_ts = _resume_start(path, pd.Timestamp(cfg.forecast_start, tz="UTC"))
+        if start_ts.date() > end_date:
+            print(f"weather_forecast {city.name}: up to date")
+            continue
+        combined = None
+        chunk_start = start_ts.date()
+        while chunk_start <= end_date:
+            chunk_end = min(chunk_start + pd.Timedelta(days=120), end_date)
+            df = fetch_weather_forecast_archive(
+                city.lat, city.lon, cfg.weather_vars, cfg.forecast_leads,
+                str(chunk_start), str(chunk_end),
+            )
+            combined = _merge_save(path, df)
+            chunk_start = chunk_end + pd.Timedelta(days=1)
+            time.sleep(cfg.request_sleep_s)
+        if combined is not None:
+            gaps = log_gaps(combined.iloc[:, 0], f"weather_forecast_{city.name}", gap_log)
+            print(
+                f"weather_forecast {city.name}: total {len(combined)}, {len(gaps)} gap(s)"
+            )
+
+
 def backfill_entsoe(cfg: Config) -> None:
     if not os.environ.get("ENTSOE_API_TOKEN"):
         print("entsoe: skipped — ENTSOE_API_TOKEN not set in .env")
@@ -122,10 +188,14 @@ def main() -> int:
     load_dotenv()
     cfg = load_config()
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--only", choices=["weather", "entsoe"], default=None)
+    parser.add_argument(
+        "--only", choices=["weather", "weather_forecast", "entsoe"], default=None
+    )
     args = parser.parse_args()
     if args.only in (None, "weather"):
         backfill_weather(cfg)
+    if args.only in (None, "weather_forecast"):
+        backfill_weather_forecasts(cfg)
     if args.only in (None, "entsoe"):
         backfill_entsoe(cfg)
     return 0

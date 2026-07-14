@@ -12,8 +12,9 @@ from __future__ import annotations
 
 import pandas as pd
 
-# Same hour 2, 3, 7 and 14 days back. All fully observed by 09:00 on D-1.
-DEFAULT_LAGS_H = (48, 72, 168, 336)
+# Same hour 2, 3, 7, 14, 21, 28 days back. All fully observed by 09:00 on D-1.
+# The four weekly lags (168/336/504/672) double as the seasonal-naive ensemble.
+DEFAULT_LAGS_H = (48, 72, 168, 336, 504, 672)
 
 
 def lagged_load_features(

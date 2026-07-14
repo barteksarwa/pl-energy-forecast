@@ -46,3 +46,8 @@ backfill:
   entsoe_chunk_days: 90      # request window per ENTSO-E call
   archive_lag_days: 6        # ERA5 publishes with ~5 day delay
   request_sleep_s: 1.0       # politeness between API calls
+  # Archived weather forecasts (Open-Meteo Previous Runs). Data exists from ~2024.
+  # lead 2 (48h) is the honest "known at the 09:00 D-1 cutoff" input;
+  # lead 1 kept for forecast-error analysis.
+  forecast_start_date: "2024-01-01"
+  forecast_leads_days: [1, 2]
