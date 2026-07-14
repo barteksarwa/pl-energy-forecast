@@ -1,0 +1,26 @@
+# Secrets
+.env
+
+# Data stays out of git (dirs re-included so .gitkeep can be tracked)
+data/**
+!data/**/
+!data/**/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Notebooks / IDE
+.ipynb_checkpoints/
+.vscode/
+.idea/
+
+# Models and artifacts
+models_store/
+*.pkl
+*.pt
+.DS_Store
