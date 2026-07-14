@@ -48,16 +48,23 @@ def build_samples(
     weather: pd.DataFrame,
     days: list,
     tz: str = "Europe/Warsaw",
+    tso: pd.Series | None = None,
+    origin_offsets_h: tuple[int, ...] = (0,),
 ) -> DaySamples:
+    """origin_offsets_h: extra forecast origins per day (training augmentation).
+    (0, -6, -12) => also build samples as if decided at 03:00 and 21:00 D-2.
+    Evaluation must always use (0,) — the true 09:00 D-1 origin.
+    tso: TSO day-ahead forecast, appended as a known-future covariate
+    (instance-normalized like the anchor)."""
     enc_l, fut_l, y_l, anchor_l, mean_l, std_l, kept = [], [], [], [], [], [], []
-    wx_cols = list(weather.columns)
 
     for day in days:
+      for off in origin_offsets_h:
         day_ts = pd.Timestamp(day, tz=tz)
         hours = local_day_hours_utc(day_ts, tz)
         if len(hours) != TARGET_HOURS:
             continue  # skip DST days in training; production handles them via fallback
-        cutoff = shift_local_day(day_ts, -1, tz) + pd.Timedelta(hours=9)
+        cutoff = shift_local_day(day_ts, -1, tz) + pd.Timedelta(hours=9 + off)
         cutoff_utc = cutoff.tz_convert("UTC").floor("1h")
 
         enc_idx = pd.date_range(
@@ -68,10 +75,12 @@ def build_samples(
         target = load.reindex(hours)
         anchor = load.reindex(hours - pd.Timedelta(hours=168))
         fut_wx = weather.reindex(hours)
+        tso_fut = tso.reindex(hours) if tso is not None else None
         if (
             enc_load.isna().any() or target.isna().any()
             or anchor.isna().any() or enc_wx.isna().any().any()
             or fut_wx.isna().any().any()
+            or (tso_fut is not None and tso_fut.isna().any())
         ):
             continue
 
@@ -82,11 +91,14 @@ def build_samples(
             (enc_load.to_numpy() - mu) / sd,
             enc_wx.to_numpy(),
         ])
-        fut = np.column_stack([
+        fut_cols = [
             cal.to_numpy(dtype=float),
             fut_wx.to_numpy(),
             ((anchor.to_numpy() - mu) / sd)[:, None],
-        ])
+        ]
+        if tso_fut is not None:
+            fut_cols.append(((tso_fut.to_numpy() - mu) / sd)[:, None])
+        fut = np.column_stack(fut_cols)
         enc_l.append(enc)
         fut_l.append(fut)
         y_l.append((target.to_numpy() - mu) / sd)
@@ -104,16 +116,19 @@ def build_samples(
     )
 
 
-def standardize_covariates(train: DaySamples, *others: DaySamples) -> None:
+def standardize_covariates(
+    train: DaySamples, *others: DaySamples, n_tail: int = 1
+) -> None:
     """Z-score non-load covariates using TRAIN statistics only (no leakage).
 
     Column 0 of enc is the instance-normalized load — left untouched.
-    The last fut column is the normalized anchor — left untouched.
+    The last n_tail fut columns are already instance-normalized (anchor,
+    plus the TSO forecast when present: pass n_tail=2) — left untouched.
     """
     e_mu = train.enc[:, :, 1:].mean(dim=(0, 1), keepdim=True)
     e_sd = train.enc[:, :, 1:].std(dim=(0, 1), keepdim=True).clamp_min(1e-6)
-    f_mu = train.fut[:, :, :-1].mean(dim=(0, 1), keepdim=True)
-    f_sd = train.fut[:, :, :-1].std(dim=(0, 1), keepdim=True).clamp_min(1e-6)
+    f_mu = train.fut[:, :, :-n_tail].mean(dim=(0, 1), keepdim=True)
+    f_sd = train.fut[:, :, :-n_tail].std(dim=(0, 1), keepdim=True).clamp_min(1e-6)
     for s in (train, *others):
         s.enc[:, :, 1:] = (s.enc[:, :, 1:] - e_mu) / e_sd
-        s.fut[:, :, :-1] = (s.fut[:, :, :-1] - f_mu) / f_sd
+        s.fut[:, :, :-n_tail] = (s.fut[:, :, :-n_tail] - f_mu) / f_sd

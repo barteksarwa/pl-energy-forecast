@@ -29,7 +29,8 @@ from src.pipeline.daily_run import local_day_hours_utc, shift_local_day
 
 
 def assemble_features(
-    load: pd.Series, weather: pd.DataFrame, tz: str, start: pd.Timestamp, end: pd.Timestamp
+    load: pd.Series, weather: pd.DataFrame, tz: str, start: pd.Timestamp,
+    end: pd.Timestamp, tso: pd.Series | None = None,
 ) -> pd.DataFrame:
     """Cutoff-safe X for every local day in [start, end]. One build per day."""
     frames = []
@@ -37,7 +38,7 @@ def assemble_features(
     while day <= end:
         hours = local_day_hours_utc(day, tz)
         cutoff = shift_local_day(day, -1, tz) + pd.Timedelta(hours=9)
-        frames.append(build_features(hours, load, weather, cutoff))
+        frames.append(build_features(hours, load, weather, cutoff, tso=tso))
         day = shift_local_day(day, 1, tz)
     return pd.concat(frames)
 
@@ -51,6 +52,9 @@ def main() -> int:
         "--weather", choices=["auto", "forecast", "actuals"], default="auto",
         help="forecast = archived lead-2 (honest); actuals = ERA5 (optimistic)",
     )
+    parser.add_argument("--with-tso", action="store_true",
+                        help="add the TSO day-ahead forecast as a feature")
+    parser.add_argument("--tag", default=None, help="suffix for output names")
     args = parser.parse_args()
 
     load_path = cfg.paths["data_processed"] / "load.parquet"
@@ -82,9 +86,14 @@ def main() -> int:
         else shift_local_day(last, -365, tz)
     )
 
+    tso_feature = None
+    if args.with_tso:
+        tso_feature = pd.read_parquet(
+            cfg.paths["data_processed"] / "tso_forecast.parquet"
+        ).iloc[:, 0]
     print(f"Assembling features {first.date()} → {last.date()} ...")
     x = assemble_features(load, weather, tz, pd.Timestamp(first.date(), tz=tz),
-                          pd.Timestamp(last.date(), tz=tz))
+                          pd.Timestamp(last.date(), tz=tz), tso=tso_feature)
     y = load.reindex(x.index)
 
     results: list[BacktestResult] = []
@@ -106,6 +115,10 @@ def main() -> int:
         results.append(BacktestResult(model_name="tso_forecast", predictions=tso_pred))
 
     weather_tag = "fcst" if "forecasts" in weather_source else "actuals"
+    if args.with_tso:
+        weather_tag += "_tso"
+    if args.tag:
+        weather_tag += f"_{args.tag}"
 
     # Persist hourly predictions — diagnostics plots read these.
     preds_dir = cfg.paths["data_processed"] / f"backtest_preds_{weather_tag}"

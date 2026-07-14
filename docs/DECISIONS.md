@@ -4,6 +4,11 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-07-15 — TSO forecast admitted as a model feature**
+Context: PSE publishes day D's demand forecast ~09:00:12 on D-1; our cutoff is 09:00.
+Decision: treat it as known at the cutoff (12 s slack) and feed it to models. Models become forecast combiners.
+Why: every desk post-processes the TSO forecast; beating it by combining with it is standard practice, not cheating. Documented in features/matrix.py.
+
 **2026-07-14 — PSE API v2 as primary load source, ENTSO-E for deep history**
 Context: ENTSO-E token stuck in email queue; PSE API v2 needs no key and has load + TSO forecast from 2024-06-14.
 Decision: backfill and daily ops run on PSE now. ENTSO-E extends history to 2023 and cross-validates once the token arrives.

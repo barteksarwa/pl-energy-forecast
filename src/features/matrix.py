@@ -17,15 +17,21 @@ def build_features(
     load: pd.Series,
     weather: pd.DataFrame,
     cutoff: pd.Timestamp,
+    tso: pd.Series | None = None,
 ) -> pd.DataFrame:
     """Feature matrix for the target hours, using only pre-cutoff load data.
 
     `weather` must be the forecast known at the cutoff (or archive data when
     training on actuals — see docs/DATA_CATALOG.md, weather leakage trap).
+    `tso`: the TSO day-ahead forecast. PSE publishes day D's forecast at
+    ~09:00 on D-1 — at our cutoff — so it is a legal known-future covariate
+    (DECISIONS.md 2026-07-15). Using it makes the model a forecast combiner.
     """
     cal = calendar_features(target_hours)
     lags = lagged_load_features(load, target_hours, cutoff)
-    wx = weather.reindex(target_hours)
-    x = pd.concat([cal, lags, wx], axis=1)
+    parts = [cal, lags, weather.reindex(target_hours)]
+    if tso is not None:
+        parts.append(tso.reindex(target_hours).rename("tso_forecast_mw"))
+    x = pd.concat(parts, axis=1)
     x.index.name = "time_utc"
     return x
