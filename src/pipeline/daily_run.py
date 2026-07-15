@@ -92,6 +92,26 @@ def run(cfg: Config, today_local: pd.Timestamp) -> str:
     fc_path = cfg.paths["forecasts"] / f"{tomorrow.date()}.csv"
     fc.rename_axis("time_utc").to_csv(fc_path, float_format="%.1f")
 
+    # 3b. Shadow challenger (UAT): scored daily, promoted only by a human.
+    challenger_note = None
+    try:
+        from src.ingestion.backfill import backfill_pse
+        from src.pipeline.challenger import challenger_forecast
+
+        backfill_pse(cfg)  # incremental: keeps the processed store current
+        ch = challenger_forecast(cfg, today_local)
+        ch_path = cfg.paths["forecasts"] / f"{tomorrow.date()}_challenger.csv"
+        ch.rename_axis("time_utc").to_csv(ch_path, float_format="%.1f")
+        # score yesterday's shadow forecast if it exists
+        ch_y_path = cfg.paths["forecasts"] / f"{yesterday.date()}_challenger.csv"
+        if ch_y_path.exists():
+            ch_y = pd.read_csv(ch_y_path, index_col="time_utc", parse_dates=True)
+            scores["challenger_mape"] = mape(actual_y, ch_y["p50"])
+        else:
+            challenger_note = "Challenger shadow started today; first score tomorrow."
+    except Exception as exc:  # noqa: BLE001 — shadow must never kill the daily run
+        challenger_note = f"Challenger failed: {exc}"
+
     # 4. Report, with the fan chart embedded.
     from src.viz.plots import plot_forecast_band
 
@@ -106,6 +126,8 @@ def run(cfg: Config, today_local: pd.Timestamp) -> str:
         oddities.append(f"{n_missing} of {len(yhours)} hours of yesterday's load are missing.")
     if fc["p50"].isna().any():
         oddities.append(f"{int(fc['p50'].isna().sum())} forecast hours have no history (NaN).")
+    if challenger_note:
+        oddities.append(challenger_note)
 
     report_path = write_report(
         cfg=cfg,

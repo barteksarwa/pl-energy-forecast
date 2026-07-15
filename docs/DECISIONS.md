@@ -4,6 +4,11 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-07-15 — Challenger runs in shadow; forecasts tracked in git**
+Context: ridge+TSO beat everything on backtest; promotion needs live proof, and CI runners are ephemeral.
+Decision: challenger forecasts daily in shadow (scored, not official). Forecast CSVs are committed — the one exception to "no data in git".
+Why: shadow days are the UAT evidence for promotion; committed forecasts are timestamped and tamper-evident — a desk-grade audit trail.
+
 **2026-07-15 — TSO forecast admitted as a model feature**
 Context: PSE publishes day D's demand forecast ~09:00:12 on D-1; our cutoff is 09:00.
 Decision: treat it as known at the cutoff (12 s slack) and feed it to models. Models become forecast combiners.

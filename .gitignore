@@ -1,10 +1,13 @@
 # Secrets
 .env
 
-# Data stays out of git (dirs re-included so .gitkeep can be tracked)
+# Data stays out of git (dirs re-included so .gitkeep can be tracked).
+# Exception: data/forecasts/*.csv — our own daily product, tiny, and the
+# CI runner needs yesterday's file to score the shadow challenger.
 data/**
 !data/**/
 !data/**/.gitkeep
+!data/forecasts/*.csv
 
 # Python
 __pycache__/

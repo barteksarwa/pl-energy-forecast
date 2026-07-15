@@ -1,0 +1,41 @@
+# The daily job simulation: fetch → score yesterday → forecast tomorrow → report.
+# Proof-of-concept automation (PLAN M9). Keyless: PSE + Open-Meteo need no secrets.
+# The commit history of reports/daily/ is the operational track record.
+
+name: daily-dry-run
+
+on:
+  schedule:
+    - cron: "30 5 * * *"   # 05:30 UTC = 07:30 Warsaw, well before the 09:00 cutoff
+  workflow_dispatch: {}     # manual trigger for testing
+
+permissions:
+  contents: write
+
+jobs:
+  dry-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Run the daily cycle
+        run: uv run python -m src.pipeline.daily_run
+
+      - name: Refresh figures
+        run: uv run python -m src.viz.make_all
+
+      - name: Commit the report
+        run: |
+          git config user.name "daily-dry-run bot"
+          git config user.email "actions@github.com"
+          git add reports/
+          git diff --cached --quiet && echo "nothing new" && exit 0
+          git commit -m "ops: daily report $(date -u +%F)"
+          git push
