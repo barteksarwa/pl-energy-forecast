@@ -14,6 +14,7 @@ Model & MAPE (\%) & MAE (MW) & Pinball P50 \\
 LightGBM tuned + TSO & 2.14 & 391 & 196 \\
 LightGBM + TSO & 2.16 & 394 & 197 \\
 TSO alone & 2.31 & 418 & 209 \\
+LSTM attention + TSO & 2.43 & 448 & 224 \\
 LSTM enc\_dec + TSO & 2.49 & 460 & 230 \\
 LightGBM (no TSO) & 3.16 & 579 & 290 \\
 LSTM enc\_dec (no TSO) & 3.67 & 692 & 346 \\
@@ -44,7 +45,10 @@ nothing nonlinear left to model, and pay variance for trying.
         (history-only rungs) $\ll$ enc\_dec 3.00\% $<$
         \textbf{Luong attention 2.88\%} (stable across h64--h256).
         Covariates dominate; attention adds a real but modest edge.
-        Attention walk-forward $\pm$ TSO queued after the campaign.
+        Walk-forward confirmed after the campaign: attention 3.74\%
+        plain / 2.43\% with TSO --- best net on both counts, still behind
+        the linear combiner. The screening-flattery gap hit attention
+        hardest (2.88 $\to$ 3.74).
   \item \textbf{Screening flatters nets.} enc\_dec: 3.00\% screening
         $\to$ 3.67\% walk-forward. Single-split scores rank ideas;
         only walk-forward numbers enter the README.

@@ -22,6 +22,14 @@ MAPE 3.67% | MAE 692 MW | pinball 162.2/345.8/169.0
 
 MAPE 2.49% | MAE 460 MW | pinball 108.5/230.2/109.2
 
+## deep walk-forward: lstm_lstm_attn_h64
+
+MAPE 3.74% | MAE 699 MW | pinball 170.3/349.4/166.8
+
+## deep walk-forward: lstm_lstm_attn_h64_tso
+
+MAPE 2.43% | MAE 448 MW | pinball 101.2/223.9/113.3
+
 ## LSTM ladder (v3, screening)
 
 | variant      |   hidden |   test_mape |   test_pinball_p50 |         n_params |
