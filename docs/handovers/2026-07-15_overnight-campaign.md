@@ -39,7 +39,23 @@ Screening numbers (v2/v3/v4 CSVs) rank ideas only.
   (synthetic retailer: load + PV + wind from our weather, valued at real
   prices), proposed milestone order, 2 questions for you.
 
-## Morning checklist
+## Morning session (done before owner returned)
 
-1. Read the readout. 2. Approve/adjust Phase 2 kickstart. 3. If ENTSO-E
-token arrived: `make backfill` extends history to 2023 + cross-check vs PSE.
+- Attention walk-forward closed the ladder: 3.74% plain / 2.43% +TSO.
+  Nets confirmed behind the linear combiner on the real exam.
+- Phase 2 data backfilled keyless: day-ahead price, balancing CEN,
+  generation mix — 18k hours each, 0 gaps. Price history figure in viz.
+- README: full honest results table published.
+- **Shadow challenger live**: ridge+TSO trains each morning, forecasts in
+  shadow, scored daily in the report. First score lands tomorrow.
+- **GitHub Actions cron live** (05:30 UTC, keyless): the daily loop now
+  runs unattended and commits its own reports. M9 POC done early.
+- Forecast CSVs now committed (audit trail; DECISIONS entry).
+
+## Morning checklist for the owner
+
+1. Read `reports/backtests/2026-07-15_overnight_readout.md` + note 03.
+2. Approve/adjust `docs/PHASE2_KICKSTART.md` (2 open questions in it).
+3. ENTSO-E token when it arrives: `make backfill` → 2023+ history
+   + PSE cross-check.
+4. Decide: how many shadow days before promoting the challenger? (Suggest 14.)
