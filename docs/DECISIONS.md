@@ -4,6 +4,16 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-07-16 — TSO ffill for cron-before-publish timing gap**
+Context: cron runs at 05:30 UTC (07:30 Warsaw); PSE publishes next-day TSO at ~09:00 Warsaw. Gap = ~90 min. Challenger failed with NaN when trying to use tomorrow's TSO as a feature.
+Decision: forward-fill the TSO series before building tomorrow's feature matrix. The last published value (22:00 today) proxies tomorrow's shape until the real forecast lands.
+Why: a stale TSO is better than no challenger. Long-term fix: shift cron to 10:00 UTC. Filed as known failure mode in ridge_tso model card.
+
+**2026-07-16 — Shadow promotion tally started; target 14 consecutive valid days**
+Context: ridge+TSO passed 12-month walk-forward (2.13% MAPE vs 5.60% naive). UAT rule (PLAN M9): run N shadow days, then decide.
+Decision: target = 14 shadow days (two full weeks, covers weekday/weekend/holiday mix). Track in docs/shadow_tally.md. Day 1 = 2026-07-16 (first day with working weather forecast data).
+Why: 14 days give the desk a valid week-over-week comparison. 7 days would miss any weekend anomaly.
+
 **2026-07-16 — ENTSO-E merged for deep history; PSE stays canonical in overlap**
 Context: token arrived. Cross-check over 18,287 overlap hours: mean |diff| 4.7 MW (0.03%), 1.6% of hours differ >1%.
 Decision: canonical load/tso = PSE where present, ENTSO-E fills 2023-01→2024-06. Backup kept as *_pse_only.parquet. Report: reports/backtests/pse_vs_entsoe.csv.

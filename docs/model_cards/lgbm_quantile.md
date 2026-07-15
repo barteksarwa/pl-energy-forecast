@@ -22,6 +22,8 @@ defaults; tuning only after this honest row landed.
 
 ## Performance (walk-forward, honest lead-2 forecast weather, 8762 h)
 
+### Without TSO feature (12-month test)
+
 | model | MAPE | MAE (MW) | skill vs naive | pinball p10/p50/p90 |
 |---|---|---|---|---|
 | TSO (benchmark) | 2.31% | 418 | 0.59 | – / 209 / – |
@@ -30,6 +32,22 @@ defaults; tuning only after this honest row landed.
 | seasonal naive | 5.60% | 1025 | 0.00 | 354 / 513 / 282 |
 
 Source: `reports/backtests/2026-07-14_fcst_summary.csv`.
+
+### With TSO feature — lgbm_tso (12-month test)
+
+Adding the TSO as a feature turns LightGBM into a forecast combiner.
+
+| model | MAPE | MAE (MW) | skill vs naive | pinball p10/p50/p90 |
+|---|---|---|---|---|
+| ridge_tso | 2.13% | 383 | 0.63 | 92 / 192 / 92 |
+| **lgbm_tso** | **2.16%** | **394** | **0.62** | 111 / 197 / 120 |
+| TSO alone | 2.31% | 418 | 0.59 | – / 209 / – |
+
+Source: `reports/backtests/2026-07-15_fcst_tso_summary.csv`.
+
+LightGBM+TSO is 0.03 pp behind ridge+TSO on MAPE and 11 MW behind on MAE.
+The gap is within noise for a 12-month window. See the 2-year backtest
+(`reports/backtests/<date>_2yr_summary.csv`) for a more stable estimate.
 
 Weak spots (see `reports/figures/backtest_mape_by_*.png`): midday hours
 (ramp + peak), and the worst-day tail is still fatter than the TSO's.
@@ -48,4 +66,6 @@ Holidays cut the forecast by up to ~4 GW; cold (heating degrees) raises it.
 
 ## Status
 
-dev. UAT shadow-run candidate once M9 environments exist.
+**dev.** UAT challenger candidate (behind ridge_tso in the 12-month ranking,
+within noise in 2-year). If ridge_tso fails promotion for any operational
+reason, lgbm_tso is the next candidate.

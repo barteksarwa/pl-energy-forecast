@@ -1,0 +1,68 @@
+\section{Rolling vs expanding training window (2026-07-16)}
+
+\subsection{Why this matters}
+
+The walk-forward backtest uses a \textbf{rolling} 365-day training window
+by default: at every refit, the model forgets data older than one year.
+With 3.5 years of history now available, the question becomes: should we
+grow the window instead?
+
+Two competing effects:
+
+\begin{itemize}
+  \item \textbf{More history helps} when the underlying load pattern is
+        stationary (long-run seasonal structure, typical weather range).
+        More rows = lower variance estimates.
+  \item \textbf{More history hurts} when the world drifts (post-COVID
+        load recovery 2021--2022, behind-the-meter PV penetration, demand
+        destruction from high prices). Stale data misleads a model that
+        cannot discount old observations.
+\end{itemize}
+
+Polish system load 2023--2026: modest growth, no dramatic structural break
+visible. The right answer is an empirical one.
+
+\subsection{Experiment}
+
+Test period: 2024-07-16 $\to$ 2026-07-15 (730 days, 17{,}520 h).
+Refit every 7 days. Models: ridge and ridge\_tso.
+
+\begin{center}
+\begin{tabular}{lrr}
+\toprule
+Configuration & MAPE (\%) & MAE (MW) \\
+\midrule
+ridge\_rolling365   & TBD & TBD \\
+ridge\_expanding    & TBD & TBD \\
+ridge\_tso\_rolling365 & TBD & TBD \\
+ridge\_tso\_expanding  & TBD & TBD \\
+seasonal\_naive        & TBD & TBD \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textit{Numbers filled after backtest run 2026-07-16.}
+Source: \texttt{reports/backtests/<date>\_2yr\_ablation.csv}.
+
+\subsection{Verdict}
+
+\textit{To be filled after numbers land.}
+
+Interpretation guide:
+\begin{itemize}
+  \item If $\Delta$MAPE $\leq$ 0.1\,pp: negligible, keep rolling (simpler, faster
+        refit, matches what the literature reports for comparable datasets).
+  \item If expanding wins by $>$ 0.2\,pp: switch default to expanding; add a
+        note to DECISIONS.md and update the backtest default in
+        \texttt{backtest.py}.
+  \item If rolling wins: the 2022 load anomalies (post-COVID, energy crisis
+        price shock) are still polluting the earliest training rows;
+        stay rolling.
+\end{itemize}
+
+\subsection{Interview line}
+
+``We ran the ablation with 3.5 years of history. The answer was [rolling/expanding]
+wins by X pp MAPE. Load forecasting in Poland is [stationary enough to benefit from
+longer windows / still recovering from the 2022 energy crisis, so we trim stale data].
+I tested instead of assuming.''
