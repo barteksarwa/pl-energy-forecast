@@ -1,0 +1,3 @@
+series,overlap_hours,mean_abs_diff_mw,p99_abs_diff_mw,hours_over_1pct
+load,18287,4.7,202.7,293
+tso_forecast,18288,8.8,300.0,327

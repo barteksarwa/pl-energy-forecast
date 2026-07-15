@@ -4,6 +4,11 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-07-16 — ENTSO-E merged for deep history; PSE stays canonical in overlap**
+Context: token arrived. Cross-check over 18,287 overlap hours: mean |diff| 4.7 MW (0.03%), 1.6% of hours differ >1%.
+Decision: canonical load/tso = PSE where present, ENTSO-E fills 2023-01→2024-06. Backup kept as *_pse_only.parquet. Report: reports/backtests/pse_vs_entsoe.csv.
+Why: two independent routes agree — data trustworthy; 3.5 years unlock longer backtests and better net training.
+
 **2026-07-15 — Challenger runs in shadow; forecasts tracked in git**
 Context: ridge+TSO beat everything on backtest; promotion needs live proof, and CI runners are ephemeral.
 Decision: challenger forecasts daily in shadow (scored, not official). Forecast CSVs are committed — the one exception to "no data in git".

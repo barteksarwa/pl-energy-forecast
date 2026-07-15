@@ -10,8 +10,8 @@ Updated: 2026-07-14 (M1).
 |---|---|---|---|---|---|
 | Actual load PL | **PSE API v2** `kse-load` | keyless HTTP | free | 15 min → hourly, from 2024-06-14 | **verified, backfilled, 0 gaps** |
 | TSO day-ahead load forecast | **PSE API v2** `kse-load.load_fcst` | keyless | free | publishes ~09:00 D-1 (= our cutoff) | **verified, backfilled** |
-| Actual load PL (deeper history) | ENTSO-E Transparency | `entsoe-py` `query_load` | free, token | 15 min → hourly, 2015+ | verified, live call pending token |
-| TSO day-ahead load forecast | ENTSO-E | `query_load_forecast` | free | hourly | verified |
+| Actual load PL (deeper history) | ENTSO-E Transparency | `entsoe-py` `query_load` | free, token | 15 min → hourly, 2015+ | **backfilled 2023+, cross-checked vs PSE (0.03% mean diff)** |
+| TSO day-ahead load forecast | ENTSO-E | `query_load_forecast` | free | hourly | backfilled 2023+, cross-checked |
 | Weather history (actuals, ERA5) | Open-Meteo Archive API | `archive-api.open-meteo.com/v1/archive` | free non-commercial | hourly, ~5 day delay | verified, called live |
 | Weather forecasts (operational) | Open-Meteo Forecast API | `api.open-meteo.com/v1/forecast` | free | hourly, 16 days ahead | verified, called live |
 | Historical weather *forecasts* | Open-Meteo Historical Forecast API | `historical-forecast-api.open-meteo.com/v1/forecast` | free | hourly, from ~2022 | verified (docs) |

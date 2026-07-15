@@ -223,6 +223,12 @@ def backfill_pse_prices(cfg: Config) -> None:
 
 
 def backfill_entsoe(cfg: Config) -> None:
+    """ENTSO-E into its OWN store (data/processed/entsoe/).
+
+    Role: deep history (2023+, PSE v2 only starts 2024-06-14) and an
+    independent cross-check of the same series. PSE stays canonical for
+    the overlap (DECISIONS 2026-07-14); merge happens in crosscheck.py.
+    """
     if not os.environ.get("ENTSOE_API_TOKEN"):
         print("entsoe: skipped — ENTSOE_API_TOKEN not set in .env")
         return
@@ -230,12 +236,10 @@ def backfill_entsoe(cfg: Config) -> None:
 
     gap_log = cfg.paths["data_processed"] / "gap_log.csv"
     now = pd.Timestamp.now(tz="UTC").floor("1h")
+    entsoe_dir = cfg.paths["data_processed"] / "entsoe"
     targets = {
-        "load": (fetch_load, cfg.paths["data_processed"] / "load.parquet"),
-        "tso_forecast": (
-            fetch_tso_forecast,
-            cfg.paths["data_processed"] / "tso_forecast.parquet",
-        ),
+        "entsoe_load": (fetch_load, entsoe_dir / "load.parquet"),
+        "entsoe_tso_forecast": (fetch_tso_forecast, entsoe_dir / "tso_forecast.parquet"),
     }
     for name, (fetch, path) in targets.items():
         start = _resume_start(path, pd.Timestamp(cfg.backfill_start, tz="UTC"))
