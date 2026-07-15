@@ -69,6 +69,13 @@ def main() -> int:
             plot_temperature_history(temps, weights, FIGURES / "temperature_history.png")
         )
 
+    # Phase 2: day-ahead price history, if present.
+    price_p = cfg.paths["data_processed"] / "price_da.parquet"
+    if price_p.exists():
+        from src.viz.plots import plot_price_history
+        made.append(plot_price_history(
+            pd.read_parquet(price_p).iloc[:, 0], FIGURES / "price_da_history.png"))
+
     # Full backfilled history, if present.
     hist_p = cfg.paths["data_processed"] / "load.parquet"
     if hist_p.exists():

@@ -101,6 +101,23 @@ def plot_temperature_history(
     return _finish(fig, out)
 
 
+def plot_price_history(price: pd.Series, out: Path) -> Path:
+    """Day-ahead price: daily mean line + daily min-max band. Spikes = the story."""
+    apply_style()
+    daily_mean = price.resample("1D").mean()
+    lo, hi = price.resample("1D").min(), price.resample("1D").max()
+    fig, ax = plt.subplots(figsize=(9, 3.5))
+    ax.fill_between(lo.index, lo, hi, color=BLUE, alpha=BAND_ALPHA,
+                    linewidth=0, label="daily min–max")
+    ax.plot(daily_mean.index, daily_mean.values, color=BLUE, linewidth=1.0,
+            label="daily mean")
+    ax.set_ylabel("Price (PLN/MWh)")
+    ax.set_xlabel("Time (UTC)")
+    ax.set_title("PL day-ahead price, SDAC (PSE csdac-pln)", loc="left")
+    ax.legend(frameon=False)
+    return _finish(fig, out)
+
+
 def plot_load_history(load: pd.Series, out: Path) -> Path:
     """Long-history overview: daily mean load. For backfill sanity checks."""
     apply_style()

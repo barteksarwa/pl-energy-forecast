@@ -13,7 +13,6 @@ from __future__ import annotations
 import argparse
 import sys
 
-import numpy as np
 import pandas as pd
 
 from src.config import REPO_ROOT, load_config

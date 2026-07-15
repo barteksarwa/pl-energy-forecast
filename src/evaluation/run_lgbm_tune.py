@@ -33,7 +33,6 @@ def make_factory(name: str, params: dict):
     def factory():
         m = LightGBMQuantile()
         m.name = name
-        import src.models.gbm as gbm_mod
 
         # swap params for this instance only
         m._params = params

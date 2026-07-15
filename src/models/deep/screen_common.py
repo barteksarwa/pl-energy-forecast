@@ -8,7 +8,7 @@ import pandas as pd
 from src.config import REPO_ROOT, load_config
 from src.evaluation.metrics import mape, pinball_loss
 from src.features.weather import load_weather_forecast_history
-from src.models.deep.data import DaySamples, build_samples, standardize_covariates
+from src.models.deep.data import DaySamples
 from src.models.deep.run_campaign import TEST_START, VAL_START, flat_series
 from src.models.deep.train import predict_mw, train_variant
 

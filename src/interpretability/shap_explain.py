@@ -93,7 +93,7 @@ def main() -> int:
     print("Top 3 drivers, plain words:")
     for i, d in enumerate(drivers, 1):
         print(f"  {i}. {d}")
-    print(f"made    reports/figures/shap_summary.png")
+    print("made    reports/figures/shap_summary.png")
     return 0
 
 

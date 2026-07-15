@@ -16,7 +16,6 @@ Run: nohup caffeinate -i uv run python -u -m src.models.deep.run_campaign \
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 
 import numpy as np
 import pandas as pd

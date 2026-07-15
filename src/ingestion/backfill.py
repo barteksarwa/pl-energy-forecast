@@ -187,6 +187,41 @@ def backfill_pse(cfg: Config) -> None:
             print(f"pse {name}: {len(gaps)} new gap(s) logged")
 
 
+PSE_PRICE_ENTITIES = {
+    # entity: (api_col -> out_col, output file stem)
+    "csdac-pln": ({"csdac_pln": "price_da_pln"}, "price_da"),
+    "crb-rozl": ({"cen_cost": "price_bal_cen_pln"}, "price_balancing"),
+    "his-wlk-cal": ({"pv": "gen_pv_mw", "wi": "gen_wind_mw", "jg": "gen_thermal_mw"},
+                    "generation_mix"),
+}
+
+
+def backfill_pse_prices(cfg: Config) -> None:
+    """Phase 2 data: day-ahead price, balancing price, generation mix. Keyless."""
+    from src.clients.pse_client import fetch_entity_hourly
+
+    gap_log = cfg.paths["data_processed"] / "gap_log.csv"
+    end_date = (pd.Timestamp.now(tz="Europe/Warsaw") + pd.Timedelta(days=1)).date()
+    for entity, (cols, stem) in PSE_PRICE_ENTITIES.items():
+        path = cfg.paths["data_processed"] / f"{stem}.parquet"
+        start_ts = _resume_start(path, pd.Timestamp("2024-06-14", tz="UTC"))
+        if start_ts.date() > end_date:
+            print(f"{stem}: up to date")
+            continue
+        chunk_start = start_ts.date()
+        while chunk_start <= end_date:
+            chunk_end = min(chunk_start + pd.Timedelta(days=60), end_date)
+            df = fetch_entity_hourly(entity, cols, str(chunk_start), str(chunk_end))
+            if not df.empty:
+                _merge_save(path, df.dropna(how="all"))
+            chunk_start = chunk_end + pd.Timedelta(days=1)
+            time.sleep(cfg.request_sleep_s)
+        if path.exists():
+            combined = pd.read_parquet(path)
+            gaps = log_gaps(combined.iloc[:, 0], stem, gap_log)
+            print(f"{stem}: total {len(combined)}, {len(gaps)} new gap(s)")
+
+
 def backfill_entsoe(cfg: Config) -> None:
     if not os.environ.get("ENTSOE_API_TOKEN"):
         print("entsoe: skipped — ENTSOE_API_TOKEN not set in .env")
@@ -222,7 +257,7 @@ def main() -> int:
     cfg = load_config()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--only", choices=["weather", "weather_forecast", "pse", "entsoe"], default=None
+        "--only", choices=["weather", "weather_forecast", "pse", "pse_prices", "entsoe"], default=None
     )
     args = parser.parse_args()
     if args.only in (None, "weather"):
@@ -231,6 +266,8 @@ def main() -> int:
         backfill_weather_forecasts(cfg)
     if args.only in (None, "pse"):
         backfill_pse(cfg)
+    if args.only in (None, "pse_prices"):
+        backfill_pse_prices(cfg)
     if args.only in (None, "entsoe"):
         backfill_entsoe(cfg)
     return 0

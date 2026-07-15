@@ -40,6 +40,24 @@ def _fetch_entity(entity: str, flt: str) -> list[dict]:
     return rows
 
 
+def fetch_entity_hourly(
+    entity: str, value_cols: dict[str, str], start_date: str, end_date: str
+) -> pd.DataFrame:
+    """Generic 15-min entity → hourly UTC frame. value_cols: api_name → out_name."""
+    flt = f"business_date ge '{start_date}' and business_date le '{end_date}'"
+    rows = _fetch_entity(entity, flt)
+    if not rows:
+        return pd.DataFrame(columns=list(value_cols.values()))
+    df = pd.DataFrame(rows)
+    ts = pd.to_datetime(df["dtime_utc"], utc=True) - pd.Timedelta(minutes=15)
+    out = pd.DataFrame(
+        {out: pd.to_numeric(df[api], errors="coerce").to_numpy()
+         for api, out in value_cols.items()},
+        index=pd.DatetimeIndex(ts, name="time"),
+    ).sort_index()
+    return out.resample("1h").mean()
+
+
 def fetch_kse_load(start_date: str, end_date: str) -> pd.DataFrame:
     """Hourly load_mw + tso_forecast_mw for [start_date, end_date] local days.
 
