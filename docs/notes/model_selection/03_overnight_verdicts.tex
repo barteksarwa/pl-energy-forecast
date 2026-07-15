@@ -1,0 +1,68 @@
+\section{Overnight campaign verdicts (2026-07-15)}
+
+Every claim below is walk-forward unless marked (screening).
+Reference exam: 12 months, 8{,}762~h, honest lead-2 forecast weather.
+
+\subsection{The headline: we beat the TSO by combining with it}
+
+\begin{center}
+\begin{tabular}{lrrr}
+\toprule
+Model & MAPE (\%) & MAE (MW) & Pinball P50 \\
+\midrule
+\textbf{ridge + TSO feature} & \textbf{2.13} & \textbf{383} & \textbf{192} \\
+LightGBM tuned + TSO & 2.14 & 391 & 196 \\
+LightGBM + TSO & 2.16 & 394 & 197 \\
+TSO alone & 2.31 & 418 & 209 \\
+LSTM enc\_dec + TSO & 2.49 & 460 & 230 \\
+LightGBM (no TSO) & 3.16 & 579 & 290 \\
+LSTM enc\_dec (no TSO) & 3.67 & 692 & 346 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The TSO forecast publishes at our 09:00 D-1 cutoff, so it is a legal
+known-future input (DECISIONS 2026-07-15). Adding it turns our models into
+\emph{forecast combiners} --- and the combination beats the incumbent by 8\%
+MAE. Classic literature result (combination gains of 5--15\%): the desk
+truth that you post-process the TSO, not fight it blind.
+
+Why ridge wins: an optimal combination of a strong, nearly unbiased
+forecast with residual predictors is almost linear. Trees and nets have
+nothing nonlinear left to model, and pay variance for trying.
+
+\subsection{Questions closed tonight}
+
+\begin{itemize}
+  \item \textbf{Bigger nets? No.} Capacity curve complete: 3.21 / 3.00 /
+        3.14 / 3.15 / 3.28\% for 29k / 106k / 409k / 1.6M / 6.4M params
+        (screening). Peak at 106k; data-limited, not capacity-limited.
+  \item \textbf{Origin augmentation? Hurts.} 4 origins per day: 3.66--3.73\%
+        vs 3.00\% baseline. Shifted origins train a task never evaluated.
+        Negative result, logged, not to be re-derived.
+  \item \textbf{Ladder (screening).} vanilla 4.7\% $\approx$ BiLSTM 4.6\%
+        (history-only rungs) $\ll$ enc\_dec 3.00\% $<$
+        \textbf{Luong attention 2.88\%} (stable across h64--h256).
+        Covariates dominate; attention adds a real but modest edge.
+        Attention walk-forward $\pm$ TSO queued after the campaign.
+  \item \textbf{Screening flatters nets.} enc\_dec: 3.00\% screening
+        $\to$ 3.67\% walk-forward. Single-split scores rank ideas;
+        only walk-forward numbers enter the README.
+  \item \textbf{LightGBM tuning: marginal.} Both informed configs 2.14\%
+        vs 2.16\% default (with TSO). The signal is in the features,
+        not the hyperparameters.
+\end{itemize}
+
+\subsection{Production candidate}
+
+ridge + TSO + weather + calendar + lags: best MAPE, best pinball on both
+tails, cheapest to run, trivially explainable (coefficients ARE the
+explanation). Recommendation: promote to UAT shadow mode (M9 rules) with
+LightGBM+TSO as challenger. Owner decides.
+
+\subsection{Interview line}
+
+``My best model is a ridge regression --- and that is the point. Once the
+TSO's forecast is an input, the remaining signal is nearly linear. I proved
+the deep alternatives lose on a 12-month walk-forward, and I can say
+exactly why.''

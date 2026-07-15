@@ -21,10 +21,12 @@ SERIES_COLORS = CATEGORICAL + ["#D55E00", "#555555"]
 FIGURES = REPO_ROOT / "reports" / "figures"
 LOCAL_TZ = "Europe/Warsaw"
 MODEL_ORDER = [
-    "lgbm_quantile", "ridge", "lasso_ar", "seasonal_naive", "climatology", "tso_forecast",
+    "ridge", "lgbm_quantile", "lgbm_regular", "lasso_ar", "seasonal_naive",
+    "climatology", "tso_forecast",
 ]
 DISPLAY = {
     "lgbm_quantile": "LightGBM",
+    "lgbm_regular": "LightGBM tuned",
     "ridge": "ridge",
     "lasso_ar": "LASSO-AR",
     "seasonal_naive": "seasonal naive (baseline)",
@@ -100,7 +102,7 @@ def plot_daily_mape_distribution(errs: dict[str, pd.Series], out: Path) -> Path:
 def main() -> int:
     cfg = load_config()
     # Prefer the honest run (forecast weather) when it exists.
-    candidates = ["backtest_preds_fcst", "backtest_preds_actuals"]
+    candidates = ["backtest_preds_fcst_tso", "backtest_preds_fcst", "backtest_preds_actuals"]
     preds_dir = next(
         (cfg.paths["data_processed"] / c for c in candidates
          if (cfg.paths["data_processed"] / c).exists()),
