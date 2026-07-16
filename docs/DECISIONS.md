@@ -4,6 +4,11 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-07-16 — TSO RES day-ahead forecast accepted as bid-time proxy**
+Context: ENTSO-E publishes the TSO wind+solar forecast for day D ~18:00 on D-1 — hours AFTER the 12:00 gate closure. Strictly, bidders could not see this exact series.
+Decision: use it as a feature anyway, labeled a proxy. Same convention as the EPF literature (Lago et al. 2021 benchmark uses this exact ENTSO-E series).
+Why: bidders run their own RES forecasts at bid time; the TSO series proxies that information set. SHAP says solar forecast is price driver #1 (18.7 EUR mean |SHAP|) — dropping it would cripple the model to protect a technicality. Caveat repeats in the model card.
+
 **2026-07-16 — Price series: ENTSO-E EUR/MWh is canonical for modeling**
 Context: two price sources exist. PSE csdac-pln (PLN, from 2024-06-14) and ENTSO-E (EUR, from 2023-01-01). Different currencies — cross-check needs an FX series we don't have.
 Decision: `price_da_eur.parquet` (ENTSO-E) is the modeling target. PSE PLN stays for display and PLN-denominated portfolio work.
