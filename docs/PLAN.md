@@ -238,6 +238,23 @@ check (owner decision with evidence).
 - Publication check: is the PL benchmark table novel enough to write up
   (blog post minimum, workshop paper stretch)? Owner decides with evidence.
 
+## Backlog — owner ideas, scoped but not scheduled (2026-07-17)
+
+- **Sub-national / portfolio load POC.** Simulate a retailer/regional
+  desk: target = a constructed sub-series (e.g. a fixed share of national
+  load + noise + its own weekly pattern), national TSO forecast as a
+  covariate. Compare two designs: (a) TSO as plain feature (architecture
+  unchanged), (b) share model — forecast local/national ratio, multiply
+  by TSO forecast. Both fight naive; backtest decides. Watch: ratio
+  non-stationarity (portfolio churn) and multiplicative error compounding
+  in design (b).
+- **TFT price challenger — conditional.** Worst price days = winter
+  scarcity spikes; current diagnosis says missing INPUTS (outages, fuel,
+  cross-border), not missing capacity. Order: fundamentals features
+  first; if spike MAE stays ~3x pooled after that, run the TFT (it can
+  attack the same features with attention + quantile heads). Runs only
+  through the M9 shadow gate like everyone else.
+
 ## Learning thread (runs through everything)
 
 Owner must explain every piece in interviews. Knows ML, not forecasting
