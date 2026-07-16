@@ -310,9 +310,10 @@ def run_shap_lgbm(
     explainer = shap.TreeExplainer(model)
     shap_values = explainer.shap_values(x_te)
 
-    fig, ax = plt.subplots(figsize=(10, 7))
-    shap.summary_plot(shap_values, x_te, show=False, ax=ax, plot_size=None)
-    ax.set_title("SHAP summary — lgbm_tso (P50), first 90 test days")
+    plt.close("all")
+    shap.summary_plot(shap_values, x_te, show=False, plot_size=(10, 7))
+    fig = plt.gcf()
+    fig.suptitle("SHAP summary — lgbm_tso (P50), first 90 test days", y=1.02)
     _style_and_save(fig, out_dir / "shap_summary_lgbm_tso.png")
 
     # Global importance table
@@ -490,13 +491,43 @@ def main() -> int:
     test_mask = x_with_tso.index >= test_start_utc
     x_test = x_with_tso[test_mask].dropna()
 
-    run_pca(x_test, out_dir)
-    run_correlation(x_test, out_dir)
-    run_group_ablation(x_no_tso, x_with_tso, y, test_start_utc, out_dir)
-    run_permutation_importance(x_with_tso, y, test_start_utc, tz, out_dir)
-    run_lasso_path(x_with_tso, y, test_start_utc, out_dir)
-    run_shap_lgbm(x_with_tso, y, test_start_utc, out_dir)
-    run_pca_feature_backtest(x_with_tso, y, test_start_utc, out_dir)
+    def _skip(name: str) -> None:
+        print(f"  skipping {name} (output exists)")
+
+    if not (out_dir / "pca_explained.png").exists():
+        run_pca(x_test, out_dir)
+    else:
+        _skip("PCA")
+
+    if not (out_dir / "feature_correlation.png").exists():
+        run_correlation(x_test, out_dir)
+    else:
+        _skip("correlation")
+
+    if not (out_dir / "group_ablation.csv").exists():
+        run_group_ablation(x_no_tso, x_with_tso, y, test_start_utc, out_dir)
+    else:
+        _skip("group ablation")
+
+    if not (out_dir / "permutation_importance.csv").exists():
+        run_permutation_importance(x_with_tso, y, test_start_utc, tz, out_dir)
+    else:
+        _skip("permutation importance")
+
+    if not (out_dir / "lasso_path_active.csv").exists():
+        run_lasso_path(x_with_tso, y, test_start_utc, out_dir)
+    else:
+        _skip("LASSO path")
+
+    if not (out_dir / "shap_importance.csv").exists():
+        run_shap_lgbm(x_with_tso, y, test_start_utc, out_dir)
+    else:
+        _skip("SHAP")
+
+    if not (out_dir / "pca_feature_backtest.csv").exists():
+        run_pca_feature_backtest(x_with_tso, y, test_start_utc, out_dir)
+    else:
+        _skip("PCA feature backtest")
 
     print(f"\nAll done. Outputs in {out_dir}/")
     return 0
