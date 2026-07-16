@@ -19,7 +19,8 @@ import sys
 
 import pandas as pd
 
-import src.models.price  # noqa: F401  (populates REGISTRY)
+import src.models.gbm  # noqa: F401  (populates REGISTRY)
+import src.models.price  # noqa: F401
 from src.config import Config, load_config
 from src.evaluation.backtest import BacktestResult, walk_forward_backtest
 from src.evaluation.metrics import mae, pinball_loss, rmse
@@ -27,12 +28,12 @@ from src.features.price_matrix import build_price_features
 from src.models.base import REGISTRY
 from src.pipeline.daily_run import local_day_hours_utc, shift_local_day
 
-PRICE_MODELS = ["price_naive_yesterday", "price_naive_week", "lear"]
+PRICE_MODELS = ["price_naive_yesterday", "price_naive_week", "lear", "lgbm_quantile"]
 
 
 def assemble_price_features(
     price: pd.Series, load: pd.Series, tso: pd.Series, tz: str,
-    start: pd.Timestamp, end: pd.Timestamp,
+    start: pd.Timestamp, end: pd.Timestamp, res: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """Cutoff-safe X for every local day in [start, end]. One build per day."""
     frames = []
@@ -42,18 +43,27 @@ def assemble_price_features(
         price_cutoff = hours[0]  # first delivery hour: all of D-1 is known
         load_cutoff = shift_local_day(day, -1, tz) + pd.Timedelta(hours=9)
         frames.append(
-            build_price_features(hours, price, load, price_cutoff, load_cutoff, tso=tso)
+            build_price_features(
+                hours, price, load, price_cutoff, load_cutoff, tso=tso, res=res
+            )
         )
         day = shift_local_day(day, 1, tz)
     return pd.concat(frames)
 
 
 def summarize_price(results: list[BacktestResult], y: pd.Series) -> pd.DataFrame:
-    """One row per model. rMAE vs naive-yesterday instead of MAPE."""
+    """One row per model. rMAE vs naive-yesterday instead of MAPE.
+
+    Spike columns evaluate the top 5% priciest hours (by actual price):
+    a model can look fine on pooled MAE and still miss every spike.
+    """
+    spike_cut = y.quantile(0.95)
     rows = []
     for r in results:
         p = r.predictions
-        inside = (y.reindex(p.index) >= p["p10"]) & (y.reindex(p.index) <= p["p90"])
+        y_r = y.reindex(p.index)
+        inside = (y_r >= p["p10"]) & (y_r <= p["p90"])
+        spike = y_r >= spike_cut
         rows.append(
             {
                 "model": r.model_name,
@@ -63,6 +73,8 @@ def summarize_price(results: list[BacktestResult], y: pd.Series) -> pd.DataFrame
                 "pinball_p50": pinball_loss(y, p["p50"], 0.5),
                 "pinball_p90": pinball_loss(y, p["p90"], 0.9),
                 "coverage_80_pct": 100.0 * inside.mean(),
+                "spike_mae": mae(y_r[spike], p.loc[spike, "p50"]),
+                "spike_cover_pct": 100.0 * (y_r[spike] <= p.loc[spike, "p90"]).mean(),
                 "n_hours": int(p["p50"].notna().sum()),
             }
         )
@@ -89,6 +101,10 @@ def main() -> int:
     price = pd.read_parquet(price_path).iloc[:, 0]
     load = pd.read_parquet(proc / "load.parquet").iloc[:, 0]
     tso = pd.read_parquet(proc / "tso_forecast.parquet").iloc[:, 0]
+    res_path = proc / "res_forecast.parquet"
+    res = pd.read_parquet(res_path) if res_path.exists() else None
+    if res is None:
+        print("res_forecast.parquet missing — running WITHOUT wind/solar features")
 
     tz = cfg.timezone_local
     first = price.index[0].tz_convert(tz) + pd.Timedelta(days=30)
@@ -103,6 +119,7 @@ def main() -> int:
     x = assemble_price_features(
         price, load, tso, tz,
         pd.Timestamp(first.date(), tz=tz), pd.Timestamp(last.date(), tz=tz),
+        res=res,
     )
     y = price.reindex(x.index)
 

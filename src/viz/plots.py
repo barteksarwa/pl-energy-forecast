@@ -128,3 +128,19 @@ def plot_load_history(load: pd.Series, out: Path) -> Path:
     ax.set_xlabel("Time (UTC)")
     ax.set_title("Poland — daily mean load, full history (ENTSO-E)", loc="left")
     return _finish(fig, out)
+
+
+def plot_res_forecast(res: pd.DataFrame, out: Path) -> Path:
+    """Wind + solar day-ahead forecast: daily means, stacked view of the mix."""
+    apply_style()
+    daily = res.resample("1D").mean()
+    fig, ax = plt.subplots(figsize=(9, 3.5))
+    ax.plot(daily.index, daily["solar_fcst_mw"], color=ORANGE, linewidth=1.0,
+            label="solar")
+    wind = daily["wind_on_fcst_mw"] + daily["wind_off_fcst_mw"]
+    ax.plot(daily.index, wind, color=BLUE, linewidth=1.0, label="wind (on+off)")
+    ax.set_ylabel("Daily mean forecast (MW)")
+    ax.set_xlabel("Time (UTC)")
+    ax.set_title("PL wind + solar day-ahead forecast (ENTSO-E 14.1.D)", loc="left")
+    ax.legend(frameon=False)
+    return _finish(fig, out)

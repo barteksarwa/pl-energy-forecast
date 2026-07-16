@@ -28,12 +28,20 @@ def build_price_features(
     price_cutoff: pd.Timestamp,
     load_cutoff: pd.Timestamp,
     tso: pd.Series | None = None,
+    res: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """Feature matrix for a target day's hours, leakage-safe on both series.
 
     `tso`: PSE publishes day D's load forecast ~09:00 on D-1, hours before
     the 12:00 gate closure — a legal known-future covariate. Load forecasts
     are a standard LEAR input (demand drives the merit-order position).
+
+    `res`: the TSO day-ahead wind+solar forecast for day D. ENTSO-E
+    publishes it ~18:00 on D-1 — a few hours AFTER gate closure. Using it
+    is the standard proxy in the EPF literature (Lago et al. 2021 use this
+    exact series): bidders have their own RES forecasts at bid time, and
+    the TSO series stands in for that information set. Documented in
+    DECISIONS; the model card repeats the caveat.
     """
     cal = calendar_features(target_hours)
     price_lags = lagged_price_features(price, target_hours, price_cutoff)
@@ -42,6 +50,8 @@ def build_price_features(
     parts = [cal, price_lags, day_vec, load_lags]
     if tso is not None:
         parts.append(tso.reindex(target_hours).rename("tso_forecast_mw"))
+    if res is not None:
+        parts.append(res.reindex(target_hours))
     x = pd.concat(parts, axis=1)
     x.index.name = "time_utc"
     return x

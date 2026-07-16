@@ -290,13 +290,45 @@ def backfill_entsoe_prices(cfg: Config) -> None:
         print(f"entsoe_prices: {len(gaps)} new gap(s) logged")
 
 
+def backfill_entsoe_res(cfg: Config) -> None:
+    """TSO day-ahead wind + solar forecast (MW). Price driver #1.
+
+    Stored in data/processed/res_forecast.parquet, full config history.
+    Same no-try/except rule as prices: a failed chunk aborts so resume
+    re-fetches it.
+    """
+    if not os.environ.get("ENTSOE_API_TOKEN"):
+        print("entsoe_res: skipped — ENTSOE_API_TOKEN not set in .env")
+        return
+    from src.clients.entsoe_client import fetch_res_forecast
+
+    gap_log = cfg.paths["data_processed"] / "gap_log.csv"
+    now = pd.Timestamp.now(tz="UTC").floor("1h")
+    path = cfg.paths["data_processed"] / "res_forecast.parquet"
+    start = _resume_start(path, pd.Timestamp(cfg.backfill_start, tz="UTC"))
+    chunk = pd.Timedelta(days=cfg.entsoe_chunk_days)
+    while start < now:
+        end = min(start + chunk, now)
+        df = fetch_res_forecast(cfg.zone, start=start, end=end)
+        combined = _merge_save(path, df)
+        print(f"entsoe_res: {start.date()} → {end.date()}, total {len(combined)}")
+        start = end
+        time.sleep(cfg.request_sleep_s)
+    if path.exists():
+        gaps = log_gaps(pd.read_parquet(path).iloc[:, 0], "res_forecast", gap_log)
+        print(f"entsoe_res: {len(gaps)} new gap(s) logged")
+
+
 def main() -> int:
     load_dotenv()
     cfg = load_config()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--only",
-        choices=["weather", "weather_forecast", "pse", "pse_prices", "entsoe", "entsoe_prices"],
+        choices=[
+            "weather", "weather_forecast", "pse", "pse_prices",
+            "entsoe", "entsoe_prices", "entsoe_res",
+        ],
         default=None,
     )
     args = parser.parse_args()
@@ -312,6 +344,8 @@ def main() -> int:
         backfill_entsoe(cfg)
     if args.only in (None, "entsoe_prices"):
         backfill_entsoe_prices(cfg)
+    if args.only in (None, "entsoe_res"):
+        backfill_entsoe_res(cfg)
     return 0
 
 
