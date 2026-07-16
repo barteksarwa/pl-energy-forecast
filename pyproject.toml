@@ -17,6 +17,7 @@ dependencies = [
     "lightgbm>=4.6.0",
     "shap>=0.51.0",
     "torch>=2.13.0",
+    "duckdb>=1.5.4",
 ]
 
 [build-system]
