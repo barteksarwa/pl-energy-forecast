@@ -118,11 +118,42 @@ strengths. This validates keeping the full 25-feature set.
 \subsection{SHAP summary for lgbm\_tso}
 \label{sec:shap}
 
-\textit{Running in background (2026-07-16). Numbers will be filled in when
-complete. Expected output: \texttt{reports/sensitivity/shap\_importance.csv}.}
+SHAP TreeExplainer on lgbm\_tso trained on first 90 test days
+(2024-07-16 -- 2024-10-14). Mean $|$SHAP$|$ per feature.
 
-Preliminary from permutation importance: expect tso\_forecast\_mw to dominate,
-followed by hour\_sin and shortwave\_radiation.
+\begin{center}
+\begin{tabular}{lrr}
+\toprule
+Feature & Mean $|$SHAP$|$ (MW) & Rank \\
+\midrule
+tso\_forecast\_mw    & 2292 & 1 \\
+hour\_sin            &   67 & 2 \\
+hour\_local          &   55 & 3 \\
+doy\_sin             &   49 & 4 \\
+load\_mean\_7d       &   46 & 5 \\
+day\_of\_week        &   45 & 6 \\
+temperature\_2m      &   44 & 7 \\
+doy\_cos             &   39 & 8 \\
+load\_lag\_168h      &   33 & 9 \\
+load\_lag\_504h      &   32 & 10 \\
+is\_weekend          &    0 & 25 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Notable observations.}
+\begin{itemize}
+  \item TSO dominates at 2292 MW; second feature (hour\_sin) is 34$\times$ smaller.
+  \item \texttt{doy\_sin} and \texttt{doy\_cos} rank 4th/8th in SHAP but had
+        \emph{negative} permutation importance --- a multicollinearity artefact
+        in ridge; LGBM handles correlated features better via tree splits.
+  \item \texttt{is\_weekend} SHAP $= 0$: the tree uses \texttt{day\_of\_week}
+        instead (same information, finer granularity). No information lost.
+  \item SHAP and permutation importance diverge on shortwave\_radiation
+        (rank 3 permutation vs rank 13 SHAP). Permutation on ridge inflates
+        importance of features that are sole carriers of shared signal; SHAP on
+        lgbm attributes value more accurately when a correlated set is present.
+\end{itemize}
 
 % ---- 6. PCA / ICA / KernelPCA feature backtest ----
 \subsection{PCA / ICA / KernelPCA feature backtest}
