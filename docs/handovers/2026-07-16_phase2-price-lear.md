@@ -16,7 +16,7 @@
 - **DuckDB notebook:** `notebooks/01_sql_analysis.ipynb` (SQL evidence).
 - **Learning note:** `08_price_formation_and_lear.tex` (merit order, LEAR).
 - **Blog outline:** `docs/notes/blog_post_outline.md`.
-- 7 new leakage/DST tests. Full suite: 55 passed.
+- 7 new leakage/DST tests. Full suite: 48 passed.
 
 ## Three bugs this session (all caught by our own defenses)
 
