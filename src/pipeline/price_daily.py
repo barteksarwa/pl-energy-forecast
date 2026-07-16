@@ -16,14 +16,17 @@ Timing at the 05:30 UTC cron (documented, not hidden):
   yesterday's same-local-hour value. Solar keeps its daily shape; wind
   is a weak persistence guess. The report flags it every day.
 
-Model choice: LEAR, not LightGBM. LGBM has the better MAE (rMAE 0.638
-vs 0.660) but its quantile band covers 51% instead of 80% — unusable
-for a published band until conformal calibration lands
-(docs/model_cards/lgbm_price.md). LEAR's band covers 72%.
+Model choice: LEAR publishes; LightGBM waits its turn. LGBM has the
+better MAE (rMAE 0.638 vs 0.660) and, since Phase 2.5, a calibrated
+band too (conformal: 51% → 79% coverage). But desks do not swap the
+published model on a backtest — a challenger earns promotion through
+a shadow window (PLAN M9). LEAR is the incumbent; its published band
+is conformally widened (config/price_conformal.json).
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -123,6 +126,17 @@ def price_daily_step(
     model = PriceLEAR()
     model.fit(x_tr, y_tr)
     fc = model.predict(x.reindex(thours).dropna())
+
+    # Conformal band widening (config/price_conformal.json, from the
+    # trailing 90d of out-of-sample backtest errors). Without it the raw
+    # LEAR band covers 72% instead of 80% — see model card.
+    try:
+        with open("config/price_conformal.json") as f:
+            q = json.load(f)["lear"]
+        fc["p10"] = (fc["p10"] - q).clip(upper=fc["p50"])
+        fc["p90"] = (fc["p90"] + q).clip(lower=fc["p50"])
+    except (FileNotFoundError, KeyError):
+        oddities.append("Price: conformal offsets missing — publishing the RAW band.")
 
     cfg.paths["forecasts"].mkdir(parents=True, exist_ok=True)
     fc.rename_axis("time_utc").to_csv(

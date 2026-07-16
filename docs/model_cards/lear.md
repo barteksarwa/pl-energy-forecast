@@ -81,9 +81,11 @@ is 0.75–0.85 — fundamentals push us past it.
 
 - **Loses to LightGBM on MAE** (18.5 vs 17.8). Kept as THE baseline:
   every future price model must beat LEAR first.
-- **Coverage 72.1% vs nominal 80%.** Static residual band too narrow in
-  spike months. (LGBM is worse: 51.4% — its quantile boosters
-  under-disperse. Conformal calibration is the open fix for both.)
+- **Raw coverage 72.1% vs nominal 80%** — FIXED in Phase 2.5 by rolling
+  conformal calibration (CQR, 90d trailing window): **79.5%**. The daily
+  loop publishes the conformal band (offset +3.6 EUR/MWh each side,
+  config/price_conformal.json). Table:
+  reports/backtests/2026-07-16_price_conformal_summary.md.
 - Spike MAE 71 vs LGBM 60.6 — both models miss spikes badly; tails are
   the weak spot of the whole table.
 - No fuel/CO2/cross-border features yet.
@@ -94,5 +96,5 @@ is 0.75–0.85 — fundamentals push us past it.
 - [x] Fundamentals features (wind/solar forecast) + extrapolation guard
 - [x] LightGBM quantile challenger — wins MAE, loses coverage
 - [x] Spike-tail evaluation — in the summary table
-- [ ] Conformal / calibrated bands
+- [x] Conformal calibrated band (Phase 2.5): 72.1% -> 79.5% coverage
 - [ ] Fuel + CO2 proxies

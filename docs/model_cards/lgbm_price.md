@@ -47,10 +47,11 @@ brings, anchored on today's price level and expected demand.
 
 ## Honest limitations
 
-- **Coverage 51.4% vs nominal 80% — the band is badly under-dispersed.**
-  Untuned quantile boosters overfit their in-sample quantiles. This must
-  be fixed (conformal calibration or tuning) before any production use.
-  P50 is trustworthy; the band is not.
+- **Raw coverage 51.4% vs nominal 80%** — the untuned quantile boosters
+  overfit their in-sample quantiles. FIXED in Phase 2.5 by rolling
+  conformal calibration: **78.7%** coverage, pinball P90 5.58 -> 4.79
+  (offset +10.2 EUR/MWh each side). The raw band stays unusable; only
+  the conformal variant qualifies for anything risk-facing.
 - Spike MAE 60.6: better than everyone else, still 3x the pooled MAE.
 - Untuned. Tuning comes only now that the honest first row exists
   (repo rule).
@@ -59,6 +60,6 @@ brings, anchored on today's price level and expected demand.
 
 - [x] Honest first row: MAE champion, rMAE 0.638
 - [x] SHAP drivers artifact
-- [ ] Band calibration (conformal) — REQUIRED before shipping
+- [x] Band calibration (conformal, Phase 2.5): 51.4% -> 78.7% coverage
 - [ ] Tuning pass
-- [ ] Daily-loop shadow integration
+- [ ] Daily-loop shadow integration -> promotion candidate vs LEAR (M9 gate)
