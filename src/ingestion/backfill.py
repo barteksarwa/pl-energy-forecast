@@ -256,12 +256,48 @@ def backfill_entsoe(cfg: Config) -> None:
             print(f"{name}: {len(gaps)} new gap(s) logged")
 
 
+def backfill_entsoe_prices(cfg: Config) -> None:
+    """Day-ahead prices (EUR/MWh) from ENTSO-E, full config history.
+
+    Stored in data/processed/price_da_eur.parquet. EUR is the raw unit of
+    the ENTSO-E feed; PLN conversion happens at display time only.
+    PSE (price_da.parquet, PLN) starts 2024-06-14; this series extends
+    history back to cfg.backfill_start.
+
+    No try/except around the fetch: a failed chunk must abort the run so
+    the next resume (_resume_start) re-fetches it. Swallowing the error
+    would advance past the hole and make the gap permanent.
+    """
+    if not os.environ.get("ENTSOE_API_TOKEN"):
+        print("entsoe_prices: skipped — ENTSOE_API_TOKEN not set in .env")
+        return
+    from src.clients.entsoe_client import fetch_day_ahead_price
+
+    gap_log = cfg.paths["data_processed"] / "gap_log.csv"
+    now = pd.Timestamp.now(tz="UTC").floor("1h")
+    path = cfg.paths["data_processed"] / "price_da_eur.parquet"
+    start = _resume_start(path, pd.Timestamp(cfg.backfill_start, tz="UTC"))
+    chunk = pd.Timedelta(days=cfg.entsoe_chunk_days)
+    while start < now:
+        end = min(start + chunk, now)
+        series = fetch_day_ahead_price(cfg.zone, start=start, end=end)
+        combined = _merge_save(path, series.to_frame())
+        print(f"entsoe_prices: {start.date()} → {end.date()}, total {len(combined)}")
+        start = end
+        time.sleep(cfg.request_sleep_s)
+    if path.exists():
+        gaps = log_gaps(pd.read_parquet(path).iloc[:, 0], "price_da_eur", gap_log)
+        print(f"entsoe_prices: {len(gaps)} new gap(s) logged")
+
+
 def main() -> int:
     load_dotenv()
     cfg = load_config()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--only", choices=["weather", "weather_forecast", "pse", "pse_prices", "entsoe"], default=None
+        "--only",
+        choices=["weather", "weather_forecast", "pse", "pse_prices", "entsoe", "entsoe_prices"],
+        default=None,
     )
     args = parser.parse_args()
     if args.only in (None, "weather"):
@@ -274,6 +310,8 @@ def main() -> int:
         backfill_pse_prices(cfg)
     if args.only in (None, "entsoe"):
         backfill_entsoe(cfg)
+    if args.only in (None, "entsoe_prices"):
+        backfill_entsoe_prices(cfg)
     return 0
 
 
