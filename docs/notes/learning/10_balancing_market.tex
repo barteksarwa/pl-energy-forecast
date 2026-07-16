@@ -1,0 +1,60 @@
+\section{The balancing market (rynek bilansuj\k{a}cy)}
+
+The market where forecast errors become invoices. Everything in this
+repo ultimately optimizes against this mechanism.
+
+\subsection{The mechanics}
+
+You told the market (via the day-ahead auction) you would consume 100~MWh
+between 14:00 and 15:00. You actually consumed 110. Someone had to
+generate the missing 10~MWh in real time. The TSO (PSE) bought it for you
+--- and bills you at the \emph{imbalance price}, which in stressed hours is
+far worse than what day-ahead would have cost. That difference, summed
+over every settlement period, is the cost of bad forecasting.
+
+\begin{itemize}
+  \item Every market participant belongs to a balancing group under a
+        \emph{Balance Responsible Party} (BRP) that settles its imbalances.
+  \item The TSO keeps the system balanced by activating bids from
+        \emph{Balancing Service Providers} (BSPs) --- flexible plants,
+        storage, demand response.
+  \item Imbalance = your declared schedule minus your metered reality,
+        per settlement period.
+\end{itemize}
+
+\subsection{The 2024 Polish reform --- know this for interviews}
+
+PSE reformed the balancing market on 2024-06-14 (the same date our PSE
+API data starts --- not a coincidence, the API came with the reform):
+
+\begin{itemize}
+  \item \textbf{15-minute settlement} replaced hourly. Forecast errors
+        now hurt at quarter-hour resolution; a flat hourly profile no
+        longer hides an intra-hour ramp.
+  \item \textbf{Scarcity pricing}: when reserves run thin, an adder
+        pushes the imbalance price above the most expensive activated
+        bid. Prices can reach thousands of PLN/MWh in tight hours.
+  \item Alignment with the EU Electricity Balancing Guideline: BSP/BRP
+        role separation, standard products, path to EU platforms
+        (PICASSO/MARI) for automatic reserves.
+\end{itemize}
+
+Our \texttt{price\_balancing.parquet} holds the post-reform settlement
+price (\texttt{crb-rozl}). Comparing it with the day-ahead price shows
+the premium reality charges for being wrong.
+
+\subsection{Why a desk cares}
+
+\begin{itemize}
+  \item A retailer's load forecast error settles at the imbalance price.
+        1\% MAPE on a large Polish portfolio is millions of PLN per year.
+  \item A trader can deliberately carry a position INTO balancing if
+        they forecast the imbalance price better than the market --- risky,
+        regulated, but it is a real strategy. It needs exactly the models
+        this repo builds.
+  \item The day-ahead vs balancing spread is the price of certainty; its
+        statistics justify every euro spent on better forecasts.
+\end{itemize}
+
+Interview line: ``Forecast quality is not a KPI, it is a cash flow. The
+balancing market is where the cash leaves.''

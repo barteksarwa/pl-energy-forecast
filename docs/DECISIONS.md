@@ -4,6 +4,21 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-07-16 — Phase 2.5: polish before Phase 3; no new models**
+Context: Phase 2 build finished ~5 weeks ahead of the get-hired schedule. Remaining gaps were polish, not build: broken bands, stale README, missing market-context docs.
+Decision: insert Phase 2.5 (conformal calibration, README overhaul, M8 notes pulled forward) before Phase 3. Freeze on new model architectures.
+Why: a recruiter sees the README and the track record, not an eighth LSTM. Owner approved 2026-07-16.
+
+**2026-07-16 — Band calibration: rolling split-conformal (CQR), not tuning**
+Context: LGBM band covered 51% vs nominal 80%; LEAR 72%. Options: quantile-parameter tuning, per-hour residual bands, conformal.
+Decision: rolling CQR on a 90-day trailing window of out-of-sample errors. Model-agnostic wrapper; P50 untouched; daily loop applies stored offsets (`config/price_conformal.json`).
+Why: distribution-free coverage guarantee, walk-forward honest by construction (leakage test proves it), works identically for every current and future model. Result: both bands ~79%.
+
+**2026-07-16 — LEAR stays the daily price publisher despite LGBM's better MAE**
+Context: after calibration LGBM+conformal beats LEAR+conformal on MAE (17.8 vs 18.5) with equal coverage.
+Decision: LEAR remains the published incumbent; LGBM+conformal is the named challenger for a future M9-style shadow window.
+Why: desks do not swap the published model on a backtest — promotion goes through shadow. Swapping day 2 would also reset the just-started price track record.
+
 **2026-07-16 — TSO RES day-ahead forecast accepted as bid-time proxy**
 Context: ENTSO-E publishes the TSO wind+solar forecast for day D ~18:00 on D-1 — hours AFTER the 12:00 gate closure. Strictly, bidders could not see this exact series.
 Decision: use it as a feature anyway, labeled a proxy. Same convention as the EPF literature (Lago et al. 2021 benchmark uses this exact ENTSO-E series).

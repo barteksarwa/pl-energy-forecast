@@ -163,12 +163,39 @@ the number of reachable roles. LEAR is the standard baseline to beat.
   shadow integration for the price model.
 - [x] Learning note: DONE 2026-07-16, `08_price_formation_and_lear.tex`.
 
+### Phase 2.5 — Course correction: polish before Phase 3 (2026-07-16, owner-approved)
+
+Build ran ~5 weeks ahead of the get-hired schedule. Decision: stop adding
+models; convert the head start into hire-signal. All items below DONE
+2026-07-16/17 unless marked.
+
+- [x] **Conformal band calibration** (rolling CQR, 90d window,
+  walk-forward honest). LGBM coverage 51%→79%, LEAR 72%→79.5%. P50
+  untouched. Daily loop publishes the calibrated band; offsets in
+  `config/price_conformal.json`, refreshed by `run_price_calibration`.
+  Tests incl. future-corruption leakage proof.
+- [x] **README recruiter-ready**: both product lines, headline numbers
+  up top, honest-findings sections, 3-minute read. All numbers traced
+  to CSVs (2-yr vs 12-mo campaigns explicitly separated).
+- [x] **M8 market-context notes** (pulled forward from M8):
+  `10_balancing_market.tex` (2024 reform, 15-min settlement, scarcity
+  pricing), `11_rynek_mocy.tex`, `12_intraday_market.tex` (SIDC/XBID,
+  end-to-end timeline).
+- [x] Desk-style backtest review pack + interpretation README +
+  `09_desk_model_review.tex` (added during Phase 2 close-out).
+- [x] Living daily figures: every forecast chart re-rendered with the
+  realized line the next morning.
+- **Owner actions (not code):** merge PR #2; write the blog post from
+  `docs/notes/blog_post_outline.md`; read learning notes 01–12.
+
 ### M8 — Market-context docs + portfolio polish
 
-- Learning notes: DAM mechanics, balancing market (RB 2024 reform), rynek mocy, CO2/ETS.
-- **Blog post draft:** "I built a day-ahead forecasting desk for the Polish power
-  market — and beat the TSO." Public PL benchmark is rare. Top-of-funnel signal.
-- README final: results tables up top, 3-minute recruiter read.
+- [x] Learning notes: balancing market (RB 2024 reform), rynek mocy,
+  intraday/SIDC — done in Phase 2.5. DAM mechanics already in note 02/08.
+- [ ] CO2/ETS note — with the fuel/CO2 feature work (post-Phase 3).
+- **Blog post draft:** outline done (`docs/notes/blog_post_outline.md`);
+  owner writes the text.
+- [x] README final: results tables up top, 3-minute recruiter read.
 - Apply at 30+ daily reports (accumulating since 2026-07-16).
 
 ## Phase 3 — Ops maturity (the "senior job transfer" layer)

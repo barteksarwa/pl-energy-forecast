@@ -1,0 +1,53 @@
+\section{Rynek mocy --- the Polish capacity market}
+
+The day-ahead market pays for \emph{energy delivered}. The capacity
+market pays for \emph{being available}. Poland runs one of Europe's
+largest; it appears in nearly every Polish energy job description.
+
+\subsection{Why it exists}
+
+A system dominated by cheap renewables has hours where prices are near
+zero. A gas peaker that runs 200 hours a year cannot recover its fixed
+costs from energy sales alone --- the ``missing money'' problem. Without
+extra revenue it retires, and then a calm, dark January evening has no
+capacity left to call. The capacity market pays plants (and demand
+response) a fixed fee for guaranteed availability in stress events.
+
+\subsection{Mechanics, briefly}
+
+\begin{itemize}
+  \item Introduced by the 2017 capacity market act; first delivery year
+        2021. Modeled on the British design, EU state-aid approved.
+  \item \textbf{Descending-clock auctions} held years ahead (main
+        auction $\sim$5 years before delivery, plus adjustment
+        auctions). Price falls each round until supply matches the
+        demand curve set by the regulator.
+  \item Winners take on a \emph{capacity obligation}: be available
+        during announced stress periods, or face penalties. New builds
+        can lock contracts for up to 15--17 years; existing units get
+        1 year.
+  \item Paid for by consumers through the \emph{op\l{}ata mocowa}
+        (capacity fee) on electricity bills.
+  \item The EU 550g CO$_2$/kWh emission limit pushed unmodernized coal
+        out of new contracts --- a major driver of the Polish coal fleet's
+        retirement schedule, and therefore of long-run price formation.
+\end{itemize}
+
+\subsection{Why a forecasting desk cares}
+
+\begin{itemize}
+  \item Capacity revenues decide which plants stay in the merit order.
+        The retirement schedule shifts the supply curve our price models
+        implicitly learn --- a regime change models must re-learn.
+  \item Stress-event risk shows up as scarcity premiums in the
+        day-ahead and balancing prices in tight winter hours --- exactly
+        the spike tail where our models are weakest (see the worst-days
+        panel in \texttt{reports/figures/backtests/}).
+  \item For a trader, announced capacity auction results are slow-moving
+        fundamentals: they change the expected frequency of spike hours
+        years ahead.
+\end{itemize}
+
+Interview line: ``Day-ahead pays for energy, rynek mocy pays for
+insurance. The insurance side decides which plants exist, so it quietly
+sets the shape of the price distribution my models learn.''

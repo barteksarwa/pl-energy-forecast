@@ -83,3 +83,24 @@
 2. Spike tails: both models ~3x pooled MAE on top-5% hours.
 3. Daily-loop shadow integration for the price model.
 4. Gas (TTF) / CO2 (EUA) proxies — last missing fundamentals.
+
+## Session continuation (part 3): Phase 2.5 — course correction
+
+Owner reviewed the recap, approved Phase 2.5 (polish before Phase 3),
+model freeze confirmed. All agent-side items done:
+
+- Conformal calibration: LGBM 51->79%, LEAR 72->79.5% coverage.
+  `src/evaluation/conformal.py` + runner + 6 tests (leakage proof).
+  Daily loop publishes LEAR's calibrated band (offsets in
+  `config/price_conformal.json`).
+- README rewritten: two product lines, headline numbers first, honest
+  findings, 3-min read. Caught + fixed a 2yr/12mo table mix.
+- Learning notes 10-12: balancing market (2024 reform), rynek mocy,
+  intraday/SIDC. Learning set now 01-12.
+- PLAN.md: Phase 2.5 section inserted, M8 mostly closed.
+- DECISIONS: 3 new entries (Phase 2.5, conformal method, LEAR stays
+  publisher).
+
+Still on owner: merge PR #2, write blog post from outline, read notes.
+Next agent session -> Phase 3 (M9/M10: UAT split maturity, track record,
+promotion of price challenger through a shadow window).

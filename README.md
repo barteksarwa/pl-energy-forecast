@@ -1,53 +1,120 @@
-# Day-Ahead Electricity Load Forecasting — Poland
+# Polish Power Market Forecasting — Load & Price, Day-Ahead
 
-Every morning this repo forecasts tomorrow's hourly electricity demand for Poland.
-It scores yesterday's forecast, explains today's, and writes a short report.
-It simulates the daily work of a forecasting analyst at a utility or trading desk.
+A production-style forecasting desk for the Polish power market, built
+and operated by one person. Every morning it forecasts tomorrow's hourly
+**load** and **day-ahead price**, scores yesterday's forecasts against
+reality, explains its predictions in plain words, and commits the report.
+The git history is the live track record.
 
-> Status: Milestone 0 (walking skeleton) done. See `docs/PLAN.md` for the roadmap
-> and `reports/daily/` for the track record.
+**Headline results (2-year walk-forward, leakage-proof):**
 
-## Highlights (filled as milestones land)
+- **Load: beats the Polish TSO.** Ridge combiner 2.08% MAPE vs PSE's own
+  day-ahead forecast at 2.23%.
+- **Price: beats the standard.** LightGBM rMAE 0.638 and LEAR 0.660 vs
+  naive (literature range for LEAR: 0.75–0.85). Wins every one of 25
+  test months.
+- **Calibrated uncertainty.** P10/P90 bands conformally calibrated to
+  ~79% empirical coverage (nominal 80%).
 
-- Data: ENTSO-E load + TSO benchmark forecast, Open-Meteo weather, Polish holidays.
-- Models: seasonal naive → linear → LASSO-AR → LightGBM quantile (primary) → LSTM → transformer.
-- Every forecast ships with P10/P50/P90 and a plain-words explanation.
-- Phase 2 adds day-ahead price forecasting on the same pipeline.
-- UAT/prod split: new models run in shadow mode before promotion.
+## The two products
+
+### 1. Day-ahead load (Phase 1 — complete)
+
+Hourly load for the PL bidding zone, decided at 09:00 D-1, P10/P50/P90.
+
+2-year walk-forward, 17,450 test hours
+(`reports/backtests/2026-07-16_2yr_summary.csv`):
+
+| Model | MAPE | MAE (MW) | Skill vs naive |
+|---|---|---|---|
+| **Ridge + TSO forecast (combiner)** | **2.08%** | **374** | **0.63** |
+| LightGBM + TSO forecast | 2.12% | 384 | 0.62 |
+| PSE (TSO) day-ahead forecast | 2.23% | 401 | 0.60 |
+| Ridge (no TSO) | 4.05% | 710 | 0.29 |
+| Seasonal naive (same hour last week) | 5.59% | 1005 | 0.00 |
+
+Deep challengers, evaluated on the 12-month campaign
+(`2026-07-15_overnight_readout.md`, `2026-07-14_fcst_summary.csv`,
+model cards): LSTM-attention+TSO 2.43%, best plain LSTM of 7
+architectures 3.67%, LightGBM-no-TSO 3.16%. None earned a place above
+the linear combiner, so none were re-run on 2 years.
+
+Honest findings the table forces:
+- The TSO forecast is public at bid time; combining with it beats the
+  TSO by ~7% MAE. Once that signal is in, **ridge beats every deep net
+  we built** — and we built seven.
+- Bigger nets lose. Accuracy peaked at ~106k parameters on 2y of data.
+- Cheap screening splits flattered the nets by 0.6–0.9 pp vs honest
+  walk-forward. Most tutorials never mention this.
+
+### 2. Day-ahead price (Phase 2 — live since 2026-07)
+
+PL day-ahead auction price (SDAC), EUR/MWh, forecast before gate closure.
+
+| Model | MAE (EUR/MWh) | rMAE | Band coverage (nominal 80%) |
+|---|---|---|---|
+| **LightGBM quantile + conformal** | **17.8** | **0.638** | 78.7% |
+| LEAR + conformal (published daily) | 18.5 | 0.660 | 79.5% |
+| Naive (same hour yesterday) | 28.0 | 1.000 | 53.1% |
+
+- LEAR = the industry-standard LASSO price baseline (Ziel & Weron 2018),
+  implemented properly: 24 per-hour models, full D-1 price vector,
+  variance-stabilized target.
+- SHAP says the **solar forecast is price driver #1** — the merit order,
+  measured from data.
+- Spikes are the open front: all models run ~3x pooled MAE on the top-5%
+  priciest hours. Documented, not hidden.
+
+## The daily loop (the actual product)
+
+GitHub Actions cron, 05:30 UTC, unattended:
+
+1. Fetch latest actuals (load, price, weather, wind/solar forecasts).
+2. Score yesterday's forecasts against reality; redraw yesterday's
+   charts with the realized line ("living figures").
+3. Forecast tomorrow: load (incumbent + shadow challenger) and price
+   (LEAR + conformal band).
+4. Write a report a manager reads in 60 seconds: `reports/daily/`.
+5. Commit. The history is the proof of consistent operation.
+
+Model changes go through a promotion gate: challengers run in shadow
+for 14 days and replace the incumbent only if they win on metrics agreed
+in advance. Every non-obvious choice is logged in `docs/DECISIONS.md`.
+
+## Why this is credible
+
+- **Leakage paranoia.** The 09:00 D-1 cutoff is enforced by asserts and
+  corruption-proof tests. The DST leakage test caught a real bug: on the
+  25-hour October day, "minus 24 hours" reaches into the target day.
+- **Baselines first.** Nothing ships without beating seasonal naive and
+  the external benchmark. Losing models stay in the tables.
+- **Walk-forward only.** Every reported number is out-of-sample,
+  day-ahead, weekly refits, 2 years of test data (17,480 hours).
+- **Desk-style review pack.** Drift, cumulative edge, hourly error
+  profile, quantile calibration, worst-day post-mortems, monthly bias:
+  `reports/figures/backtests/` (with a how-to-read README).
+- **Four bugs found by our own defenses**, each documented with the
+  measured impact: DST leakage, asinh blowup, solar-growth extrapolation
+  (38,000 EUR/MWh predictions → z-clip guard), gap-permanence.
 
 ## Quickstart
 
 ```bash
 make setup            # install deps (needs uv)
-cp .env.example .env  # add your ENTSO-E token
+cp .env.example .env  # add your ENTSO-E token (free)
 make test             # unit tests, no network
-make smoke            # live API smoke tests
 make dry-run          # one full daily cycle: fetch, score, forecast, report
 ```
 
-## Results — 12-month walk-forward, honest weather forecasts as inputs
+Backtests: `uv run python -m src.evaluation.run_backtest` (load),
+`uv run python -m src.evaluation.run_price_backtest` (price).
+SQL analysis of all datasets: `notebooks/01_sql_analysis.ipynb` (DuckDB).
 
-Poland, hourly day-ahead load, decided at 09:00 D-1. 8,762 test hours.
-Full campaign details: `reports/backtests/`, `docs/notes/model_selection/`.
+## Map
 
-| Model | MAPE | MAE (MW) | Skill vs naive |
-|---|---|---|---|
-| **Ridge + TSO forecast (combiner)** | **2.13%** | **383** | **0.63** |
-| LightGBM + TSO forecast | 2.14% | 391 | 0.62 |
-| PSE (TSO) day-ahead forecast | 2.31% | 418 | 0.59 |
-| LSTM attention + TSO | 2.43% | 448 | 0.56 |
-| LightGBM (weather + calendar + lags) | 3.16% | 579 | 0.43 |
-| LSTM seq2seq (best of 7 architectures) | 3.67% | 692 | 0.32 |
-| Ridge | 4.03% | 718 | 0.30 |
-| Seasonal naive (same hour last week) | 5.60% | 1025 | 0.00 |
-| Climatology | 8.57% | 1621 | −0.58 |
-
-The models that lost stay in the table. Notable honest findings:
-- Combining with the TSO forecast (published at our cutoff) beats the TSO by 8% MAE.
-- Once the TSO signal is in, a ridge regression beats every deep net we built.
-- Bigger nets lose: accuracy peaks at ~106k parameters on 2 years of data.
-- Training-sample augmentation via shifted forecast origins *hurt*. Logged anyway.
-
-## Repo map
-
-See `CLAUDE.md` → "Target repo structure". Decisions in `docs/DECISIONS.md`.
+- `docs/PLAN.md` — roadmap and current phase
+- `docs/DECISIONS.md` — every non-obvious call, three lines each
+- `docs/model_cards/` — one honest card per model
+- `docs/notes/learning/` — the concepts, one page each (LaTeX)
+- `reports/daily/` — the live track record
+- `reports/backtests/` — every results table cited above
