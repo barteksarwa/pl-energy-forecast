@@ -41,10 +41,22 @@ arrives with LightGBM.
 
 Source: `reports/backtests/2026-07-15_fcst_tso_summary.csv`.
 
-### 2-year test (2024-07-16 → 2026-07-15)
+### 2-year test (2024-07-16 → 2026-07-14, 17450 h)
 
-See `reports/backtests/<date>_2yr_summary.csv` for latest numbers. This
-window covers 24 months of walk-forward, 2 winters, and the 2025 summer peak.
+| model | MAPE | MAE (MW) | skill vs naive |
+|---|---|---|---|
+| **ridge_tso** | **2.08%** | **374** | **0.63** |
+| lgbm_tso | 2.12% | 384 | 0.62 |
+| TSO alone | 2.23% | 401 | 0.60 |
+| ridge (no TSO) | 4.05% | 710 | 0.29 |
+| seasonal naive | 5.59% | 1005 | 0.00 |
+
+Source: `reports/backtests/2026-07-16_2yr_summary.csv`.
+Hybrid weather: ERA5 pre-2024 (training), lead-2 forecast 2024+ (test).
+
+The 2-year window is more stable than 12-month. ridge_tso beats lgbm_tso
+by 0.04 pp and the TSO alone by 0.15 pp. Both TSO-combiner models beat the
+standalone TSO, confirming the combination gain is real and persistent.
 
 Weak spots: worst-day tail (largest misses on anomalous holidays and during
 sudden weather pattern changes at the boundary of the 365-day window). The
