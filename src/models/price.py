@@ -1,0 +1,153 @@
+"""Price forecasters: naive baselines and LEAR.
+
+LEAR = LASSO-Estimated AutoRegression (Ziel & Weron 2018). The standard
+day-ahead price baseline. Literature (Lago et al. 2021) shows it beats
+most deep models on this task, so it is the model every challenger fights.
+
+Prices spike and go negative, so two choices differ from the load models:
+- The target is asinh-transformed before fitting. asinh is log-like for
+  large |x| but defined at zero and for negatives. It stops single spike
+  days from dominating the LASSO fit. Quantiles are computed in the
+  transformed space and mapped back with sinh — monotone, so the band
+  stays a valid quantile band.
+- No MAPE anywhere. Near-zero prices make MAPE meaningless.
+"""
+
+from __future__ import annotations
+
+import numpy as np
+import pandas as pd
+from sklearn.linear_model import LassoCV
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+
+from src.models.base import register
+
+PRICE_LAG_COLS = ["price_lag_1d", "price_lag_2d", "price_lag_3d", "price_lag_7d"]
+
+
+class PriceNaiveYesterday:
+    """P50 = same hour yesterday. Band = spread of the four price lags.
+
+    Reads lag features, so it obeys the same cutoff as everyone else.
+    """
+
+    name = "price_naive_yesterday"
+
+    def fit(self, x: pd.DataFrame, y: pd.Series) -> None:
+        pass  # nothing to learn
+
+    def predict(self, x: pd.DataFrame) -> pd.DataFrame:
+        lags = x[PRICE_LAG_COLS]
+        p50 = x["price_lag_1d"]
+        return pd.DataFrame(
+            {
+                "p10": lags.quantile(0.1, axis=1).clip(upper=p50),
+                "p50": p50,
+                "p90": lags.quantile(0.9, axis=1).clip(lower=p50),
+            },
+            index=x.index,
+        )
+
+
+class PriceNaiveWeek:
+    """P50 = same hour last week. Weekend/Monday structure beats yesterday there."""
+
+    name = "price_naive_week"
+
+    def fit(self, x: pd.DataFrame, y: pd.Series) -> None:
+        pass
+
+    def predict(self, x: pd.DataFrame) -> pd.DataFrame:
+        lags = x[PRICE_LAG_COLS]
+        p50 = x["price_lag_7d"]
+        return pd.DataFrame(
+            {
+                "p10": lags.quantile(0.1, axis=1).clip(upper=p50),
+                "p50": p50,
+                "p90": lags.quantile(0.9, axis=1).clip(lower=p50),
+            },
+            index=x.index,
+        )
+
+
+class PriceLEAR:
+    """LEAR proper: 24 per-hour LASSO models (Ziel & Weron 2018 structure).
+
+    Each delivery hour h gets its own LASSO. Every model sees the FULL
+    24-hour price vector of D-1 (price_d1_h00..h23) plus the same-hour
+    lags 2/3/7 days back, load lags, calendar and the TSO load forecast.
+    Cross-hour information is where LEAR's skill lives: tomorrow morning
+    is predicted by yesterday evening's ramp, not just yesterday morning.
+    A pooled single model with same-hour lags only loses to naive
+    (rMAE 1.29 on PL 2024-2026 — measured, reports/backtests).
+
+    The whole price series is asinh-transformed — target AND price
+    columns — so the per-hour model relates asinh(p) to asinh(p_lag),
+    a near-identity map. Quantile band from per-hour training residuals
+    in asinh space, mapped back with sinh (monotone → valid quantiles).
+
+    Alpha by 5-fold CV inside the training window only, per hour.
+    """
+
+    name = "lear"
+
+    def __init__(self) -> None:
+        self._models: dict[int, Pipeline] = {}
+        self._resid_q: dict[int, tuple[float, float]] = {}
+        self._feature_cols: list[str] | None = None
+
+    @staticmethod
+    def _make_pipe() -> Pipeline:
+        return Pipeline(
+            [
+                ("scale", StandardScaler()),
+                ("est", LassoCV(cv=5, alphas=50, max_iter=20000, random_state=0)),
+            ]
+        )
+
+    @staticmethod
+    def _transform_x(x: pd.DataFrame) -> pd.DataFrame:
+        out = x.copy()
+        price_cols = [c for c in x.columns if c.startswith("price_")]
+        out[price_cols] = np.arcsinh(out[price_cols])
+        return out
+
+    def fit(self, x: pd.DataFrame, y: pd.Series) -> None:
+        self._feature_cols = list(x.columns)
+        xt = self._transform_x(x)
+        z = pd.Series(np.arcsinh(y.to_numpy()), index=y.index)
+        self._models, self._resid_q = {}, {}
+        for hour, x_h in xt.groupby(xt["hour_local"].astype(int)):
+            z_h = z.reindex(x_h.index)
+            pipe = self._make_pipe()
+            pipe.fit(x_h.to_numpy(), z_h.to_numpy())
+            resid = z_h.to_numpy() - pipe.predict(x_h.to_numpy())
+            self._models[hour] = pipe
+            self._resid_q[hour] = (
+                float(np.quantile(resid, 0.1)),
+                float(np.quantile(resid, 0.9)),
+            )
+
+    def predict(self, x: pd.DataFrame) -> pd.DataFrame:
+        assert self._models, "fit first"
+        assert list(x.columns) == self._feature_cols, "feature columns changed"
+        xt = self._transform_x(x)
+        out = pd.DataFrame(index=x.index, columns=["p10", "p50", "p90"], dtype=float)
+        for hour, x_h in xt.groupby(xt["hour_local"].astype(int)):
+            pipe = self._models.get(hour)
+            if pipe is None:  # hour unseen in training (DST edge) — nearest hour
+                pipe = self._models[min(self._models, key=lambda k: abs(k - hour))]
+                lo, hi = self._resid_q[min(self._resid_q, key=lambda k: abs(k - hour))]
+            else:
+                lo, hi = self._resid_q[hour]
+            z = pipe.predict(x_h.to_numpy())
+            out.loc[x_h.index, "p10"] = np.sinh(z + lo)
+            out.loc[x_h.index, "p50"] = np.sinh(z)
+            out.loc[x_h.index, "p90"] = np.sinh(z + hi)
+        return out
+
+
+register("price_naive_yesterday")(PriceNaiveYesterday)
+register("price_naive_week")(PriceNaiveWeek)
+register("lear")(PriceLEAR)
