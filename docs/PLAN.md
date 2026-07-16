@@ -128,8 +128,9 @@ the number of reachable roles. LEAR is the standard baseline to beat.
 
 ### M6 — Price data + fundamentals features (2 sessions)
 
-- **TGE day-ahead prices (RDN):** fetch via `entsoe-py` `query_day_ahead_prices('PL')`.
-  Returns EUR/MWh hourly. Store UTC, display local. Backfill 3+ years.
+- [x] **TGE day-ahead prices (RDN):** DONE 2026-07-16. `price_da_eur.parquet`,
+  31,022 h from 2023-01-01, zero gaps. ENTSO-E EUR/MWh is the modeling
+  target (DECISIONS 2026-07-16); PSE PLN stays for display.
 - **Price drivers from M1 catalog:**
   - Wind + solar actual generation (ENTSO-E `query_generation`): free, best driver.
   - Cross-border flow capacity (ENTSO-E `query_crossborder_flows`): interconnection state.
@@ -137,21 +138,23 @@ the number of reachable roles. LEAR is the standard baseline to beat.
   - Gas (TTF) proxy: ENTSO-E LNG/gas net imports, or public EEX settlement data.
   - CO2 (EUA) proxy: ICE daily settlement CSV (free, delayed 1 day).
   - Our own load forecast (D-1 produced) as a feature.
-- Extend gap log and DST tests to price series.
-- **DuckDB/SQL layer**: one notebook, query parquets via DuckDB. Half-day effort.
-  SQL appears in every job ad. Concrete evidence = one analysis notebook.
+- [x] Extend gap log and DST tests to price series. DONE 2026-07-16
+  (tests/test_price_features.py — the 25h-day leakage test found a real bug).
+- [x] **DuckDB/SQL layer**: DONE 2026-07-16. `notebooks/01_sql_analysis.ipynb`.
 
 ### M7 — Price models (3+ sessions)
 
-- **Baseline 1: naive.** Yesterday's same hour; same hour last week.
-- **Baseline 2: LEAR** (LASSO-Estimated AutoRegression). Standard price model.
-  Inputs: lagged prices (24h, 48h, 168h), lagged load, day-of-week dummies.
-  Reference: Ziel & Weron (2018), Lago et al. (2021). This is the one to beat.
+- [x] **Baseline 1: naive.** DONE 2026-07-16. Yesterday + last-week variants.
+- [x] **Baseline 2: LEAR.** DONE 2026-07-16. Per-hour LASSO, D-1 day vector,
+  robust-standardized asinh (Uniejewski, Weron & Ziel 2018).
+  **Result: rMAE 0.744 vs naive over 2 years, wins all 25 months.**
+  Model card: `docs/model_cards/lear.md`. Two failed variants documented there.
 - **LightGBM quantile** on fundamentals (price lags + wind/solar + gas/CO2 proxies).
   SHAP drivers: "price high because low wind + high gas + high demand."
+  Also the fix candidate for LEAR's under-covering band (73% vs nominal 80%).
 - **Price spikes:** evaluate tails separately (MAE on top 5% hours). P90 coverage.
 - Same walk-forward engine as M3. Honest table. If LEAR beats LGBM, say so.
-- Learning note: `06_price_forecasting.tex` — merit order, price formation, LEAR.
+- [x] Learning note: DONE 2026-07-16, `08_price_formation_and_lear.tex`.
 
 ### M8 — Market-context docs + portfolio polish
 

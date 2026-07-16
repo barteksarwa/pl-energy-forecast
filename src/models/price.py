@@ -82,11 +82,18 @@ class PriceLEAR:
     A pooled single model with same-hour lags only loses to naive
     (rMAE 1.29 on PL 2024-2026 — measured, reports/backtests).
 
-    The whole price series is asinh-transformed — target AND price
-    columns — so the per-hour model relates asinh(p) to asinh(p_lag),
-    a near-identity map. Quantile band from per-hour training residuals
-    in asinh space, mapped back with sinh (monotone → valid quantiles).
+    The price series (target AND price columns) is asinh-transformed
+    AFTER robust standardization: z = asinh((p - median) / MAD), the
+    variance-stabilizing transform of Uniejewski, Weron & Ziel (2018).
+    The centering matters, not just the asinh: asinh on RAW ~100 EUR
+    prices sits in its log regime, where the sinh-back derivative is
+    ~100x — tiny z-errors exploded into 400-EUR misses in winter spike
+    months (measured: monthly rMAE 2.64 in Dec 2025 without centering).
+    Standardized, the transform is quasi-linear for normal prices and
+    only compresses genuine spikes.
 
+    Quantile band from per-hour training residuals in z-space, mapped
+    back with the monotone inverse → valid quantiles.
     Alpha by 5-fold CV inside the training window only, per hour.
     """
 
@@ -96,6 +103,8 @@ class PriceLEAR:
         self._models: dict[int, Pipeline] = {}
         self._resid_q: dict[int, tuple[float, float]] = {}
         self._feature_cols: list[str] | None = None
+        self._med: float = 0.0
+        self._mad: float = 1.0
 
     @staticmethod
     def _make_pipe() -> Pipeline:
@@ -106,17 +115,25 @@ class PriceLEAR:
             ]
         )
 
-    @staticmethod
-    def _transform_x(x: pd.DataFrame) -> pd.DataFrame:
+    def _to_z(self, p: np.ndarray) -> np.ndarray:
+        return np.arcsinh((p - self._med) / self._mad)
+
+    def _from_z(self, z: np.ndarray) -> np.ndarray:
+        return self._med + self._mad * np.sinh(z)
+
+    def _transform_x(self, x: pd.DataFrame) -> pd.DataFrame:
         out = x.copy()
         price_cols = [c for c in x.columns if c.startswith("price_")]
-        out[price_cols] = np.arcsinh(out[price_cols])
+        out[price_cols] = self._to_z(out[price_cols].to_numpy())
         return out
 
     def fit(self, x: pd.DataFrame, y: pd.Series) -> None:
         self._feature_cols = list(x.columns)
+        self._med = float(np.median(y))
+        # 1.4826 * MAD estimates sigma under normality; guard against 0
+        self._mad = max(1.4826 * float(np.median(np.abs(y - self._med))), 1e-6)
         xt = self._transform_x(x)
-        z = pd.Series(np.arcsinh(y.to_numpy()), index=y.index)
+        z = pd.Series(self._to_z(y.to_numpy()), index=y.index)
         self._models, self._resid_q = {}, {}
         for hour, x_h in xt.groupby(xt["hour_local"].astype(int)):
             z_h = z.reindex(x_h.index)
@@ -142,9 +159,9 @@ class PriceLEAR:
             else:
                 lo, hi = self._resid_q[hour]
             z = pipe.predict(x_h.to_numpy())
-            out.loc[x_h.index, "p10"] = np.sinh(z + lo)
-            out.loc[x_h.index, "p50"] = np.sinh(z)
-            out.loc[x_h.index, "p90"] = np.sinh(z + hi)
+            out.loc[x_h.index, "p10"] = self._from_z(z + lo)
+            out.loc[x_h.index, "p50"] = self._from_z(z)
+            out.loc[x_h.index, "p90"] = self._from_z(z + hi)
         return out
 
 

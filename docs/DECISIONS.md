@@ -4,6 +4,21 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-07-16 — Price series: ENTSO-E EUR/MWh is canonical for modeling**
+Context: two price sources exist. PSE csdac-pln (PLN, from 2024-06-14) and ENTSO-E (EUR, from 2023-01-01). Different currencies — cross-check needs an FX series we don't have.
+Decision: `price_da_eur.parquet` (ENTSO-E) is the modeling target. PSE PLN stays for display and PLN-denominated portfolio work.
+Why: 1.5 extra years of history, and EUR is what SDAC actually clears in. PLN conversion is presentation, not modeling.
+
+**2026-07-16 — Price lags shift by local calendar days, not fixed 24h**
+Context: first backtest crashed on 2023-10-29 (25h DST day): minus-24h from the last delivery hour lands inside the target day — real leakage, caught by the cutoff assert.
+Decision: price lags = same local clock hour, k local days back. DST-ambiguous/nonexistent hours become NaN and the row drops.
+Why: "yesterday's price" means local yesterday to the market. ~2 NaN hours per year per lag is honest; a silent 24h shift is leakage one day a year.
+
+**2026-07-16 — LEAR is per-hour with robust-standardized asinh; pooled/raw variants rejected on evidence**
+Context: three LEAR variants measured on the same 2-year walk-forward (17,480 h). Pooled model with same-hour lags: rMAE 1.29. Per-hour + D-1 day vector, asinh on raw prices: rMAE 1.11 (winter months up to 2.64 — sinh-back amplifies ~100x at 100 EUR level). Per-hour + asinh((p−med)/MAD): rMAE 0.744, wins all 25 months.
+Decision: ship the third variant as `lear`. Transform per Uniejewski, Weron & Ziel (2018).
+Why: matches the literature spec and the literature result. The two failed variants are documented in the model card so nobody re-walks this path.
+
 **2026-07-16 — Strategic direction: Path A (get hired), Phase 2 = price forecasting**
 Context: Job market research (Opus agent) + strategic analysis (Fable agent) completed 2026-07-16. Full findings in `docs/notes/job_market.md` and `docs/notes/strategic_direction.md`.
 Decision: Priority is getting hired (3-6 months), not building a product. Phase 2 pivot: TGE day-ahead price forecasting before any other extension. Cut: TFT transformer challenger (explain loss is worth more), second EU zone, web UI.
