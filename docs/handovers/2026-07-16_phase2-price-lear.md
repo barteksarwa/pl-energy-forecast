@@ -59,3 +59,27 @@
 - Parquet index column is `__index_level_0__` in DuckDB — the notebook
   aliases it; new queries must too.
 - Full-history feature assembly takes ~2 min; LEAR 2-yr backtest ~6 min.
+
+## Session continuation (evening, part 2)
+
+- RES forecasts backfilled (ENTSO-E 14.1.D): 31,021 h, zero gaps.
+  Offshore NaN = absent capacity, filled 0. Viz + make_all wired.
+- LGBM quantile added to the price table: **rMAE 0.638, new MAE champion**
+  (17.8 EUR/MWh). SHAP: solar forecast #1 driver (18.7 EUR mean |SHAP|).
+- Bug 4: LEAR + RES exploded (38,000 EUR predictions, hour-19 model,
+  May 2025). Cause: solar grows YoY → z-space extrapolation → sinh
+  blow-up. Fix: clip predicted z to training range ± 0.5.
+  RMSE 558 → 32.9. LEAR final: rMAE 0.660.
+- Final table: reports/backtests/2026-07-16_price_res_summary.md.
+  Model cards: lear.md updated, lgbm_price.md new.
+- Owner killed all background jobs mid-session (machine overload):
+  sensitivity PCA step 7 lost (~7h CPU; steps 1-6 outputs safe),
+  TFT never started (was cut by strategy anyway).
+
+## Open problems (priority order for next session)
+
+1. **Band calibration.** LGBM coverage 51% / LEAR 72% vs nominal 80.
+   Conformal calibration on rolling residuals is the standard fix.
+2. Spike tails: both models ~3x pooled MAE on top-5% hours.
+3. Daily-loop shadow integration for the price model.
+4. Gas (TTF) / CO2 (EUA) proxies — last missing fundamentals.

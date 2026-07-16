@@ -149,11 +149,18 @@ the number of reachable roles. LEAR is the standard baseline to beat.
   robust-standardized asinh (Uniejewski, Weron & Ziel 2018).
   **Result: rMAE 0.744 vs naive over 2 years, wins all 25 months.**
   Model card: `docs/model_cards/lear.md`. Two failed variants documented there.
-- **LightGBM quantile** on fundamentals (price lags + wind/solar + gas/CO2 proxies).
-  SHAP drivers: "price high because low wind + high gas + high demand."
-  Also the fix candidate for LEAR's under-covering band (73% vs nominal 80%).
-- **Price spikes:** evaluate tails separately (MAE on top 5% hours). P90 coverage.
-- Same walk-forward engine as M3. Honest table. If LEAR beats LGBM, say so.
+- [x] **LightGBM quantile** on fundamentals. DONE 2026-07-16.
+  **rMAE 0.638, MAE champion.** SHAP: solar forecast is price driver #1.
+  BUT band coverage 51% vs 80% nominal — conformal calibration REQUIRED
+  before shipping. Card: `docs/model_cards/lgbm_price.md`.
+- [x] Wind+solar day-ahead forecasts backfilled (31,021 h, zero gaps).
+  LEAR + RES + extrapolation guard: rMAE 0.660 (z-clip story in card).
+- [x] **Price spikes:** DONE — spike MAE + P90 coverage columns in table.
+  Both models miss spikes badly (spike MAE ~3x pooled); open problem.
+- Same walk-forward engine as M3. Honest table: LGBM wins MAE, LEAR wins
+  coverage; neither band is calibrated yet.
+- **Next:** conformal band calibration, gas/CO2 proxies, daily-loop
+  shadow integration for the price model.
 - [x] Learning note: DONE 2026-07-16, `08_price_formation_and_lear.tex`.
 
 ### M8 — Market-context docs + portfolio polish

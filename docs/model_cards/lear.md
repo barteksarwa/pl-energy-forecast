@@ -21,8 +21,11 @@ Target: PL day-ahead price, EUR/MWh (ENTSO-E, `price_da_eur.parquet`).
 - **Calendar** (weekday, month, holidays, bridge days, cyclic encodings).
 - **TSO day-ahead load forecast** for day D (published before gate closure).
 
-Does NOT see: wind/solar generation forecasts (next M6 step), fuel/CO2
-prices, cross-border flows, outages.
+- **Wind + solar day-ahead forecast** (added 2026-07-16): TSO series via
+  ENTSO-E. Published ~18:00 D-1, after gate closure — accepted as a
+  bid-time proxy (DECISIONS 2026-07-16; standard in the EPF literature).
+
+Does NOT see: fuel/CO2 prices, cross-border flows, outages.
 
 ## Timeline / cutoff
 
@@ -46,31 +49,50 @@ score 0.7. Full history in `reports/backtests/2026-07-16_price_summary.md`.
 Rolling 365-day window, refit every 7 days, walk-forward.
 LassoCV (50 alphas, 5-fold CV inside the training window), per hour.
 
+## The extrapolation guard (z-clip)
+
+Adding RES features exposed a failure: one weekly-refit hour-19 model
+extrapolated on record solar values (solar capacity grows every year, so
+2025-26 values exceed any training window) and sinh-back turned that into
+38,000 EUR/MWh predictions for a week of May 2025. Fix: predicted z is
+clipped to the training z-range ± 0.5 — never beyond every price the
+window has seen, with ~65% headroom for genuine spikes. Measured effect:
+RMSE 558 → 32.9, MAE 27.2 → 18.5.
+
 ## Performance (walk-forward, 2024-07-16 → 2026-07-14, 17,480 h)
 
-| model | MAE (EUR/MWh) | RMSE | rMAE | pinball P10/P50/P90 | coverage 80% |
-|---|---|---|---|---|---|
-| **lear** | **20.8** | **33.4** | **0.744** | **5.0 / 10.4 / 5.4** | 73.4% |
-| naive yesterday | 28.0 | 44.2 | 1.000 | 7.4 / 14.0 / 7.1 | 53.1% |
-| naive last week | 34.0 | 52.9 | 1.216 | 7.4 / 17.0 / 7.3 | 53.7% |
+With RES features + z-clip (`reports/backtests/2026-07-16_price_res_summary.md`):
 
-- rMAE 0.744 sits in the literature range for LEAR vs naive (0.75–0.85).
-- Wins or ties naive in **all 25 test months** (worst month rMAE 1.0).
+| model | MAE (EUR/MWh) | RMSE | rMAE | coverage 80% | spike MAE | spike P90 cov |
+|---|---|---|---|---|---|---|
+| lgbm_quantile | 17.8 | 28.7 | 0.638 | 51.4% | 60.6 | 45.1% |
+| **lear** | **18.5** | **32.9** | **0.660** | **72.1%** | 71.0 | 49.7% |
+| naive yesterday | 28.0 | 44.2 | 1.000 | 53.1% | 77.6 | 37.1% |
+| naive last week | 34.0 | 52.9 | 1.216 | 53.7% | 93.0 | 37.2% |
+
+Lags-only variant (no RES, `2026-07-16_price_summary.md`): MAE 20.8,
+rMAE 0.744, wins all 25 test months. Literature range for LEAR vs naive
+is 0.75–0.85 — fundamentals push us past it.
+
+- Spike columns: top-5% priciest hours of the test period.
 - No MAPE: 798 negative-price hours in the sample make it meaningless.
 
 ## Honest limitations
 
-- **Coverage 73.4% vs nominal 80%.** The static residual band is too
-  narrow in spike months. Fix candidates: conformal band, quantile
-  regression (LightGBM price model, M7).
-- No fundamentals yet (wind/solar forecasts are price driver #1).
-  This is deliberate: LEAR-on-lags is the floor, fundamentals come next.
-- Pooled evaluation hides tail behavior; spike-only evaluation (P90
-  coverage on top-decile hours) planned for the M7 writeup.
+- **Loses to LightGBM on MAE** (18.5 vs 17.8). Kept as THE baseline:
+  every future price model must beat LEAR first.
+- **Coverage 72.1% vs nominal 80%.** Static residual band too narrow in
+  spike months. (LGBM is worse: 51.4% — its quantile boosters
+  under-disperse. Conformal calibration is the open fix for both.)
+- Spike MAE 71 vs LGBM 60.6 — both models miss spikes badly; tails are
+  the weak spot of the whole table.
+- No fuel/CO2/cross-border features yet.
 
 ## Status
 
 - [x] Beats both naives over 2 years, all months
-- [ ] Fundamentals features (wind/solar forecast) — next
-- [ ] LightGBM quantile challenger — M7
-- [ ] Spike-tail evaluation — M7
+- [x] Fundamentals features (wind/solar forecast) + extrapolation guard
+- [x] LightGBM quantile challenger — wins MAE, loses coverage
+- [x] Spike-tail evaluation — in the summary table
+- [ ] Conformal / calibrated bands
+- [ ] Fuel + CO2 proxies

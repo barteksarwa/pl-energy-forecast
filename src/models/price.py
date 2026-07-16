@@ -99,12 +99,18 @@ class PriceLEAR:
 
     name = "lear"
 
+    #: extra z-headroom above/below the training range before clipping.
+    #: 0.5 in asinh space is roughly +65% in price space at the top end —
+    #: room for genuine spikes, not for pathology.
+    Z_CLIP_MARGIN = 0.5
+
     def __init__(self) -> None:
         self._models: dict[int, Pipeline] = {}
         self._resid_q: dict[int, tuple[float, float]] = {}
         self._feature_cols: list[str] | None = None
         self._med: float = 0.0
         self._mad: float = 1.0
+        self._z_clip: tuple[float, float] = (-float("inf"), float("inf"))
 
     @staticmethod
     def _make_pipe() -> Pipeline:
@@ -134,6 +140,15 @@ class PriceLEAR:
         self._mad = max(1.4826 * float(np.median(np.abs(y - self._med))), 1e-6)
         xt = self._transform_x(x)
         z = pd.Series(self._to_z(y.to_numpy()), index=y.index)
+        # Extrapolation guard: a linear model in z-space can explode through
+        # sinh-back when a feature (e.g. ever-growing solar) leaves its
+        # training range. Measured: 38,000 EUR/MWh predictions, one hour
+        # model, May 2025. Predictions are clipped to the training z-range
+        # plus margin — never beyond every price the window has seen.
+        self._z_clip = (
+            float(z.min()) - self.Z_CLIP_MARGIN,
+            float(z.max()) + self.Z_CLIP_MARGIN,
+        )
         self._models, self._resid_q = {}, {}
         for hour, x_h in xt.groupby(xt["hour_local"].astype(int)):
             z_h = z.reindex(x_h.index)
@@ -158,7 +173,7 @@ class PriceLEAR:
                 lo, hi = self._resid_q[min(self._resid_q, key=lambda k: abs(k - hour))]
             else:
                 lo, hi = self._resid_q[hour]
-            z = pipe.predict(x_h.to_numpy())
+            z = np.clip(pipe.predict(x_h.to_numpy()), *self._z_clip)
             out.loc[x_h.index, "p10"] = self._from_z(z + lo)
             out.loc[x_h.index, "p50"] = self._from_z(z)
             out.loc[x_h.index, "p90"] = self._from_z(z + hi)

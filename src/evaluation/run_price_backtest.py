@@ -54,9 +54,11 @@ def assemble_price_features(
 def summarize_price(results: list[BacktestResult], y: pd.Series) -> pd.DataFrame:
     """One row per model. rMAE vs naive-yesterday instead of MAPE.
 
-    Spike columns evaluate the top 5% priciest hours (by actual price):
-    a model can look fine on pooled MAE and still miss every spike.
+    Spike columns evaluate the top 5% priciest hours (by actual price)
+    within the evaluated period: a model can look fine on pooled MAE and
+    still miss every spike.
     """
+    y = y.reindex(results[0].predictions.index)
     spike_cut = y.quantile(0.95)
     rows = []
     for r in results:
