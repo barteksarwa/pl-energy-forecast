@@ -271,16 +271,28 @@ def backfill_entsoe_prices(cfg: Config) -> None:
     if not os.environ.get("ENTSOE_API_TOKEN"):
         print("entsoe_prices: skipped — ENTSOE_API_TOKEN not set in .env")
         return
+    from entsoe.exceptions import NoMatchingDataError
+
     from src.clients.entsoe_client import fetch_day_ahead_price
 
     gap_log = cfg.paths["data_processed"] / "gap_log.csv"
-    now = pd.Timestamp.now(tz="UTC").floor("1h")
+    # Day-ahead prices exist through the END OF TOMORROW once the D-1
+    # auction clears (~13:00 CET) — not merely up to "now". Capping at
+    # now starved the daily price forecast of yesterday's auction results.
+    horizon = pd.Timestamp.now(tz="Europe/Warsaw").normalize() + pd.Timedelta(days=2)
+    horizon = horizon.tz_convert("UTC")
     path = cfg.paths["data_processed"] / "price_da_eur.parquet"
     start = _resume_start(path, pd.Timestamp(cfg.backfill_start, tz="UTC"))
     chunk = pd.Timedelta(days=cfg.entsoe_chunk_days)
-    while start < now:
-        end = min(start + chunk, now)
-        series = fetch_day_ahead_price(cfg.zone, start=start, end=end)
+    while start < horizon:
+        end = min(start + chunk, horizon)
+        try:
+            series = fetch_day_ahead_price(cfg.zone, start=start, end=end)
+        except NoMatchingDataError:
+            # nothing published for this window yet (e.g. tomorrow before
+            # the auction). Store nothing; resume retries the same window.
+            print(f"entsoe_prices: {start.date()} → {end.date()}, not published yet")
+            break
         combined = _merge_save(path, series.to_frame())
         print(f"entsoe_prices: {start.date()} → {end.date()}, total {len(combined)}")
         start = end
@@ -300,16 +312,25 @@ def backfill_entsoe_res(cfg: Config) -> None:
     if not os.environ.get("ENTSOE_API_TOKEN"):
         print("entsoe_res: skipped — ENTSOE_API_TOKEN not set in .env")
         return
+    from entsoe.exceptions import NoMatchingDataError
+
     from src.clients.entsoe_client import fetch_res_forecast
 
     gap_log = cfg.paths["data_processed"] / "gap_log.csv"
-    now = pd.Timestamp.now(tz="UTC").floor("1h")
+    # The TSO publishes tomorrow's wind/solar forecast on D-1 (~18:00);
+    # fetch through end of tomorrow, same reasoning as entsoe_prices.
+    horizon = pd.Timestamp.now(tz="Europe/Warsaw").normalize() + pd.Timedelta(days=2)
+    horizon = horizon.tz_convert("UTC")
     path = cfg.paths["data_processed"] / "res_forecast.parquet"
     start = _resume_start(path, pd.Timestamp(cfg.backfill_start, tz="UTC"))
     chunk = pd.Timedelta(days=cfg.entsoe_chunk_days)
-    while start < now:
-        end = min(start + chunk, now)
-        df = fetch_res_forecast(cfg.zone, start=start, end=end)
+    while start < horizon:
+        end = min(start + chunk, horizon)
+        try:
+            df = fetch_res_forecast(cfg.zone, start=start, end=end)
+        except NoMatchingDataError:
+            print(f"entsoe_res: {start.date()} → {end.date()}, not published yet")
+            break
         combined = _merge_save(path, df)
         print(f"entsoe_res: {start.date()} → {end.date()}, total {len(combined)}")
         start = end

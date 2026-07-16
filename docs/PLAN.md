@@ -202,6 +202,18 @@ models; convert the head start into hire-signal. All items below DONE
 
 ### M9 — UAT/prod split + POC automation (2 sessions)
 
+**Status 2026-07-17:** cron live since 07-15; load challenger in shadow
+(tally: docs/shadow_tally.md); price incumbent (LEAR+conformal) publishing
+and price challenger (LGBM+conformal) in shadow since 07-17 with
+pre-agreed promotion criteria (docs/shadow_tally_price.md). Fixed this
+session: secret-redaction in report oddities (ENTSO-E error URLs carried
+the token), publish-horizon fetching (DA prices/RES exist through
+tomorrow, not "now"), shape-preserving persist_24h for unpublished
+TSO/RES, empty-forecast guard. Env keys (dev/uat/prod) in config:
+consciously deferred — shadow/prod separation already exists through
+the challenger mechanism; config ceremony adds nothing a recruiter or
+the ops loop needs right now.
+
 Per owner: simulate real deployment discipline, free tools only.
 
 - Environments in config: `dev` (local, any branch), `uat` (shadow run),
@@ -214,6 +226,11 @@ Per owner: simulate real deployment discipline, free tools only.
   push comes after, per owner.
 
 ### M10 — Track record + recruiter/publication polish
+
+**Status 2026-07-17:** README done (Phase 2.5). HOW_A_FORECAST_IS_MADE.md
+written (definition-of-done item). Track record accumulating (cron).
+Remaining: 30+ daily reports (time), blog post (owner), publication
+check (owner decision with evidence).
 
 - 30+ daily reports accumulate in prod mode.
 - README final: results tables up top, 3-minute read.

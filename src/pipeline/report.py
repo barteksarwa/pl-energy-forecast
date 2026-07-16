@@ -3,11 +3,27 @@
 from __future__ import annotations
 
 import math
+import os
+import re
 from pathlib import Path
 
 import pandas as pd
 
 from src.config import Config
+
+
+def redact(text: str) -> str:
+    """Strip secrets from text that will be committed.
+
+    Exception messages can embed full request URLs — an ENTSO-E error
+    once carried `securityToken=<our token>` straight into a report.
+    Every oddity/error string must pass through here before writing.
+    """
+    text = re.sub(r"securityToken=[^&\s]+", "securityToken=REDACTED", text)
+    token = os.environ.get("ENTSOE_API_TOKEN")
+    if token:
+        text = text.replace(token, "REDACTED")
+    return text
 
 
 def _fmt(value: float) -> str:
@@ -68,7 +84,7 @@ def write_report(
         "### Oddities",
         "",
     ]
-    lines += [f"- {o}" for o in oddities] if oddities else ["- None."]
+    lines += [f"- {redact(o)}" for o in oddities] if oddities else ["- None."]
     lines += [
         "",
         f"![Day-ahead forecast fan chart](../figures/daily/{tomorrow}.png)",

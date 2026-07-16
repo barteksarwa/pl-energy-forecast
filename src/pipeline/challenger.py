@@ -60,10 +60,13 @@ def challenger_forecast(cfg: Config, today_local: pd.Timestamp) -> pd.DataFrame:
 
     hours = local_day_hours_utc(tomorrow, tz)
     cutoff = pd.Timestamp(today_local.date(), tz=tz) + pd.Timedelta(hours=9)
-    # TSO for tomorrow may not be published yet (PSE publishes ~09:00 local D-1;
-    # cron runs at 05:30 UTC = 07:30 local). Forward-fill the TSO series so
-    # trailing NaN hours inherit the last published value — better than failing.
-    tso_for_pred = tso.ffill()
+    # TSO for tomorrow may not be published yet (PSE publishes ~09:00 local
+    # D-1). Persist the same clock hour from the day before — shape-preserving,
+    # unlike a flat ffill of the last value (which also fails when the whole
+    # target day lies beyond the series end).
+    from src.pipeline.price_daily import persist_24h
+
+    tso_for_pred = persist_24h(tso, hours)
     x_tomorrow = build_features(hours, load, live_weighted_weather(cfg), cutoff,
                                 tso=tso_for_pred)
     x_tomorrow = x_tomorrow[x_train.columns]
