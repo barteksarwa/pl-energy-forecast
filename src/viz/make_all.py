@@ -76,6 +76,13 @@ def main() -> int:
         made.append(plot_price_history(
             pd.read_parquet(price_p).iloc[:, 0], FIGURES / "price_da_history.png"))
 
+    # Phase 2: wind + solar day-ahead forecast, if present.
+    res_p = cfg.paths["data_processed"] / "res_forecast.parquet"
+    if res_p.exists():
+        from src.viz.plots import plot_res_forecast
+        made.append(plot_res_forecast(
+            pd.read_parquet(res_p), FIGURES / "res_forecast_history.png"))
+
     # Full backfilled history, if present.
     hist_p = cfg.paths["data_processed"] / "load.parquet"
     if hist_p.exists():

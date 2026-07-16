@@ -1,0 +1,109 @@
+\section{SHAP is not feature selection --- attribution vs value of information}
+
+A common and expensive confusion. Three different questions hide under
+``feature importance'':
+
+\begin{enumerate}
+  \item \textbf{What does THIS fitted model lean on?} $\to$ SHAP
+        (attribution).
+  \item \textbf{What is a feature or group worth --- what does accuracy
+        lose if I remove it and RETRAIN?} $\to$ ablation
+        (value of information).
+  \item \textbf{What is the smallest feature set that keeps accuracy?}
+        $\to$ forward/backward selection, or L1.
+\end{enumerate}
+
+The answers can disagree wildly, and correlated features are the reason.
+
+\subsection{Why they disagree: credit splitting}
+
+SHAP divides a prediction's credit fairly across features. If ten
+features carry copies of the same signal, each gets $\sim$1/10 of the
+credit and each ranks low --- though the signal itself is the most
+valuable thing in the data. Remove one of the ten and retrain: the model
+reorganizes around the other nine and loses almost nothing. So:
+
+\begin{itemize}
+  \item high SHAP $\neq$ irreplaceable,
+  \item low SHAP $\neq$ useless,
+  \item and no SHAP rank tells you what a RETRAINED model would do ---
+        SHAP is computed inside one frozen model.
+\end{itemize}
+
+A field example (from a practitioner): 200 candidate features,
+AUROC 0.845. Top-10 by SHAP shared \emph{zero} features with the 8
+found by forward selection (AUROC 0.836). One of the 8 scored 0.74
+alone, yet SHAP ranked it 6th of 8. Nothing malfunctioned: under heavy
+redundancy many disjoint subsets are near-optimal, the lone-strong
+feature's information also arrived via correlated colleagues (so its
+marginal credit was small), and greedy forward selection is itself
+unstable --- rerun on a bootstrap and the chosen 8 change.
+
+\subsection{Our own case: ``solar is price driver \#1'' --- tested, survived}
+
+SHAP on the price LightGBM ranks the solar forecast first
+(18.7 EUR mean $|$SHAP$|$) above yesterday's price (14.1). Suspicion:
+our $\sim$29 correlated price columns split credit, deflating each and
+inflating solar's rank. So we ran the retrain test
+(\texttt{reports/backtests/2026-07-17\_price\_group\_ablation.md},
+walk-forward, Jan--Jul 2026): drop the RES group, MAE +3.54 EUR/MWh ---
+the LARGEST group cost, above even the whole price-lag block (+2.80).
+The suspicion was reasonable and WRONG; the claim now stands on two
+independent methods. Honest caveats: the test window is the
+solar-heavy season (winter would shift value toward scarcity signals),
+and load lags turned out to be dead weight for the price model
+($-0.04$; pruning candidate).
+
+Do not skip the general lesson because this case agreed: attribution
+magnitude and retrain delta are DIFFERENT UNITS answering different
+questions --- solar's 18.7 EUR mean $|$SHAP$|$ is not ``worth 18.7 EUR
+of MAE'' (the retrain says 3.54 for the whole group). Only the ranking
+was confirmed, and only at group level.
+
+The load model shows the same double-check: SHAP said the TSO forecast
+dominates, and the retrain ablation confirmed it (its removal costs
++1.97pp MAPE, 96\% of total skill). When both methods agree, the
+conclusion is solid. When they disagree, say WHY before quoting either.
+
+\subsection{What the original paper actually promises}
+
+Lundberg \& Lee (2017), read closely, confirm all of this:
+
+\begin{itemize}
+  \item \textbf{Local accuracy}: the attributions are DEFINED to sum to
+        one prediction minus the model's average output ---
+        $f(x) = \phi_0 + \sum_i \phi_i$. A decomposition of a fitted
+        model's output. The paper's stated goal is user trust and model
+        understanding; feature selection is never claimed.
+  \item \textbf{The estimators assume feature independence} (their
+        Eq.~11). Our 29 correlated price columns violate this exactly
+        where it matters --- credit assignment among correlated features
+        is where the practical approximations are weakest.
+  \item \textbf{The retraining variant exists}: their ``Shapley
+        regression values'' retrain on every feature subset ($2^M$
+        models) and average performance deltas --- value of information,
+        done exhaustively. SHAP's innovation is AVOIDING retraining for
+        speed; that choice is precisely what decouples it from
+        predictive value. Our group ablation is the affordable cousin:
+        one coalition per group, retrain, measure.
+  \item \textbf{Why SHAP anyway}: the consistency theorem. Gain-based
+        importances (LightGBM's built-in) can DECREASE when a feature's
+        true contribution increases; SHAP provably cannot. Among
+        attribution tools it is the right one --- the mistake is only
+        asking attribution to do selection.
+\end{itemize}
+
+\subsection{Practice rules for this repo}
+
+\begin{itemize}
+  \item SHAP is for explaining the shipped model's daily forecast
+        (hard rule 3). Never for feature selection.
+  \item Any ``driver'' claim in a card or README must cite the retrain
+        ablation, not the SHAP rank, or state both.
+  \item Feature pruning decisions: ablation on groups, LASSO path for
+        linear models, never SHAP rank alone.
+\end{itemize}
+
+Interview line: ``SHAP explains the model you have; ablation prices the
+data you feed it. Correlated features make the two disagree, and the
+size of the disagreement is itself a useful measurement.''

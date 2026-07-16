@@ -21,6 +21,7 @@ def write_report(
     forecast: pd.DataFrame,
     weather: pd.DataFrame,
     oddities: list[str],
+    extra_sections: list[str] | None = None,
 ) -> Path:
     tz = cfg.timezone_local
     tomorrow = today_local.date() + pd.Timedelta(days=1)
@@ -46,6 +47,8 @@ def write_report(
         f"| Challenger (ridge+TSO, shadow) | {_fmt(scores.get('challenger_mape', float('nan')))} |",
         f"| TSO day-ahead | {_fmt(scores['tso_mape'])} |",
         "",
+        f"![Yesterday: forecast vs realized](../figures/daily/{yesterday}.png)",
+        "",
         f"## Tomorrow ({tomorrow}) — the forecast",
         "",
         f"- Expected peak: **{local['p50'].max():,.0f} MW** around "
@@ -70,6 +73,10 @@ def write_report(
         "",
         f"![Day-ahead forecast fan chart](../figures/daily/{tomorrow}.png)",
         "",
+    ]
+    if extra_sections:
+        lines += extra_sections + [""]
+    lines += [
         "_Full hourly quantiles: see `data/forecasts/`._",
         "",
     ]

@@ -128,8 +128,9 @@ the number of reachable roles. LEAR is the standard baseline to beat.
 
 ### M6 — Price data + fundamentals features (2 sessions)
 
-- **TGE day-ahead prices (RDN):** fetch via `entsoe-py` `query_day_ahead_prices('PL')`.
-  Returns EUR/MWh hourly. Store UTC, display local. Backfill 3+ years.
+- [x] **TGE day-ahead prices (RDN):** DONE 2026-07-16. `price_da_eur.parquet`,
+  31,022 h from 2023-01-01, zero gaps. ENTSO-E EUR/MWh is the modeling
+  target (DECISIONS 2026-07-16); PSE PLN stays for display.
 - **Price drivers from M1 catalog:**
   - Wind + solar actual generation (ENTSO-E `query_generation`): free, best driver.
   - Cross-border flow capacity (ENTSO-E `query_crossborder_flows`): interconnection state.
@@ -137,28 +138,64 @@ the number of reachable roles. LEAR is the standard baseline to beat.
   - Gas (TTF) proxy: ENTSO-E LNG/gas net imports, or public EEX settlement data.
   - CO2 (EUA) proxy: ICE daily settlement CSV (free, delayed 1 day).
   - Our own load forecast (D-1 produced) as a feature.
-- Extend gap log and DST tests to price series.
-- **DuckDB/SQL layer**: one notebook, query parquets via DuckDB. Half-day effort.
-  SQL appears in every job ad. Concrete evidence = one analysis notebook.
+- [x] Extend gap log and DST tests to price series. DONE 2026-07-16
+  (tests/test_price_features.py — the 25h-day leakage test found a real bug).
+- [x] **DuckDB/SQL layer**: DONE 2026-07-16. `notebooks/01_sql_analysis.ipynb`.
 
 ### M7 — Price models (3+ sessions)
 
-- **Baseline 1: naive.** Yesterday's same hour; same hour last week.
-- **Baseline 2: LEAR** (LASSO-Estimated AutoRegression). Standard price model.
-  Inputs: lagged prices (24h, 48h, 168h), lagged load, day-of-week dummies.
-  Reference: Ziel & Weron (2018), Lago et al. (2021). This is the one to beat.
-- **LightGBM quantile** on fundamentals (price lags + wind/solar + gas/CO2 proxies).
-  SHAP drivers: "price high because low wind + high gas + high demand."
-- **Price spikes:** evaluate tails separately (MAE on top 5% hours). P90 coverage.
-- Same walk-forward engine as M3. Honest table. If LEAR beats LGBM, say so.
-- Learning note: `06_price_forecasting.tex` — merit order, price formation, LEAR.
+- [x] **Baseline 1: naive.** DONE 2026-07-16. Yesterday + last-week variants.
+- [x] **Baseline 2: LEAR.** DONE 2026-07-16. Per-hour LASSO, D-1 day vector,
+  robust-standardized asinh (Uniejewski, Weron & Ziel 2018).
+  **Result: rMAE 0.744 vs naive over 2 years, wins all 25 months.**
+  Model card: `docs/model_cards/lear.md`. Two failed variants documented there.
+- [x] **LightGBM quantile** on fundamentals. DONE 2026-07-16.
+  **rMAE 0.638, MAE champion.** SHAP: solar forecast is price driver #1.
+  BUT band coverage 51% vs 80% nominal — conformal calibration REQUIRED
+  before shipping. Card: `docs/model_cards/lgbm_price.md`.
+- [x] Wind+solar day-ahead forecasts backfilled (31,021 h, zero gaps).
+  LEAR + RES + extrapolation guard: rMAE 0.660 (z-clip story in card).
+- [x] **Price spikes:** DONE — spike MAE + P90 coverage columns in table.
+  Both models miss spikes badly (spike MAE ~3x pooled); open problem.
+- Same walk-forward engine as M3. Honest table: LGBM wins MAE, LEAR wins
+  coverage; neither band is calibrated yet.
+- **Next:** conformal band calibration, gas/CO2 proxies, daily-loop
+  shadow integration for the price model.
+- [x] Learning note: DONE 2026-07-16, `08_price_formation_and_lear.tex`.
+
+### Phase 2.5 — Course correction: polish before Phase 3 (2026-07-16, owner-approved)
+
+Build ran ~5 weeks ahead of the get-hired schedule. Decision: stop adding
+models; convert the head start into hire-signal. All items below DONE
+2026-07-16/17 unless marked.
+
+- [x] **Conformal band calibration** (rolling CQR, 90d window,
+  walk-forward honest). LGBM coverage 51%→79%, LEAR 72%→79.5%. P50
+  untouched. Daily loop publishes the calibrated band; offsets in
+  `config/price_conformal.json`, refreshed by `run_price_calibration`.
+  Tests incl. future-corruption leakage proof.
+- [x] **README recruiter-ready**: both product lines, headline numbers
+  up top, honest-findings sections, 3-minute read. All numbers traced
+  to CSVs (2-yr vs 12-mo campaigns explicitly separated).
+- [x] **M8 market-context notes** (pulled forward from M8):
+  `10_balancing_market.tex` (2024 reform, 15-min settlement, scarcity
+  pricing), `11_rynek_mocy.tex`, `12_intraday_market.tex` (SIDC/XBID,
+  end-to-end timeline).
+- [x] Desk-style backtest review pack + interpretation README +
+  `09_desk_model_review.tex` (added during Phase 2 close-out).
+- [x] Living daily figures: every forecast chart re-rendered with the
+  realized line the next morning.
+- **Owner actions (not code):** merge PR #2; write the blog post from
+  `docs/notes/blog_post_outline.md`; read learning notes 01–12.
 
 ### M8 — Market-context docs + portfolio polish
 
-- Learning notes: DAM mechanics, balancing market (RB 2024 reform), rynek mocy, CO2/ETS.
-- **Blog post draft:** "I built a day-ahead forecasting desk for the Polish power
-  market — and beat the TSO." Public PL benchmark is rare. Top-of-funnel signal.
-- README final: results tables up top, 3-minute recruiter read.
+- [x] Learning notes: balancing market (RB 2024 reform), rynek mocy,
+  intraday/SIDC — done in Phase 2.5. DAM mechanics already in note 02/08.
+- [ ] CO2/ETS note — with the fuel/CO2 feature work (post-Phase 3).
+- **Blog post draft:** outline done (`docs/notes/blog_post_outline.md`);
+  owner writes the text.
+- [x] README final: results tables up top, 3-minute recruiter read.
 - Apply at 30+ daily reports (accumulating since 2026-07-16).
 
 ## Phase 3 — Ops maturity (the "senior job transfer" layer)

@@ -61,8 +61,19 @@ def plot_load_vs_tso(load: pd.Series, tso: pd.Series | None, out: Path) -> Path:
     return _finish(fig, out)
 
 
-def plot_forecast_band(forecast: pd.DataFrame, target_date: str, out: Path) -> Path:
-    """Fan chart: P50 line, P10–P90 band. Displayed in local time."""
+def plot_forecast_band(
+    forecast: pd.DataFrame,
+    target_date: str,
+    out: Path,
+    actual: pd.Series | None = None,
+    unit: str = "Load (MW)",
+) -> Path:
+    """Fan chart: P50 line, P10-P90 band. Displayed in local time.
+
+    Living figure: published with the band only; the morning after the
+    target day, the daily run re-renders it WITH the realized series so
+    every report's chart eventually shows forecast vs reality.
+    """
     apply_style()
     local = forecast.tz_convert(LOCAL_TZ)
     fig, ax = plt.subplots(figsize=(9, 3.5))
@@ -71,9 +82,14 @@ def plot_forecast_band(forecast: pd.DataFrame, target_date: str, out: Path) -> P
         color=BLUE, alpha=BAND_ALPHA, linewidth=0, label="P10–P90",
     )
     ax.plot(local.index, local["p50"], color=BLUE, label="P50")
-    ax.set_ylabel("Load (MW)")
+    title = f"Day-ahead forecast — {target_date}"
+    if actual is not None:
+        act = actual.tz_convert(LOCAL_TZ)
+        ax.plot(act.index, act.values, color="black", linewidth=2.0, label="realized")
+        title += " — vs realized"
+    ax.set_ylabel(unit)
     ax.set_xlabel(f"Time ({LOCAL_TZ})")
-    ax.set_title(f"Day-ahead load forecast — {target_date}", loc="left")
+    ax.set_title(title, loc="left")
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M", tz=local.index.tz))
     ax.legend(frameon=False)
     return _finish(fig, out)
@@ -127,4 +143,20 @@ def plot_load_history(load: pd.Series, out: Path) -> Path:
     ax.set_ylabel("Daily mean load (MW)")
     ax.set_xlabel("Time (UTC)")
     ax.set_title("Poland — daily mean load, full history (ENTSO-E)", loc="left")
+    return _finish(fig, out)
+
+
+def plot_res_forecast(res: pd.DataFrame, out: Path) -> Path:
+    """Wind + solar day-ahead forecast: daily means, stacked view of the mix."""
+    apply_style()
+    daily = res.resample("1D").mean()
+    fig, ax = plt.subplots(figsize=(9, 3.5))
+    ax.plot(daily.index, daily["solar_fcst_mw"], color=ORANGE, linewidth=1.0,
+            label="solar")
+    wind = daily["wind_on_fcst_mw"] + daily["wind_off_fcst_mw"]
+    ax.plot(daily.index, wind, color=BLUE, linewidth=1.0, label="wind (on+off)")
+    ax.set_ylabel("Daily mean forecast (MW)")
+    ax.set_xlabel("Time (UTC)")
+    ax.set_title("PL wind + solar day-ahead forecast (ENTSO-E 14.1.D)", loc="left")
+    ax.legend(frameon=False)
     return _finish(fig, out)

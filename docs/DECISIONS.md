@@ -4,6 +4,41 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-07-16 — Phase 2.5: polish before Phase 3; no new models**
+Context: Phase 2 build finished ~5 weeks ahead of the get-hired schedule. Remaining gaps were polish, not build: broken bands, stale README, missing market-context docs.
+Decision: insert Phase 2.5 (conformal calibration, README overhaul, M8 notes pulled forward) before Phase 3. Freeze on new model architectures.
+Why: a recruiter sees the README and the track record, not an eighth LSTM. Owner approved 2026-07-16.
+
+**2026-07-16 — Band calibration: rolling split-conformal (CQR), not tuning**
+Context: LGBM band covered 51% vs nominal 80%; LEAR 72%. Options: quantile-parameter tuning, per-hour residual bands, conformal.
+Decision: rolling CQR on a 90-day trailing window of out-of-sample errors. Model-agnostic wrapper; P50 untouched; daily loop applies stored offsets (`config/price_conformal.json`).
+Why: distribution-free coverage guarantee, walk-forward honest by construction (leakage test proves it), works identically for every current and future model. Result: both bands ~79%.
+
+**2026-07-16 — LEAR stays the daily price publisher despite LGBM's better MAE**
+Context: after calibration LGBM+conformal beats LEAR+conformal on MAE (17.8 vs 18.5) with equal coverage.
+Decision: LEAR remains the published incumbent; LGBM+conformal is the named challenger for a future M9-style shadow window.
+Why: desks do not swap the published model on a backtest — promotion goes through shadow. Swapping day 2 would also reset the just-started price track record.
+
+**2026-07-16 — TSO RES day-ahead forecast accepted as bid-time proxy**
+Context: ENTSO-E publishes the TSO wind+solar forecast for day D ~18:00 on D-1 — hours AFTER the 12:00 gate closure. Strictly, bidders could not see this exact series.
+Decision: use it as a feature anyway, labeled a proxy. Same convention as the EPF literature (Lago et al. 2021 benchmark uses this exact ENTSO-E series).
+Why: bidders run their own RES forecasts at bid time; the TSO series proxies that information set. SHAP says solar forecast is price driver #1 (18.7 EUR mean |SHAP|) — dropping it would cripple the model to protect a technicality. Caveat repeats in the model card.
+
+**2026-07-16 — Price series: ENTSO-E EUR/MWh is canonical for modeling**
+Context: two price sources exist. PSE csdac-pln (PLN, from 2024-06-14) and ENTSO-E (EUR, from 2023-01-01). Different currencies — cross-check needs an FX series we don't have.
+Decision: `price_da_eur.parquet` (ENTSO-E) is the modeling target. PSE PLN stays for display and PLN-denominated portfolio work.
+Why: 1.5 extra years of history, and EUR is what SDAC actually clears in. PLN conversion is presentation, not modeling.
+
+**2026-07-16 — Price lags shift by local calendar days, not fixed 24h**
+Context: first backtest crashed on 2023-10-29 (25h DST day): minus-24h from the last delivery hour lands inside the target day — real leakage, caught by the cutoff assert.
+Decision: price lags = same local clock hour, k local days back. DST-ambiguous/nonexistent hours become NaN and the row drops.
+Why: "yesterday's price" means local yesterday to the market. ~2 NaN hours per year per lag is honest; a silent 24h shift is leakage one day a year.
+
+**2026-07-16 — LEAR is per-hour with robust-standardized asinh; pooled/raw variants rejected on evidence**
+Context: three LEAR variants measured on the same 2-year walk-forward (17,480 h). Pooled model with same-hour lags: rMAE 1.29. Per-hour + D-1 day vector, asinh on raw prices: rMAE 1.11 (winter months up to 2.64 — sinh-back amplifies ~100x at 100 EUR level). Per-hour + asinh((p−med)/MAD): rMAE 0.744, wins all 25 months.
+Decision: ship the third variant as `lear`. Transform per Uniejewski, Weron & Ziel (2018).
+Why: matches the literature spec and the literature result. The two failed variants are documented in the model card so nobody re-walks this path.
+
 **2026-07-16 — Strategic direction: Path A (get hired), Phase 2 = price forecasting**
 Context: Job market research (Opus agent) + strategic analysis (Fable agent) completed 2026-07-16. Full findings in `docs/notes/job_market.md` and `docs/notes/strategic_direction.md`.
 Decision: Priority is getting hired (3-6 months), not building a product. Phase 2 pivot: TGE day-ahead price forecasting before any other extension. Cut: TFT transformer challenger (explain loss is worth more), second EU zone, web UI.

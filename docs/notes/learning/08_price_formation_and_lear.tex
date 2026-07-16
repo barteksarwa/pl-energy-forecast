@@ -1,0 +1,87 @@
+\section{Price formation, merit order, and LEAR}
+
+Phase 2 target: the day-ahead price for Poland. Before the model, the market.
+
+\subsection{Where the price comes from}
+
+Every day at 12:00 CET the day-ahead auction clears (SDAC --- one coupled
+auction for most of Europe; in Poland the venue is TGE). Buyers bid demand,
+sellers offer generation. The clearing price for each delivery hour is set
+where supply meets demand.
+
+The supply curve is the \emph{merit order}: power plants sorted by marginal
+cost. Wind and solar bid near zero (fuel is free). Nuclear low. Coal and gas
+high, and their cost moves with fuel and CO$_2$ prices. The most expensive
+plant that still runs sets the price for \emph{everyone}. This is why:
+
+\begin{itemize}
+  \item High wind $\to$ cheap plants cover demand $\to$ low price.
+        Our data: hours with wind $>$ 4 GW average $\sim$88 EUR/MWh,
+        calm hours $\sim$111 (notebook \texttt{01\_sql\_analysis}).
+  \item Solar noon $\to$ midday price dip, sometimes negative
+        (the ``duck curve''). Negative price = producers pay to keep
+        running, because stopping a coal unit costs more than paying.
+  \item Cold, dark, calm evening $\to$ gas peakers set the price $\to$ spikes.
+\end{itemize}
+
+A worked example. Demand 20 GW at hour 19. Wind 1 GW, solar 0 (evening).
+Nuclear-like base 3 GW at 10 EUR. Coal 12 GW at 90 EUR. To cover the last
+4 GW the system needs gas at 140 EUR. Clearing price: 140 EUR/MWh for the
+whole hour, also for the wind farm that bid 0.
+
+\subsection{Why the price timeline differs from the load timeline}
+
+Our load forecast freezes at 09:00 on D$-1$. Price bids close at 12:00 CET
+on D$-1$, and yesterday's prices (delivery day D$-1$) were fixed at the
+auction on D$-2$. So when forecasting day D:
+
+\begin{itemize}
+  \item ALL 24 prices of D$-1$ are known. Lag ``same hour yesterday'' is legal.
+  \item Load lags still need 48 h --- actual consumption arrives with delay.
+  \item The TSO load forecast for D (published $\sim$09:00 D$-1$) is known
+        before gate closure. Legal input, and a strong one.
+\end{itemize}
+
+One trap we hit: on the 25-hour October day, ``minus 24 hours'' from the last
+delivery hour lands \emph{inside day D} --- leakage. Price lags must shift by
+local calendar days, not fixed 24-hour blocks. The leakage test caught it.
+
+\subsection{LEAR --- the baseline that wins papers}
+
+LEAR = LASSO-Estimated AutoRegression (Ziel \& Weron 2018). The standard
+benchmark in electricity price forecasting. Lago et al.\ (2021) showed it
+beats most deep networks. Structure:
+
+\begin{itemize}
+  \item \textbf{24 separate models}, one per delivery hour. Hour 8 dynamics
+        (morning ramp) differ from hour 14 (solar dip); one pooled model
+        averages them away. We measured the pooled shortcut: rMAE 1.29
+        vs naive --- it \emph{lost}. Per-hour with the day vector wins.
+  \item \textbf{The full 24-hour price vector of D$-1$} as input for every
+        hour model. Tomorrow morning is predicted by yesterday evening's
+        ramp, not just yesterday morning. This is where the skill lives.
+  \item Same-hour lags 2, 3, 7 days back; the load forecast; calendar dummies.
+  \item \textbf{LASSO} picks which of the many inputs matter, per hour,
+        re-estimated every refit. Alpha by cross-validation inside the
+        training window.
+  \item \textbf{asinh transform} on the price series (target and lags).
+        Like log, but works for zero and negative prices. Stops one spike
+        day from owning the fit.
+\end{itemize}
+
+\subsection{Spike risk and evaluation}
+
+Prices cross zero, so MAPE is meaningless (division by $\sim$0). We report:
+\begin{itemize}
+  \item \textbf{rMAE}: our MAE divided by naive-yesterday's MAE. Below 1.0
+        means skill. The price world's version of a skill score.
+  \item \textbf{Pinball loss} for P10/P50/P90 --- same as Phase 1.
+  \item \textbf{Band coverage}: how often the actual lands inside
+        [P10, P90]. Nominal 80\%. Spikes live in the tails; a model can
+        look fine on MAE and still miss every spike. Coverage exposes that.
+\end{itemize}
+
+Interview line: ``Price forecasting is regime forecasting. The merit order
+tells you which fuel sets the price; the model only has to learn what the
+regime implies. That is why LEAR with good fundamentals beats a deep net
+without them.''

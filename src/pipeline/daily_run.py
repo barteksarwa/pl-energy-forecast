@@ -115,10 +115,18 @@ def run(cfg: Config, today_local: pd.Timestamp) -> str:
     # 4. Report, with the fan chart embedded.
     from src.viz.plots import plot_forecast_band
 
-    chart_path = (
-        cfg.paths["reports_daily"].parent / "figures" / "daily" / f"{tomorrow.date()}.png"
-    )
-    plot_forecast_band(fc, str(tomorrow.date()), chart_path)
+    fig_dir = cfg.paths["reports_daily"].parent / "figures" / "daily"
+    plot_forecast_band(fc, str(tomorrow.date()), fig_dir / f"{tomorrow.date()}.png")
+
+    # Living figure: yesterday's chart gets the realized load drawn on it
+    # now that yesterday is fully observed. Old reports update in place.
+    fc_y_path = cfg.paths["forecasts"] / f"{yesterday.date()}.csv"
+    if fc_y_path.exists():
+        fc_y = pd.read_csv(fc_y_path, index_col="time_utc", parse_dates=True)
+        plot_forecast_band(
+            fc_y, str(yesterday.date()), fig_dir / f"{yesterday.date()}.png",
+            actual=actual_y,
+        )
 
     oddities: list[str] = []
     n_missing = int(actual_y.isna().sum())
@@ -129,6 +137,18 @@ def run(cfg: Config, today_local: pd.Timestamp) -> str:
     if challenger_note:
         oddities.append(challenger_note)
 
+    # 3c. Price (Phase 2, shadow): scored next day against the realized
+    # price. Isolated like the challenger — must never kill this report.
+    price_lines: list[str] = []
+    try:
+        from src.pipeline.price_daily import price_daily_step
+
+        price_scores, price_lines, price_odd = price_daily_step(cfg, today_local)
+        scores.update(price_scores)
+        oddities.extend(price_odd)
+    except Exception as exc:  # noqa: BLE001 — price step must never kill the daily run
+        oddities.append(f"Price step failed: {exc}")
+
     report_path = write_report(
         cfg=cfg,
         today_local=today_local,
@@ -136,6 +156,7 @@ def run(cfg: Config, today_local: pd.Timestamp) -> str:
         forecast=fc,
         weather=weather,
         oddities=oddities,
+        extra_sections=price_lines,
     )
     return str(report_path)
 

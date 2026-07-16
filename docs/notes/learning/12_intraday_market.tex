@@ -1,0 +1,54 @@
+\section{Intraday --- the correction market}
+
+The day-ahead auction fixes tomorrow's schedule at noon today. Then
+reality drifts: the wind forecast updates, a unit trips, it gets colder.
+Intraday is where positions get corrected before the balancing market
+punishes what is left.
+
+\subsection{Mechanics}
+
+\begin{itemize}
+  \item \textbf{Continuous trading}, not an auction: orders match the
+        moment a buy and a sell cross, like an order book on an exchange.
+        Prices move all day.
+  \item Poland trades on TGE (RDB) and is coupled to Europe through
+        \textbf{SIDC/XBID}, the single intraday coupling --- a shared
+        European order book, capacity permitting.
+  \item Opens in the afternoon of D-1 after day-ahead results; trading
+        runs until shortly before delivery (cross-border gate closure is
+        60 minutes before the delivery period; local trading closer).
+  \item Products down to 15 minutes --- matching the 15-minute imbalance
+        settlement, so a quarter-hour ramp can be hedged precisely.
+\end{itemize}
+
+\subsection{The timeline, end to end}
+
+For delivery hour H on day D:
+
+\begin{enumerate}
+  \item D-1, 09:00 --- our load-forecast cutoff; PSE publishes its own.
+  \item D-1, 12:00 CET --- day-ahead auction (SDAC) gate closure.
+        Price fixed for every hour of D. This is what our price models
+        forecast.
+  \item D-1 afternoon $\to$ D, H$-$1h --- intraday trading corrects
+        positions as forecasts update.
+  \item H --- delivery. Whatever is still wrong settles at the
+        15-minute imbalance price.
+\end{enumerate}
+
+\subsection{Why a desk cares}
+
+\begin{itemize}
+  \item The day-ahead\,$\to$\,intraday price spread is a tradeable view on
+        \emph{forecast updates}: if you know wind will disappoint before
+        the market does, you buy intraday early.
+  \item Intraday liquidity is thinner than day-ahead; execution matters
+        as much as the forecast.
+  \item For us: a natural Phase-3+ extension is re-forecasting with
+        fresher weather during day D --- the intraday desk's core loop.
+        Same features, shorter horizon, faster cadence.
+\end{itemize}
+
+Interview line: ``Day-ahead is a forecast frozen at noon. Intraday is
+the market's live correction of that forecast. The money is in knowing
+which corrections are coming before they print.''
