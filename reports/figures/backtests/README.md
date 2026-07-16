@@ -10,7 +10,16 @@ Color code everywhere: **blue = LightGBM** (champion), **orange = LEAR**
 
 ## 1. `price_bt_rolling_mae.png` — is the model drifting?
 
-30-day rolling MAE. A desk checks this weekly. What to look for:
+30-day rolling MAE. A desk checks this weekly.
+
+**"Rolling" is not "recursive".** Every forecast in the backtest is an
+independent day-ahead forecast fed only realized history — no model
+output is ever fed back, so no error accumulates. The rolling window is
+a plain moving AVERAGE over those independent daily errors. Raw daily
+MAE is too noisy to read (market volatility dominates); the 30-day mean
+exposes the only thing this chart is for: drift.
+
+What to look for:
 - Models hugging the bottom, gap to naive stable → skill holds across regimes.
 - Model line creeping toward naive → drift; retrain or investigate.
 

@@ -68,7 +68,7 @@ def price_daily_step(
     the caller isolates it."""
     from src.ingestion.backfill import backfill_entsoe_prices, backfill_entsoe_res
     from src.pipeline.daily_run import shift_local_day
-    from src.viz.plots import plot_price_daily
+    from src.viz.plots import plot_forecast_band
 
     tz = cfg.timezone_local
     yesterday = shift_local_day(today_local, -1, tz)
@@ -129,29 +129,46 @@ def price_daily_step(
         cfg.paths["forecasts"] / f"price_{tomorrow.date()}.csv", float_format="%.2f"
     )
 
-    # 4. Plot: yesterday eval + tomorrow band, one figure.
-    fig_path = (
-        cfg.paths["reports_daily"].parent
-        / "figures" / "daily" / f"price_{tomorrow.date()}.png"
+    # 4. Living figures, one per TARGET day:
+    # tomorrow's chart = band only (published forecast);
+    # yesterday's chart = re-rendered WITH the realized price.
+    fig_dir = cfg.paths["reports_daily"].parent / "figures" / "daily"
+    plot_forecast_band(
+        fc, str(tomorrow.date()), fig_dir / f"price_{tomorrow.date()}.png",
+        unit="Price (EUR/MWh)",
     )
-    plot_price_daily(fc_y, realized, fc, str(yesterday.date()),
-                     str(tomorrow.date()), fig_path)
+    if fc_y is not None:
+        plot_forecast_band(
+            fc_y, str(yesterday.date()), fig_dir / f"price_{yesterday.date()}.png",
+            actual=realized, unit="Price (EUR/MWh)",
+        )
 
     local = fc.tz_convert(tz)
     peak = local["p50"].idxmax()
     lines = [
-        f"## Price ({tomorrow.date()}) — day-ahead forecast (LEAR, shadow)",
+        f"## Price — day-ahead (LEAR, shadow)",
         "",
-        "| Yesterday | MAE (EUR/MWh) |",
+        f"### Yesterday ({yesterday.date()}) — forecast vs realized",
+        "",
+        "| Model | MAE (EUR/MWh) |",
         "|---|---|",
         f"| LEAR | {scores.get('price_lear_mae', float('nan')):.2f} |",
         f"| naive-1d | {scores.get('price_naive_mae', float('nan')):.2f} |",
         "",
-        f"- Tomorrow's expected peak price: **{local['p50'].max():,.0f} EUR/MWh** "
+    ]
+    if fc_y is not None:
+        lines += [
+            f"![Price yesterday vs realized](../figures/daily/price_{yesterday.date()}.png)",
+            "",
+        ]
+    lines += [
+        f"### Tomorrow ({tomorrow.date()}) — the price forecast",
+        "",
+        f"- Expected peak price: **{local['p50'].max():,.0f} EUR/MWh** "
         f"around {peak.strftime('%H:%M')} local.",
         f"- P50 range: {local['p50'].min():,.0f} – {local['p50'].max():,.0f} EUR/MWh; "
         f"band at peak {local.loc[peak, 'p10']:,.0f} – {local.loc[peak, 'p90']:,.0f}.",
         "",
-        f"![Price: yesterday vs realized + tomorrow](../figures/daily/price_{tomorrow.date()}.png)",
+        f"![Price forecast tomorrow](../figures/daily/price_{tomorrow.date()}.png)",
     ]
     return scores, lines, oddities

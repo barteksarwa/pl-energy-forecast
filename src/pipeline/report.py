@@ -47,6 +47,8 @@ def write_report(
         f"| Challenger (ridge+TSO, shadow) | {_fmt(scores.get('challenger_mape', float('nan')))} |",
         f"| TSO day-ahead | {_fmt(scores['tso_mape'])} |",
         "",
+        f"![Yesterday: forecast vs realized](../figures/daily/{yesterday}.png)",
+        "",
         f"## Tomorrow ({tomorrow}) — the forecast",
         "",
         f"- Expected peak: **{local['p50'].max():,.0f} MW** around "
