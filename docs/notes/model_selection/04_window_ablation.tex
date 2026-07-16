@@ -1,0 +1,87 @@
+\section{Rolling vs expanding training window (2026-07-16)}
+
+\subsection{Why this matters}
+
+The walk-forward backtest uses a \textbf{rolling} 365-day training window
+by default: at every refit, the model forgets data older than one year.
+With 3.5 years of history now available, the question becomes: should we
+grow the window instead?
+
+Two competing effects:
+
+\begin{itemize}
+  \item \textbf{More history helps} when the underlying load pattern is
+        stationary (long-run seasonal structure, typical weather range).
+        More rows = lower variance estimates.
+  \item \textbf{More history hurts} when the world drifts (post-COVID
+        load recovery 2021--2022, behind-the-meter PV penetration, demand
+        destruction from high prices). Stale data misleads a model that
+        cannot discount old observations.
+\end{itemize}
+
+Polish system load 2023--2026: modest growth, no dramatic structural break
+visible. The right answer is an empirical one.
+
+\subsection{Experiment}
+
+Test period: 2024-07-16 $\to$ 2026-07-14 (730 days, 17{,}450 test hours).
+Refit every 7 days. Models: ridge and ridge\_tso.
+Hybrid weather: ERA5 actuals pre-2024 (training rows), archived lead-2
+forecast 2024+ (test rows). No leakage in either regime.
+
+\begin{center}
+\begin{tabular}{lrrr}
+\toprule
+Configuration & MAPE (\%) & MAE (MW) & Skill vs naive \\
+\midrule
+ridge\_tso rolling 365 d  & \textbf{2.08} & \textbf{374} & 0.63 \\
+ridge\_tso expanding      & 2.10 & 378 & 0.62 \\
+ridge rolling 365 d       & 4.05 & 710 & 0.29 \\
+ridge expanding           & 4.05 & 710 & 0.29 \\
+seasonal naive            & 5.59 & 1005 & 0.00 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Source: \texttt{reports/backtests/2026-07-16\_2yr\_ablation.csv}.
+
+For context, the 12-month results (different test window) were:
+ridge+TSO 2.13\% $|$ lgbm+TSO 2.14\% $|$ TSO 2.31\%.
+
+\subsection{Verdict}
+
+\textbf{Rolling 365-day window wins. Keep the default.}
+
+The gaps are tiny:
+\begin{itemize}
+  \item ridge + TSO: expanding costs $+$0.02\,pp MAPE (well within noise).
+  \item ridge alone: no difference at all (4.05\% both).
+\end{itemize}
+
+This falls squarely in the $\Delta \leq 0.1$\,pp regime --- the three
+interpretations from the pre-experiment guide all point to the same conclusion:
+rolling is sufficient and simpler.
+
+Why expanding does not help here:
+\begin{enumerate}
+  \item The demand pattern is nearly stationary within a single year. One
+        complete seasonal cycle covers the main structure (morning peak,
+        evening peak, summer vs winter).
+  \item The 2023 data includes the tail of the post-COVID demand recovery and
+        the 2022 energy-crisis demand destruction. These are real structural
+        shifts. Expanding drags that regime into modern forecasts, adding bias.
+  \item Linear models cannot down-weight old observations, so they are more
+        sensitive to regime changes than gradient boosting or nets would be.
+        (A weighted expanding window --- exponential decay --- might close the
+        gap. Not tested; worth a one-line experiment if you revisit this.)
+\end{enumerate}
+
+No change to default. Expanding window is not in the production model.
+
+\subsection{Interview line}
+
+``With 3.5 years of history I tested rolling-365 against expanding.
+Rolling wins by 0.02\,pp MAPE for our best model, and ties on ridge alone.
+The 2022--2023 energy-crisis regime is slightly different from today's market;
+an expanding window drags that noise into current forecasts. I tested instead
+of assuming. The takeaway: for PL load, one year is the right lookback.''

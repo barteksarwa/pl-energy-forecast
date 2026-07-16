@@ -121,26 +121,45 @@ Done when: report explains its own forecast; P50 beats naive on backtest.
 
 ## Phase 2 — Price forecasting (the trading-desk skill)
 
+**Why Phase 2 is the priority.** Job research (2026-07-16, see `docs/notes/job_market.md`)
+confirms: trading-quant roles (highest pay, fastest hiring) care about **price**,
+not load. Load alone targets utilities. Adding TGE day-ahead price doubles
+the number of reachable roles. LEAR is the standard baseline to beat.
+
 ### M6 — Price data + fundamentals features (2 sessions)
 
-- Backfill PL day-ahead prices (TGE via ENTSO-E).
-- Drivers from the M1 catalog: our own load forecast, wind+solar forecasts,
-  cross-border capacity, outages, gas/CO2 proxies.
+- **TGE day-ahead prices (RDN):** fetch via `entsoe-py` `query_day_ahead_prices('PL')`.
+  Returns EUR/MWh hourly. Store UTC, display local. Backfill 3+ years.
+- **Price drivers from M1 catalog:**
+  - Wind + solar actual generation (ENTSO-E `query_generation`): free, best driver.
+  - Cross-border flow capacity (ENTSO-E `query_crossborder_flows`): interconnection state.
+  - Unit outages (ENTSO-E UMM): large unavailabilities move prices.
+  - Gas (TTF) proxy: ENTSO-E LNG/gas net imports, or public EEX settlement data.
+  - CO2 (EUA) proxy: ICE daily settlement CSV (free, delayed 1 day).
+  - Our own load forecast (D-1 produced) as a feature.
 - Extend gap log and DST tests to price series.
+- **DuckDB/SQL layer**: one notebook, query parquets via DuckDB. Half-day effort.
+  SQL appears in every job ad. Concrete evidence = one analysis notebook.
 
 ### M7 — Price models (3+ sessions)
 
-- Baselines: naive (yesterday / last week), LEAR. LEAR is the one to beat —
-  literature says it beats most deep models.
-- LightGBM quantile on fundamentals. SHAP drivers ("price high because low wind
-  + high gas").
-- Price spikes: evaluate tails separately. P90 coverage matters here.
-- Same walk-forward engine as M3. Honest table.
+- **Baseline 1: naive.** Yesterday's same hour; same hour last week.
+- **Baseline 2: LEAR** (LASSO-Estimated AutoRegression). Standard price model.
+  Inputs: lagged prices (24h, 48h, 168h), lagged load, day-of-week dummies.
+  Reference: Ziel & Weron (2018), Lago et al. (2021). This is the one to beat.
+- **LightGBM quantile** on fundamentals (price lags + wind/solar + gas/CO2 proxies).
+  SHAP drivers: "price high because low wind + high gas + high demand."
+- **Price spikes:** evaluate tails separately (MAE on top 5% hours). P90 coverage.
+- Same walk-forward engine as M3. Honest table. If LEAR beats LGBM, say so.
+- Learning note: `06_price_forecasting.tex` — merit order, price formation, LEAR.
 
-### M8 — Market-context docs
+### M8 — Market-context docs + portfolio polish
 
-- Day-ahead auction mechanics, balancing market, rynek mocy, PPAs, CO2.
-- One page each. Interview ammunition.
+- Learning notes: DAM mechanics, balancing market (RB 2024 reform), rynek mocy, CO2/ETS.
+- **Blog post draft:** "I built a day-ahead forecasting desk for the Polish power
+  market — and beat the TSO." Public PL benchmark is rare. Top-of-funnel signal.
+- README final: results tables up top, 3-minute recruiter read.
+- Apply at 30+ daily reports (accumulating since 2026-07-16).
 
 ## Phase 3 — Ops maturity (the "senior job transfer" layer)
 
