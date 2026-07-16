@@ -1,0 +1,76 @@
+\section{How desks review forecast models}
+
+Our backtest pack (\texttt{reports/figures/backtests/}) copies the review
+workflow of a real trading desk. This note explains that workflow and how
+to read each chart. Interview-critical: knowing WHAT to check signals
+production experience better than any model architecture talk.
+
+\subsection{The three review loops}
+
+\begin{enumerate}
+  \item \textbf{Daily (automated).} Every morning: yesterday's forecast
+        vs what actually happened, vs the benchmark. One number, one
+        chart, no meeting. Our daily cron does this for load and now for
+        price (\texttt{reports/daily/}). The realized price lands the next
+        day and is plotted over the published band.
+  \item \textbf{Weekly/monthly (the model review).} The six-chart pack.
+        Questions, in order: is it drifting? is the edge real? where does
+        it fail? can risk trust the band? what did the worst days look
+        like? is it biased?
+  \item \textbf{Promotion gate.} A challenger runs in shadow mode for a
+        fixed window (ours: 14 days). It is scored daily but its numbers
+        are not official. It replaces the incumbent only if it wins over
+        the whole window on metrics agreed BEFORE the trial. This kills
+        cherry-picking. Logged in \texttt{DECISIONS.md}.
+\end{enumerate}
+
+\subsection{Reading the six charts}
+
+\begin{itemize}
+  \item \textbf{Rolling MAE (drift monitor).} A model trained on last
+        year quietly rots when the market changes (new interconnector,
+        new capacity, fuel regime). Healthy: stable gap below the naive.
+        Sick: the gap closes. Ours holds $\sim$10 EUR/MWh of gap for two
+        years.
+  \item \textbf{Cumulative edge.} Sum of daily (naive MAE $-$ model MAE)
+        over time --- read like a P\&L curve. A steady climb means the
+        edge is earned every week. A staircase means one lucky event.
+        Desks distrust anything they cannot see accrue.
+  \item \textbf{Error by delivery hour.} Prices have physics per hour:
+        night is flat, midday is solar, hour 19--20 is the evening ramp
+        where scarcity bites. Everyone's MAE triples at hour 19. If a
+        model is flat across hours, suspect it is ignoring the market
+        structure.
+  \item \textbf{Quantile calibration.} If the P90 is pierced 26\% of the
+        time it is not a P90, and any position sized on it is underhedged.
+        Risk teams read this chart before MAE. Our LightGBM P50 wins MAE
+        but its band fails here --- so LEAR publishes the daily band and
+        LightGBM waits for conformal calibration. That decision IS the
+        production discipline.
+  \item \textbf{Worst-day post-mortems.} Averages hide the days that cost
+        money. Desks re-play every worst day: what did the model see, what
+        happened? Ours: three winter evening spikes above every band plus
+        one negative-price solar day. Common cause: no scarcity signals
+        (outages, fuel) in the features yet. An explainable miss with a
+        feature-roadmap answer beats an unexplained small error.
+  \item \textbf{Monthly bias.} Signed error. MAE-fine but always-negative
+        means systematically underpricing --- a desk position leaks money
+        one way. Ours: $-2$ to $-4$ EUR/MWh, worst in winter. Candidate
+        for a bias term after fuel features land.
+\end{itemize}
+
+\subsection{Metric conventions for prices}
+
+\begin{itemize}
+  \item \textbf{No MAPE.} 798 negative-price hours in our sample;
+        division near zero is garbage.
+  \item \textbf{rMAE} $=$ MAE / MAE(naive-1d). Below 1.0 = skill. The EPF
+        literature's standard (Lago et al.\ 2021). Ours: 0.638 (LightGBM),
+        0.660 (LEAR).
+  \item \textbf{Pinball loss} per quantile, \textbf{coverage} for the
+        band, \textbf{spike metrics} on the top-5\% hours separately.
+\end{itemize}
+
+Interview line: ``MAE picks the champion, calibration picks what you
+publish, post-mortems pick the next feature. Three different charts,
+three different decisions.''

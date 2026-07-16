@@ -129,6 +129,18 @@ def run(cfg: Config, today_local: pd.Timestamp) -> str:
     if challenger_note:
         oddities.append(challenger_note)
 
+    # 3c. Price (Phase 2, shadow): scored next day against the realized
+    # price. Isolated like the challenger — must never kill this report.
+    price_lines: list[str] = []
+    try:
+        from src.pipeline.price_daily import price_daily_step
+
+        price_scores, price_lines, price_odd = price_daily_step(cfg, today_local)
+        scores.update(price_scores)
+        oddities.extend(price_odd)
+    except Exception as exc:  # noqa: BLE001 — price step must never kill the daily run
+        oddities.append(f"Price step failed: {exc}")
+
     report_path = write_report(
         cfg=cfg,
         today_local=today_local,
@@ -136,6 +148,7 @@ def run(cfg: Config, today_local: pd.Timestamp) -> str:
         forecast=fc,
         weather=weather,
         oddities=oddities,
+        extra_sections=price_lines,
     )
     return str(report_path)
 

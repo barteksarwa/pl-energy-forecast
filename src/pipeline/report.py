@@ -21,6 +21,7 @@ def write_report(
     forecast: pd.DataFrame,
     weather: pd.DataFrame,
     oddities: list[str],
+    extra_sections: list[str] | None = None,
 ) -> Path:
     tz = cfg.timezone_local
     tomorrow = today_local.date() + pd.Timedelta(days=1)
@@ -70,6 +71,10 @@ def write_report(
         "",
         f"![Day-ahead forecast fan chart](../figures/daily/{tomorrow}.png)",
         "",
+    ]
+    if extra_sections:
+        lines += extra_sections + [""]
+    lines += [
         "_Full hourly quantiles: see `data/forecasts/`._",
         "",
     ]

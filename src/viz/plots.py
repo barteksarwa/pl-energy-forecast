@@ -144,3 +144,46 @@ def plot_res_forecast(res: pd.DataFrame, out: Path) -> Path:
     ax.set_title("PL wind + solar day-ahead forecast (ENTSO-E 14.1.D)", loc="left")
     ax.legend(frameon=False)
     return _finish(fig, out)
+
+
+def plot_price_daily(
+    fc_yesterday: pd.DataFrame | None,
+    realized: pd.Series,
+    fc_tomorrow: pd.DataFrame,
+    yesterday: str,
+    tomorrow: str,
+    out: Path,
+) -> Path:
+    """Daily price panel: yesterday's forecast vs REALIZED price + tomorrow.
+
+    Left: did yesterday's band contain reality? The next-day evaluation
+    every desk does first thing in the morning.
+    Right: tomorrow's published forecast.
+    """
+    apply_style()
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 3.8), sharey=True)
+
+    if fc_yesterday is not None:
+        loc_y = fc_yesterday.tz_convert(LOCAL_TZ)
+        h = loc_y.index.hour + loc_y.index.minute / 60
+        ax1.fill_between(h, loc_y["p10"], loc_y["p90"], color=BLUE,
+                         alpha=BAND_ALPHA, linewidth=0, label="P10–P90")
+        ax1.plot(h, loc_y["p50"], color=BLUE, label="forecast P50")
+    real_loc = realized.tz_convert(LOCAL_TZ)
+    h_r = real_loc.index.hour + real_loc.index.minute / 60
+    ax1.plot(h_r, real_loc.values, color="black", linewidth=2.0, label="realized")
+    ax1.set_title(f"Yesterday {yesterday} — forecast vs realized", loc="left")
+    ax1.set_ylabel("Price (EUR/MWh)")
+    ax1.legend(frameon=False, fontsize=8)
+
+    loc_t = fc_tomorrow.tz_convert(LOCAL_TZ)
+    h_t = loc_t.index.hour + loc_t.index.minute / 60
+    ax2.fill_between(h_t, loc_t["p10"], loc_t["p90"], color=BLUE,
+                     alpha=BAND_ALPHA, linewidth=0)
+    ax2.plot(h_t, loc_t["p50"], color=BLUE)
+    ax2.set_title(f"Tomorrow {tomorrow} — LEAR forecast", loc="left")
+
+    for ax in (ax1, ax2):
+        ax.set_xticks(range(0, 24, 6))
+        ax.set_xlabel(f"Hour ({LOCAL_TZ})")
+    return _finish(fig, out)
