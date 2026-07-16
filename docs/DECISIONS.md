@@ -4,6 +4,16 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-07-16 — Strategic direction: Path A (get hired), Phase 2 = price forecasting**
+Context: Job market research (Opus agent) + strategic analysis (Fable agent) completed 2026-07-16. Full findings in `docs/notes/job_market.md` and `docs/notes/strategic_direction.md`.
+Decision: Priority is getting hired (3-6 months), not building a product. Phase 2 pivot: TGE day-ahead price forecasting before any other extension. Cut: TFT transformer challenger (explain loss is worth more), second EU zone, web UI.
+Why: PSE publishes zone-level load forecast free — no paying customer. Trading-quant lane (best pay) wants price forecasts. Adding price doubles reachable roles. A job is the customer-discovery phase for any future product.
+
+**2026-07-16 — Rolling 365-day window is the default; expanding window not adopted**
+Context: 2-year ablation tested rolling-365 vs expanding for ridge and ridge_tso.
+Decision: rolling 365-day default, no change.
+Why: ridge+TSO rolling wins by 0.02pp; ridge ties. The 2022-23 energy-crisis regime biases expanding window. Full writeup in `04_window_ablation.tex`.
+
 **2026-07-16 — TSO ffill for cron-before-publish timing gap**
 Context: cron runs at 05:30 UTC (07:30 Warsaw); PSE publishes next-day TSO at ~09:00 Warsaw. Gap = ~90 min. Challenger failed with NaN when trying to use tomorrow's TSO as a feature.
 Decision: forward-fill the TSO series before building tomorrow's feature matrix. The last published value (22:00 today) proxies tomorrow's shape until the real forecast lands.
