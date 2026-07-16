@@ -60,8 +60,9 @@ PL day-ahead auction price (SDAC), EUR/MWh, forecast before gate closure.
 - LEAR = the industry-standard LASSO price baseline (Ziel & Weron 2018),
   implemented properly: 24 per-hour models, full D-1 price vector,
   variance-stabilized target.
-- SHAP says the **solar forecast is price driver #1** — the merit order,
-  measured from data.
+- The **solar forecast is price driver #1** — top SHAP attribution AND
+  largest retrain-ablation cost (+3.5 EUR/MWh MAE when dropped). Two
+  independent methods, same answer: the merit order, measured.
 - Spikes are the open front: all models run ~3x pooled MAE on the top-5%
   priciest hours. Documented, not hidden.
 

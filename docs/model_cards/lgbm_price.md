@@ -45,6 +45,14 @@ cannot happen here structurally.
 Plain words: tomorrow's price is set by how much sun and wind tomorrow
 brings, anchored on today's price level and expected demand.
 
+Cross-checked by retrain ablation (2026-07-17, walk-forward Jan-Jul
+2026): dropping the RES group costs +3.54 EUR/MWh MAE — the largest
+group cost, above the whole price-lag block (+2.80). SHAP rank and
+value-of-information agree here. Caveats: solar-season window; load
+lags are dead weight for price (-0.04, pruning candidate). See
+`docs/notes/learning/13_shap_vs_ablation.tex` for why the two methods
+CAN disagree and what each one means.
+
 ## Honest limitations
 
 - **Raw coverage 51.4% vs nominal 80%** — the untuned quantile boosters
