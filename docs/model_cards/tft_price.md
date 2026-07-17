@@ -29,11 +29,14 @@ Best HPO config (60-trial Optuna search, `data/processed/tft_hpo.db`):
 | encoder_hours | 1344 (56 days) |
 | d_model | 128 |
 | n_heads | 8 |
-| lstm_layers | 1 |
-| dropout | 0.20 |
-| lr | 0.00145 |
+| lstm_layers | 2 |
+| dropout | 0.183 |
+| lr | 0.00174 |
 | batch | 32 |
-| val pinball (screening split) | 0.1176 |
+| val pinball (screening split) | 0.1157 |
+
+Final best (trial 56 of 60). Previous session best was trial 49 at 0.1176 (l=1);
+Optuna found lstm_layers=2 generalises better on this screening split.
 
 **Note on screening vs walk-forward**: single-split val flatters nets by
 0.6–0.9 pp vs walk-forward (measured on the load task). Walk-forward
