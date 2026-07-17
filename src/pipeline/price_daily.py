@@ -9,12 +9,11 @@ Mirrors the desk morning routine for the price desk:
 Called from daily_run inside its own try/except — a price failure must
 never kill the load report.
 
-Timing at the 05:30 UTC cron (documented, not hidden):
-- Tomorrow's TSO load forecast is unpublished → ffill (same fix as the
-  load challenger, DECISIONS 2026-07-16).
-- Tomorrow's RES forecast is published ~18:00 today → persist
-  yesterday's same-local-hour value. Solar keeps its daily shape; wind
-  is a weak persistence guess. The report flags it every day.
+Timing (documented, not hidden): tomorrow's TSO load forecast
+(published ~09:00 D-1) and RES forecast (~18:00 D-1) may not exist yet
+when the run happens early. Both are persisted from the same clock
+hour of the day before (persist_24h) — shape-preserving, flagged in
+the report every time it happens.
 
 Model choice: LEAR publishes; LightGBM waits its turn. LGBM has the
 better MAE (rMAE 0.638 vs 0.660) and, since Phase 2.5, a calibrated
@@ -40,6 +39,23 @@ def _local_day_hours_utc(day: pd.Timestamp, tz: str) -> pd.DatetimeIndex:
     from src.pipeline.daily_run import local_day_hours_utc
 
     return local_day_hours_utc(day, tz)
+
+
+def persist_24h(
+    obj: pd.Series | pd.DataFrame, hours: pd.DatetimeIndex
+) -> pd.Series | pd.DataFrame:
+    """Fill `hours` missing from `obj` with the value 24h earlier.
+
+    Shape-preserving ops proxy for series published on a daily schedule
+    (TSO load forecast ~09:00 D-1, RES forecast ~18:00 D-1) when the run
+    happens before publication. Callers flag the persist in the report.
+    """
+    missing = hours.difference(obj.index)
+    if not len(missing):
+        return obj
+    persisted = obj.reindex(missing - pd.Timedelta(hours=24))
+    persisted.index = missing
+    return pd.concat([obj, persisted]).sort_index()
 
 
 def _assemble(
@@ -83,13 +99,13 @@ def price_daily_step(
     backfill_entsoe_res(cfg)
     price = pd.read_parquet(proc / "price_da_eur.parquet").iloc[:, 0]
     load = pd.read_parquet(proc / "load.parquet").iloc[:, 0]
-    tso = pd.read_parquet(proc / "tso_forecast.parquet").iloc[:, 0].ffill()
+    tso = pd.read_parquet(proc / "tso_forecast.parquet").iloc[:, 0]
     res = pd.read_parquet(proc / "res_forecast.parquet")
 
     scores: dict[str, float] = {}
     oddities: list[str] = []
 
-    # 2. Score yesterday's saved forecast against the realized price.
+    # 2. Score yesterday's saved forecasts against the realized price.
     yhours = _local_day_hours_utc(yesterday, tz)
     realized = price.reindex(yhours)
     fc_y_path = cfg.paths["forecasts"] / f"price_{yesterday.date()}.csv"
@@ -103,19 +119,28 @@ def price_daily_step(
         )
     else:
         oddities.append("Price: no saved forecast for yesterday; first score tomorrow.")
+    ch_y_path = cfg.paths["forecasts"] / f"price_{yesterday.date()}_challenger.csv"
+    if ch_y_path.exists():
+        ch_y = pd.read_csv(ch_y_path, index_col="time_utc", parse_dates=True)
+        scores["price_lgbm_mae"] = float((ch_y["p50"] - realized).abs().mean())
 
-    # 3. Forecast tomorrow. RES for tomorrow is unpublished at the cron
-    # hour — persist yesterday's same-clock-hour values (flagged below).
+    # 3. Forecast tomorrow. TSO (published ~09:00 D-1) and RES (~18:00
+    # D-1) may be unpublished when the run happens early — persist
+    # yesterday's same-clock-hour values (flagged below).
     thours = _local_day_hours_utc(tomorrow, tz)
-    res_filled = res.copy()
-    missing = thours.difference(res_filled.index)
-    if len(missing):
-        persisted = res.reindex(missing - pd.Timedelta(hours=24))
-        persisted.index = missing
-        res_filled = pd.concat([res_filled, persisted]).sort_index()
+    n_tso_missing = len(thours.difference(tso.index))
+    tso = persist_24h(tso, thours)
+    if n_tso_missing:
+        oddities.append(
+            f"Price: TSO load forecast for {tomorrow.date()} not yet published "
+            f"({n_tso_missing} h persisted from the day before)."
+        )
+    n_res_missing = len(thours.difference(res.index))
+    res_filled = persist_24h(res, thours)
+    if n_res_missing:
         oddities.append(
             f"Price: RES forecast for {tomorrow.date()} not yet published "
-            f"({len(missing)} h persisted from the day before)."
+            f"({n_res_missing} h persisted from the day before)."
         )
 
     train_start = shift_local_day(tomorrow, -365, tz)
@@ -125,7 +150,15 @@ def price_daily_step(
     x_tr = x_tr.reindex(y_tr.index)
     model = PriceLEAR()
     model.fit(x_tr, y_tr)
-    fc = model.predict(x.reindex(thours).dropna())
+    x_pred = x.reindex(thours).dropna()
+    if x_pred.empty:
+        nan_cols = x.reindex(thours).isna().sum()
+        worst = nan_cols[nan_cols > 0].index.tolist()[:5]
+        raise RuntimeError(
+            f"price features for {tomorrow.date()} are all-NaN "
+            f"(first NaN columns: {worst}) — refusing to publish an empty forecast"
+        )
+    fc = model.predict(x_pred)
 
     # Conformal band widening (config/price_conformal.json, from the
     # trailing 90d of out-of-sample backtest errors). Without it the raw
@@ -142,6 +175,25 @@ def price_daily_step(
     fc.rename_axis("time_utc").to_csv(
         cfg.paths["forecasts"] / f"price_{tomorrow.date()}.csv", float_format="%.2f"
     )
+
+    # 3b. Shadow challenger (M9 gate): LightGBM + conformal. Scored daily,
+    # never published; promotion only by a human after the tally window.
+    try:
+        from src.models.gbm import LightGBMQuantile
+
+        ch = LightGBMQuantile()
+        ch.fit(x_tr, y_tr)
+        ch_fc = ch.predict(x.reindex(thours).dropna())
+        with open("config/price_conformal.json") as f:
+            q_ch = json.load(f)["lgbm_quantile"]
+        ch_fc["p10"] = (ch_fc["p10"] - q_ch).clip(upper=ch_fc["p50"])
+        ch_fc["p90"] = (ch_fc["p90"] + q_ch).clip(lower=ch_fc["p50"])
+        ch_fc.rename_axis("time_utc").to_csv(
+            cfg.paths["forecasts"] / f"price_{tomorrow.date()}_challenger.csv",
+            float_format="%.2f",
+        )
+    except Exception as exc:  # noqa: BLE001 — shadow must never kill the price step
+        oddities.append(f"Price challenger (lgbm) failed: {exc}")
 
     # 4. Living figures, one per TARGET day:
     # tomorrow's chart = band only (published forecast);
@@ -166,7 +218,8 @@ def price_daily_step(
         "",
         "| Model | MAE (EUR/MWh) |",
         "|---|---|",
-        f"| LEAR | {scores.get('price_lear_mae', float('nan')):.2f} |",
+        f"| LEAR (incumbent) | {scores.get('price_lear_mae', float('nan')):.2f} |",
+        f"| LightGBM+conformal (shadow) | {scores.get('price_lgbm_mae', float('nan')):.2f} |",
         f"| naive-1d | {scores.get('price_naive_mae', float('nan')):.2f} |",
         "",
     ]

@@ -1,0 +1,60 @@
+\section{When linear beats gradient boosting --- the TSO-feature flip}
+
+The most quotable finding in the repo. Same features, same walk-forward,
+same two years (\texttt{reports/backtests/2026-07-16\_2yr\_summary.csv}
+and the 12-month campaign):
+
+\begin{center}
+\begin{tabular}{lcc}
+setup & ridge & LightGBM \\
+\hline
+without the TSO forecast & 4.05\% & 3.16\% \quad (GBM wins by 0.9pp) \\
+with the TSO forecast    & \textbf{2.08\%} & 2.12\% \quad (ridge edges it) \\
+\end{tabular}
+\end{center}
+
+Gradient boosting is not overrated --- adding one feature CHANGED THE
+PROBLEM, and the new problem favors a different model class.
+
+\subsection{Three mechanisms}
+
+\begin{enumerate}
+  \item \textbf{The task became residual correction.} With PSE's
+        forecast as input, the model no longer forecasts load; it
+        corrects the small error of an expert who already modeled the
+        nonlinearities (temperature response, holidays, ramps). What
+        remains is nearly linear. Trees' edge IS nonlinearity; there is
+        none left to harvest. Sensitivity analysis agrees: the TSO
+        feature carries 96\% of total skill; all else fights over
+        $\sim$0.1pp.
+  \item \textbf{Variance rules near the noise floor.} TSO alone: 2.23\%.
+        Irreducible noise is not far below. In that regime the winner is
+        whoever adds least estimation variance. Ridge: $\sim$25 shrunk
+        coefficients from 8{,}760 rows. GBM: hundreds of leaf values,
+        each from a data subset. More variance, no bias advantage left
+        to buy with it.
+  \item \textbf{Feature engineering pre-linearized the problem.}
+        hour sin/cos makes daily seasonality linear-fittable;
+        heating/cooling degree-days linearize the V-shaped temperature
+        response. Good features + linear model beats raw features +
+        flexible model --- the same reason LEAR (linear) embarrasses deep
+        nets across the price-forecasting literature.
+\end{enumerate}
+
+\subsection{The control experiment we already ran}
+
+Price is the counter-case: spiky, regime-switching, genuinely nonlinear
+target with no expert forecast to lean on --- and there LightGBM DOES
+beat the linear model (MAE 17.8 vs 18.5). The rule that survives both
+products:
+
+\begin{quote}
+Trees win where nonlinear structure survives in the target. Linear wins
+where an expert forecast or your own feature engineering already
+removed it.
+\end{quote}
+
+Interview line: ``Gradient boosting beat ridge by 0.9pp until both got
+the TSO's forecast --- then ridge won, because the leftover problem is
+linear residual correction and the lowest-variance model takes it.
+Knowing when the fancy model stops paying is the skill.''

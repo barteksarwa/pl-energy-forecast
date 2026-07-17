@@ -53,8 +53,30 @@ that gets pierced 26% of the time is not a P90.
 
 Our read: LEAR's P10 is honest (11% vs 10 nominal); its P90 leaks (17%
 above). LightGBM leaks both tails symmetrically (23% below P10, 26%
-above P90 — nominal is 10/10). **Verdict: LGBM band unusable for risk
-until calibrated (conformal fix queued). P50s are fine.**
+above P90 — nominal is 10/10). **Verdict (updated): raw bands failed here, so Phase 2.5 added rolling
+conformal calibration — LGBM 51→79%, LEAR 72→79.5% coverage. The chart
+shows the RAW bands; the calibrated table is
+`reports/backtests/2026-07-16_price_conformal_summary.md`.**
+
+## How example days are selected (worst / median / best)
+
+Method, fixed and mechanical — no cherry-picking:
+
+1. For every local calendar day in the test period, compute the
+   CHAMPION model's (LightGBM) mean absolute P50 error over the day's
+   24 hours.
+2. Rank all ~730 test days by that number.
+3. `worst_days` = top 4. `best_days` = bottom 4. `median_days` = the 4
+   days straddling the 50th percentile — the "typical day" picture.
+
+Selection is always by the champion's error, even though all models are
+drawn in each panel: picking per-model days would make panels
+incomparable, and picking by a non-champion would let the champion's
+misses hide. Code: `_pick_days` in `src/viz/backtest_plots.py`.
+
+Why all three matter: worst = risk (what a bad day costs), median =
+the honest everyday expectation (what the MAE number actually looks
+like), best = the ceiling (calm days where lags carry everything).
 
 ## 5. `price_bt_worst_days.png` — what did the miss look like?
 
