@@ -104,3 +104,18 @@ model freeze confirmed. All agent-side items done:
 Still on owner: merge PR #2, write blog post from outline, read notes.
 Next agent session -> Phase 3 (M9/M10: UAT split maturity, track record,
 promotion of price challenger through a shadow window).
+
+## Night batch running (launched 2026-07-17 ~01:30 local)
+
+- **TFT price long-context screening** (MPS, PID noted in batch.log):
+  contexts 168/672/2016 h, d64, 1 seed, last-180d walk-forward, monthly
+  refits. Question: does long context beat tabular lags on price?
+  Log: ~/.claude/jobs/f9ff997b/tmp/logs/tft_price.log
+  Monitor: ~/.claude/jobs/f9ff997b/tmp/monitor_tft.sh
+  Output: reports/backtests/<date>_tft_price.(csv|md) +
+  preds in backtest_preds_price_res/tft_price_ctx*.parquet.
+  Read in order: rMAE vs naive → vs LGBM 0.638/LEAR 0.660 (different
+  span, direction only) → spike_mae → coverage.
+- Portfolio POC already DONE (CPU, fast): (a) plain TSO feature wins,
+  share model loses, national signal +0.11pp only (calendar-only
+  correlation caveat). reports/backtests/2026-07-17_portfolio_poc.md.

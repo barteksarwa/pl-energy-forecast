@@ -179,13 +179,32 @@ def plot_calibration(preds: dict, y: pd.Series, out: Path) -> Path:
     return _finish(fig, out)
 
 
-def plot_worst_days(preds: dict, y: pd.Series, out: Path) -> Path:
-    """Post-mortem panel: the champion's four worst local days."""
+def _pick_days(err_day: pd.Series, pick: str) -> list:
+    """Select 4 local days by the champion's daily mean |error|.
+
+    worst  = top 4, best = bottom 4, median = the 4 straddling the 50th
+    percentile of the ranked days. Selection is ALWAYS by the champion
+    model so panels are comparable across models; see the README next to
+    the figures for why.
+    """
+    ranked = err_day.sort_values(ascending=False)
+    if pick == "worst":
+        return list(ranked.head(4).index)
+    if pick == "best":
+        return list(ranked.tail(4).index)
+    if pick == "median":
+        mid = len(ranked) // 2
+        return list(ranked.iloc[mid - 2 : mid + 2].index)
+    raise ValueError(f"unknown pick: {pick}")
+
+
+def plot_day_panels(preds: dict, y: pd.Series, out: Path, pick: str = "worst") -> Path:
+    """Panel of 4 days (worst / median / best by champion daily MAE)."""
     apply_style()
     err_day = (preds[CHAMPION]["p50"] - y).abs().groupby(
         y.index.tz_convert(LOCAL_TZ).date
     ).mean()
-    worst = err_day.sort_values(ascending=False).head(4).index
+    worst = _pick_days(err_day, pick)
     fig, axes = plt.subplots(2, 2, figsize=(10, 6.2), sharey=False)
     for ax, day in zip(axes.flat, worst):
         local = y.index.tz_convert(LOCAL_TZ)
@@ -207,8 +226,12 @@ def plot_worst_days(preds: dict, y: pd.Series, out: Path) -> Path:
         ax.set_xlabel(f"Hour ({LOCAL_TZ})")
     for ax in axes[:, 0]:
         ax.set_ylabel("Price (EUR/MWh)")
-    fig.suptitle("Champion's four worst days — what the miss looked like",
-                 x=0.01, ha="left", fontsize=11)
+    titles = {
+        "worst": "Champion's four worst days — what the miss looked like",
+        "median": "Four typical days (median error) — the everyday picture",
+        "best": "Champion's four best days — when everything lines up",
+    }
+    fig.suptitle(titles[pick], x=0.01, ha="left", fontsize=11)
     return _finish(fig, out)
 
 
@@ -271,7 +294,9 @@ def main() -> int:
         plot_cumulative_edge(preds, y, fig_dir / "price_bt_cumulative_edge.png"),
         plot_mae_by_hour(preds, y, fig_dir / "price_bt_mae_by_hour.png"),
         plot_calibration(preds, y, fig_dir / "price_bt_calibration.png"),
-        plot_worst_days(preds, y, fig_dir / "price_bt_worst_days.png"),
+        plot_day_panels(preds, y, fig_dir / "price_bt_worst_days.png", "worst"),
+        plot_day_panels(preds, y, fig_dir / "price_bt_median_days.png", "median"),
+        plot_day_panels(preds, y, fig_dir / "price_bt_best_days.png", "best"),
         plot_monthly_bias(preds, y, fig_dir / "price_bt_monthly_bias.png"),
     ]
     table = diagnostics_table(preds, y)
