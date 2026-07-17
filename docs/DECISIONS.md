@@ -9,6 +9,11 @@ Context: hypothesis that negative-price hours cause lower-tail miscalibration th
 Decision: symmetric CQR stays. Measured on 2-year walk-forward: sym cov 79.6%/78.9%, asym cov 79.1%/78.4% for LEAR/LGBM. Upper tail is the bigger problem (q_hi > q_lo for both models). Asymmetric CQR offers 8-12% narrower bands but 0.5pp lower coverage.
 Why: coverage guarantee is the primary requirement. Spike forecasting — not negative prices — is the main calibration gap. Asymmetric code kept in conformal.py for future use when spike modelling improves.
 
+**2026-07-17 — TFT walk-forward verdict: trails LEAR, shadow gate not opened**
+Context: 60-trial HPO best (val 0.1157, ctx=1344, d128, h8, l2) sent to 3-seed walk-forward over 17,472 test hours (2024-07-16 → 2026-07-18).
+Decision: shadow gate NOT opened. TFT ens-3 rMAE 0.706 vs LEAR 0.653 vs LGBM 0.640. Root causes: data ceiling (1.27M params, 300-400 training samples), signal sparsity, quantile training cost. PatchTST sweep next (cheaper architecture, different inductive bias).
+Why: 8.1% worse MAE is not a rounding error. Model card and model_selection/08 updated with the honest verdict.
+
 **2026-07-17 — TFT attention campaign: HPO + PatchTST, walk-forward gate**
 Context: owner lifted model freeze; screening showed TFT trails tabular by 30% but long context IS real (monotonic improvement). Question: does full HPO close the gap?
 Decision: 60-trial Optuna search (ctx + arch jointly), then 3-seed walk-forward to confirm. PatchTST sweep after. Never quote screening numbers as results.

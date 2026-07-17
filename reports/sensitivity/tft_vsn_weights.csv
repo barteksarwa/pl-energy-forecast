@@ -1,0 +1,13 @@
+feature,vsn_weight
+tso_forecast_mw,0.23549116
+solar_fcst_mw,0.17900224
+wind_on_fcst_mw,0.121904396
+anchor_price_lag168,0.10397655
+hour_sin,0.10070754
+is_weekend,0.08065671
+doy_sin,0.07316767
+hour_cos,0.029270474
+doy_cos,0.025500068
+is_holiday,0.019107852
+is_bridge_day,0.017375927
+wind_off_fcst_mw,0.01383946

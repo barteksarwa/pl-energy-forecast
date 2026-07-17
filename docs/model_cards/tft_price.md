@@ -9,7 +9,8 @@ to LEAR + LightGBM to answer the owner's hypothesis:
 > "Attention over months of price history should catch regime information
 > that 7-day lags miss."
 
-This card records the honest outcome of that test.
+**Verdict: TFT trails LEAR on MAE. Shadow gate not opened.**
+The honest loss is documented below.
 
 ## Architecture
 
@@ -35,81 +36,95 @@ Best HPO config (60-trial Optuna search, `data/processed/tft_hpo.db`):
 | batch | 32 |
 | val pinball (screening split) | 0.1157 |
 
-Final best (trial 56 of 60). Previous session best was trial 49 at 0.1176 (l=1);
-Optuna found lstm_layers=2 generalises better on this screening split.
-
-**Note on screening vs walk-forward**: single-split val flatters nets by
-0.6–0.9 pp vs walk-forward (measured on the load task). Walk-forward
-numbers are the only ones that go in the results table.
+Final best: trial 56 of 60. Optuna converged on ctx=1344h + d128 + h8.
+Screening val was 0.6–0.9pp optimistic vs walk-forward — as predicted.
 
 ## Walk-forward results (3-seed confirmation)
 
-_Fill in after `run_tft_hpo_walkforward.py` completes._
-
-Test: 2024-07-16 → present. Monthly refits. Same window as LEAR/LGBM.
+Test: 2024-07-16 → 2026-07-18 (17,472 hours). Monthly refits.
+Same window as LEAR/LGBM. Runtime: 3.8h on MPS.
 
 | model | MAE (EUR/MWh) | rMAE | coverage 80% | spike MAE |
 |---|---|---|---|---|
-| **TFT HPO ens-3** | _pending_ | _pending_ | _pending_ | _pending_ |
-| LEAR + conformal | 18.24 | 0.653 | 79.5% | 71.0 |
-| LightGBM + conformal | 17.87 | 0.640 | 78.7% | 60.6 |
-| naive-1d | 27.94 | 1.000 | 53.1% | 77.6 |
+| LightGBM + conformal | 17.87 | 0.640 | 78.7% | 60.7 |
+| LEAR + conformal | 18.23 | 0.653 | 79.4% | 70.0 |
+| **TFT HPO ens-3** | **19.71** | **0.706** | **79.6%** | **74.7** |
+| TFT seed 7 | 20.69 | 0.741 | 78.3% | 77.5 |
+| TFT seed 42 | 20.77 | 0.744 | 75.1% | 71.5 |
+| TFT seed 99 | 20.79 | 0.745 | 76.6% | 78.3 |
+| naive-1d | 27.98 | 1.002 | 52.9% | 78.2 |
 
-Verdict: _pending walk-forward run_.
+**TFT trails LEAR by 1.48 EUR/MWh MAE (8.1%) and by 0.053 rMAE.**
+Ensemble coverage (79.6%) is the best of any model, but coverage is
+not the limiting factor — MAE is. Shadow gate NOT opened.
+
+## Why TFT lost
+
+Three candidate explanations:
+
+**1. Data ceiling.** With only 3 years of training data and monthly refits
+using 365-day windows, TFT's 1.27M parameters overfit the early-in-window
+data. Ridge regression wins on load for the same reason: the signal is
+linear after the TSO forecast is in the model, and a small model generalises
+better from limited data.
+
+**2. Architecture mismatch.** TFT was designed for multivariate forecasting
+with many known-future series (retail demand, promotions, etc.). Price
+forecasting is dominated by one autocorrelation signal (yesterday's price)
+and one covariate (solar forecast). The VSN and LSTM encoder add complexity
+without proportionate signal.
+
+**3. Quantile training at low data.** TFT trains all three quantile heads
+jointly. With 308 training samples per refit (early in the walk-forward),
+the tails are undersampled. LGBM trains separate trees per quantile with
+40,000+ samples — the tabular data density advantage is decisive.
+
+**What long context IS good for.** Screening showed rMAE improves monotonically
+with encoder length up to 1344h. The 56-day context captures regime memory
+(gas crises, solar growth seasons). The problem is that capturing this regime
+memory costs 4h of compute and does not close the MAE gap.
 
 ## VSN feature importance
 
-From the final HPO training (export: `reports/sensitivity/tft_vsn_weights.csv`).
-VSN weights apply only to known-future covariates; autoregressive price
-information enters through the encoder LSTM path, not the selection network.
+From the 60-trial best model (export: `reports/sensitivity/tft_vsn_weights.csv`).
 
 | feature | vsn_weight | interpretation |
 |---|---|---|
-| solar_fcst_mw | 0.217 | #1 — merit order (PV suppresses midday price) |
-| tso_forecast_mw | 0.170 | #2 — demand level sets price tier |
-| wind_on_fcst_mw | 0.126 | #3 — dispatches before coal; price discount |
-| doy_sin | 0.098 | seasonal level (gas vs coal marginal) |
-| anchor_price_lag168 | 0.097 | week-ago regime anchor |
-| hour_sin/cos | 0.067/0.067 | intraday seasonality |
-| is_bridge_day | 0.055 | demand suppressor |
+| tso_forecast_mw | 0.235 | #1 — demand level sets price tier |
+| solar_fcst_mw | 0.179 | #2 — merit order (PV suppresses midday price) |
+| wind_on_fcst_mw | 0.122 | #3 — dispatches before coal; price discount |
+| anchor_price_lag168 | 0.104 | week-ago regime anchor |
+| hour_sin | 0.101 | intraday seasonality |
+| is_weekend | 0.081 | demand suppressor |
+| doy_sin | 0.073 | seasonal level (gas vs coal marginal) |
 
-VSN agrees with SHAP on the top feature (solar #1). The disagreement on
-price lags is by design: the encoder absorbs lag information; the VSN
-only sees future covariates.
+Note: TSO forecast ranks #1 in the final model (vs solar in the early
+screening). With 56 days of context, the encoder absorbs the solar merit-order
+signal through price autocorrelation; VSN then emphasises the demand signal
+(TSO) which is complementary. Both approaches identify the same physics.
 
 ## Comparison: three importance methods
 
 | rank | SHAP (LGBM, global) | Group ablation (LGBM) | VSN (TFT, future covs only) |
 |---|---|---|---|
-| 1 | solar_fcst_mw 18.7 | res_forecast +3.5 MAE | solar_fcst_mw 0.217 |
-| 2 | price_lag_1d 14.1 | price_lags +2.8 MAE | tso_forecast_mw 0.170 |
-| 3 | wind_on_fcst_mw 8.4 | calendar +0.3 MAE | wind_on_fcst_mw 0.126 |
+| 1 | solar_fcst_mw 18.7 | res_forecast +3.5 MAE | tso_forecast_mw 0.235 |
+| 2 | price_lag_1d 14.1 | price_lags +2.8 MAE | solar_fcst_mw 0.179 |
+| 3 | wind_on_fcst_mw 8.4 | calendar +0.3 MAE | wind_on_fcst_mw 0.122 |
 
-All three methods agree: solar is the top driver among future covariates.
-Price lags rank high in SHAP/ablation but not VSN because VSN only
-measures future-covariate weights (by architecture design).
-
-## Honest limitations
-
-- Walk-forward numbers are pending. Screening val (0.1176) is for config
-  selection only; it will be 0.6–0.9 pp optimistic.
-- Screening showed d32 and d128 can achieve similar val (within 0.0008).
-  Walk-forward with 3 seeds will confirm which generalises.
-- Spikes: no known mechanism exists to materially improve spike MAE with
-  architecture alone. The outage feature was flat.
-- Computational cost: 3-seed × 2yr walk-forward ≈ 4–6h on MPS. Inference
-  at score time is fast (one forward pass per day).
+SHAP and VSN agree that solar + demand + wind are the top future covariates.
+They differ on rank because VSN has 56 days of price history in the encoder;
+the solar effect is already embedded in lags.
 
 ## Status
 
 - [x] Screening: TFT trails tabular by 30% (d64 sweep, 3 contexts)
 - [x] Bug fixed: prediction-time covariate standardisation (apply_covariate_stats)
-- [x] HPO: 60-trial Optuna search completed. Best val 0.1176 (ctx=1344, d128, h8)
+- [x] HPO: 60-trial Optuna search. Best val 0.1157 (ctx=1344, d128, h8, l2)
 - [x] VSN weights exported (reports/sensitivity/tft_vsn_weights.csv)
-- [ ] Walk-forward 3-seed confirmation (run_tft_hpo_walkforward.py)
-- [ ] Verdict: TFT vs LEAR vs LGBM on identical window
-- [ ] If TFT wins: shadow gate (14 days), promotion decision
-- [ ] If TFT loses: model_selection/08 updated with final verdict
+- [x] Walk-forward 3-seed confirmation completed (3.8h on MPS)
+- [x] Verdict: TFT trails LEAR (rMAE 0.706 vs 0.653). Shadow gate NOT opened.
+- [x] Model selection note 08 updated with final numbers
+- [ ] PatchTST sweep: next test (27 configs, cheaper architecture)
 
 ## Files
 
@@ -121,3 +136,4 @@ measures future-covariate weights (by architecture design).
 - HPO study: `data/processed/tft_hpo.db`
 - Best checkpoint: `data/processed/tft_hpo_ckpts/best.pt`
 - VSN weights: `reports/sensitivity/tft_vsn_weights.csv`
+- Walk-forward results: `reports/backtests/2026-07-17_tft_hpo_walkforward.(csv|md)`

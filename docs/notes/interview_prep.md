@@ -43,6 +43,12 @@ it with 25 parameters. LSTM uses 100,000+ and overfits the validation
 period. The screening split flatters nets by 0.6–0.9 pp vs honest
 walk-forward — a trap I measured explicitly.
 
+Same story in the price task. 60-trial HPO on TFT (1.27M params,
+56-day context). Screening val: 0.1157 pinball. Walk-forward result:
+MAE 19.71 vs LEAR 18.23 — 8.1% worse. Root cause: monthly refits use
+300–400 samples. LASSO (200 coefficients per hour) beats a 1.27M-param
+network at that sample ratio. With 5 years of data the balance would shift.
+
 **"What features did you use?"**
 
 25 features: load lags (24h, 48h, 168h, 7-day mean), calendar (hour,
