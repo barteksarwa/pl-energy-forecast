@@ -121,8 +121,9 @@ def walk_forward_tft(
         test_sample = build_samples(load, weather, [test_day], tz=tz, tso=tso)
         if len(test_sample.days) == 0:
             continue
-        # Standardize test sample using training stats (already applied to net's context)
-        # For inference: use the same normalization as training (mu/std from test sample)
+        # BUG (latent, campaign never ran to completion): test samples are
+        # NOT standardized with train stats here. Fixed pattern lives in
+        # run_tft_price.py (apply_covariate_stats). Fix before any rerun.
         preds_mw = predict_mw(net, test_sample)  # (1, 24, 3)
         hours = local_day_hours_utc(day_ts, tz)
         if len(hours) == 24:
