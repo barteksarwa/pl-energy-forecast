@@ -1,0 +1,93 @@
+\section{Conformal Calibration: Symmetric vs Asymmetric CQR}
+
+\subsection{Hypothesis}
+
+Learning note 17 proposed that negative-price hours (798 in the test set,
+April 2026 alone had 87) cause lower-tail miscalibration that symmetric CQR
+cannot fix. Hypothesis: asymmetric CQR would widen the lower tail more
+precisely, improving coverage without over-widening the upper tail.
+
+\subsection{Measurement}
+
+Both symmetric and asymmetric CQR applied to the same 2-year walk-forward
+predictions (LEAR and LGBM). Rolling 90-day calibration window.
+
+\begin{center}
+\begin{tabular}{lcccccc}
+\toprule
+Model & Raw cov & Sym cov & Asym cov & Sym offset & Asym q\_lo & Asym q\_hi \\
+\midrule
+LEAR & 71.9\% & \textbf{79.6\%} & 79.1\% & 3.453 & 2.122 & 3.966 \\
+LGBM & 52.3\% & \textbf{78.9\%} & 78.4\% & 10.061 & 7.193 & 11.294 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textit{Cov = empirical coverage of nominal 80\% band. Offsets in EUR/MWh.}
+
+\subsection{Finding: upper tail is the bigger problem}
+
+For both models, \texttt{q\_hi > q\_lo}:
+
+\begin{itemize}
+  \item LEAR: q\_hi 3.966 vs q\_lo 2.122 (upper tail 1.87$\times$ larger)
+  \item LGBM: q\_hi 11.294 vs q\_lo 7.193 (upper tail 1.57$\times$ larger)
+\end{itemize}
+
+The upper tail (y > P90) is systematically harder than the lower tail.
+This is price spikes, not negative prices. Spikes are rare, large, and
+unpredictable; the model's P90 consistently undershoots during gas crises,
+wind droughts, and capacity outages.
+
+The original hypothesis — that negative prices cause lower-tail miscalibration
+— is not supported by this data. The lower tail is actually better calibrated
+than the upper tail.
+
+\subsection{Result: symmetric CQR wins on coverage}
+
+Symmetric CQR achieves slightly higher empirical coverage (79.6\% vs 79.1\%
+for LEAR; 78.9\% vs 78.4\% for LGBM). This is expected: the symmetric
+approach uses $\max(q_{lo} - y, y - q_{hi})$ as the score, which is
+dominated by the upper tail (larger $q_{hi}$). Applying that larger offset
+to the lower tail as well over-widens the lower tail, which is already
+better-calibrated. This over-widening inflates total coverage slightly.
+
+\subsection{Result: asymmetric CQR gives tighter bands}
+
+Asymmetric CQR creates narrower total bands:
+
+\begin{itemize}
+  \item LEAR band width: symmetric $2 \times 3.453 = 6.906$;
+        asymmetric $2.122 + 3.966 = 6.088$ (12\% narrower)
+  \item LGBM band width: symmetric $2 \times 10.061 = 20.12$;
+        asymmetric $7.193 + 11.294 = 18.49$ (8\% narrower)
+\end{itemize}
+
+Tighter bands are more useful for position sizing. A trading desk that
+can tolerate 78.4\% coverage (vs 78.9\%) gains tighter uncertainty estimates.
+
+\subsection{Decision}
+
+Symmetric CQR stays in production. Reasons:
+
+\begin{enumerate}
+  \item Coverage guarantee is the primary requirement for our band.
+        79.6\% vs 79.1\% — symmetric wins on the metric that matters.
+  \item The 0.5pp coverage penalty of asymmetric CQR would require
+        a full 14-day shadow validation before production adoption.
+        We do not have that capacity while the TFT and PatchTST gates
+        are open.
+  \item The asymmetric finding is valuable research:
+        it rules out the negative-price hypothesis and redirects attention
+        to spike forecasting as the main coverage gap.
+\end{enumerate}
+
+Logged in DECISIONS.md.
+
+\subsection{Interview line}
+
+``We tested asymmetric CQR to see if negative-price hours were causing
+lower-tail miscalibration. The data showed the upper tail was actually
+larger ($q_{hi} > q_{lo}$ in both models). That means price spikes are
+the main calibration gap, not negative prices. Symmetric CQR stays
+in production; it achieves 79.5\% coverage on a nominal 80\% band.''

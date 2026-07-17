@@ -1,0 +1,3 @@
+model,raw_cov,sym_cov,asym_cov,sym_offset,asym_q_lo,asym_q_hi
+lear,0.719,0.796,0.791,3.453,2.122,3.966
+lgbm_quantile,0.523,0.789,0.784,10.061,7.193,11.294

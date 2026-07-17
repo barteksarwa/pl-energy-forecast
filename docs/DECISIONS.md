@@ -4,6 +4,11 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-07-17 — Asymmetric CQR evaluated; symmetric stays in production**
+Context: hypothesis that negative-price hours cause lower-tail miscalibration that symmetric CQR cannot fix independently.
+Decision: symmetric CQR stays. Measured on 2-year walk-forward: sym cov 79.6%/78.9%, asym cov 79.1%/78.4% for LEAR/LGBM. Upper tail is the bigger problem (q_hi > q_lo for both models). Asymmetric CQR offers 8-12% narrower bands but 0.5pp lower coverage.
+Why: coverage guarantee is the primary requirement. Spike forecasting — not negative prices — is the main calibration gap. Asymmetric code kept in conformal.py for future use when spike modelling improves.
+
 **2026-07-17 — TFT attention campaign: HPO + PatchTST, walk-forward gate**
 Context: owner lifted model freeze; screening showed TFT trails tabular by 30% but long context IS real (monotonic improvement). Question: does full HPO close the gap?
 Decision: 60-trial Optuna search (ctx + arch jointly), then 3-seed walk-forward to confirm. PatchTST sweep after. Never quote screening numbers as results.
