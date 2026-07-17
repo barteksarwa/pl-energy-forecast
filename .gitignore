@@ -38,5 +38,8 @@ models_store/
 *.synctex.gz
 docs/notes/**/main.pdf
 
+# Research PDFs (reference papers; not part of the codebase)
+docs/**/*.pdf
+
 # Training outputs (checkpoints, logs, campaign results stay local)
 outputs/
