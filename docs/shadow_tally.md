@@ -12,8 +12,9 @@ does not gate: we promote on operational reliability, not single-day wins.
 | 2026-07-15 | FAILED | n/a | 3.98% | 2.12% | No weather forecast data (backfilled after) |
 | 2026-07-16 | FAILED | n/a | 5.78% | 1.20% | TSO NaN — ffill fix deployed same day |
 | 2026-07-17 | FAILED | n/a | 5.06% | 1.83% | CI runner had no data store (weather_forecast missing) — root cause of ALL failures so far; fixed same day (PR #3/#4: rolling cache + backfill step) |
+| 2026-07-18 | pending | – | – | – | Forecast produced by 2026-07-17 cron ✓ (data/forecasts/2026-07-18_challenger.csv committed). Scored 2026-07-19. 2026-07-17 cron also scored 2026-07-16: challenger 1.72%, TSO 1.88% |
 
-**Consecutive valid days: 0. First valid day expected 2026-07-18.**
+**Consecutive valid days: 0 (pending scoring of 2026-07-18 on 2026-07-19).**
 
 ## What counts as "valid"
 

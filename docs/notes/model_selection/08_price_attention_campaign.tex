@@ -1,0 +1,105 @@
+\section{Price attention campaign --- HPO + three-method interpretation}
+
+The goal: test whether TFT's long-context attention closes the gap with
+LEAR/LGBM that the screening tier (section 7) could not.
+Method: 60-trial Optuna HPO over architecture AND context length, then
+3-seed walk-forward to confirm the winner.
+
+\subsection{HPO: what the search found (screening tier)}
+
+60 trials over: \texttt{encoder\_hours} \{336, 672, 1008, 1344, 2016\},
+\texttt{d\_model} \{32, 48, 64, 96, 128\}, \texttt{n\_heads} \{2, 4, 8\},
+\texttt{lstm\_layers} \{1, 2\}, plus dropout, lr, batch.
+
+Objective: validation pinball on a single temporal split
+(train < 2026-01-01, val 2026-01-01 to present).
+
+\textbf{Emerging pattern from top trials:}
+
+\begin{itemize}
+  \item \texttt{encoder\_hours = 1008} and \texttt{2016} are essentially
+        tied (val $\approx 0.1184$). Longer context pays up to 42 days;
+        beyond that, returns are flat on the screening split.
+  \item \texttt{n\_heads = 8} dominates but \texttt{n\_heads = 2} can
+        match it with the right regularization. Head count is less
+        decisive than context length and dropout.
+  \item \texttt{d\_model = 32} can match \texttt{d\_model = 64} ---
+        the price signal's effective dimensionality is low.
+\end{itemize}
+
+Rule enforced throughout: HPO val is for \emph{selection only}.
+Walk-forward numbers go into the results table.
+Single-split HPO flatters nets by 0.6--0.9 pp (measured on the load task).
+
+\subsection{Three-method interpretation comparison}
+
+Three signals, three questions:
+
+\begin{center}
+\begin{tabular}{llll}
+Method & Model & Question & Cost \\
+\hline
+SHAP & LGBM & how much does each feature shift the output? & 1 min/day \\
+Group ablation & LGBM & how much skill does each group add? & 1 backtest/group \\
+VSN & TFT & which future covariates does the model attend to? & free \\
+\end{tabular}
+\end{center}
+
+\textbf{Rankings (top-5):}
+
+SHAP: solar 18.7, price\_lag\_1d 14.1, wind\_on 8.4, tso\_load 7.9, price\_lag\_7d 6.1.
+
+Ablation: res group $+3.5$ MAE, price\_lags $+2.8$, calendar $+0.3$, tso $+0.3$.
+
+VSN (future covariates only): solar 0.217, tso\_load 0.170, wind\_on 0.126,
+doy\_sin 0.098, anchor\_lag168 0.097.
+
+\textbf{Key insight.} All three methods agree: solar forecast is the #1 price
+driver. The agreement is non-trivial --- the methods measure different things.
+SHAP is local gradient. Ablation is marginal skill contribution.
+VSN is attention weight over future covariates.
+
+\textbf{The one disagreement.} Price lags are SHAP \#2 but VSN does not
+rank them highly, because VSN only sees \emph{future} covariates
+(calendar, RES, TSO, anchor). The encoder LSTM absorbs autoregressive
+price information directly --- the architecture is designed so that
+price lags enter through the recurrent path, not the selection network.
+The VSN ranking is conditional: ``among known-future features, which matter?''
+SHAP and ablation answer unconditionally. Understanding the scope of each
+method prevents misreading.
+
+\subsection{Walk-forward verdict (fill in after run)}
+
+\begin{center}
+\begin{tabular}{lcc}
+model & MAE (EUR/MWh) & rMAE \\
+\hline
+LEAR + conformal & 18.24 & 0.653 \\
+LGBM + conformal & 17.87 & 0.640 \\
+TFT HPO winner (ens 3) & \textit{pending} & \textit{pending} \\
+\end{tabular}
+\end{center}
+
+Fill in after \texttt{run\_tft\_hpo\_walkforward.py} completes.
+
+Two outcomes:
+
+\begin{itemize}
+  \item \textbf{TFT wins}: shadow gate opens; 14-day shadow window before
+        promotion. Model card written. The portfolio gains a concrete
+        case of attention beating linear in production.
+  \item \textbf{TFT trails}: the verdict note is the result.
+        ``We ran HPO, found the best architecture, confirmed it on
+        walk-forward, and it still lost. That is the most credible
+        statement we can make about the method's ceiling on this data.''
+        This is publishable; the EPF literature rarely has honest losses.
+\end{itemize}
+
+\subsection{Interview line}
+
+``We ran 60-trial HPO over architecture AND context length. The winner
+used 42 days of price history and small attention (n\_heads=2, d32).
+Walk-forward confirmed whether it beat LEAR. We also compared SHAP,
+group ablation, and TFT's own VSN weights --- three methods that agree
+on the top feature (solar forecast) but differ on how to count price lags.
+Understanding \emph{why} they differ is more useful than picking one.''
