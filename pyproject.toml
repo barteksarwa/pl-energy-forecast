@@ -19,6 +19,7 @@ dependencies = [
     "torch>=2.13.0",
     "duckdb>=1.5.4",
     "demandlib>=0.2.2",
+    "yfinance>=1.5.1",
 ]
 
 [build-system]

@@ -1,0 +1,65 @@
+\section{TFT with long context --- tested, helps, loses anyway}
+
+Owner hypothesis (2026-07-17): attention models can digest MONTHS of
+history, while our tabular models see at most 7-day lags --- maybe the
+missing spike skill lives in that longer context. Fair hypothesis,
+directly testable. We ran it the same night.
+
+\subsection{Setup}
+
+TFT (Lim et al.\ 2021: variable selection + LSTM + temporal attention,
+quantile heads), price target, encoder lengths 1 / 4 / 12 weeks,
+d\_model 64, one seed (screening tier), walk-forward over the last 180
+days with monthly refits. Known-future covariates: calendar, wind+solar
+forecast, TSO load forecast. Same information set as the tabular
+models --- only the PAST WINDOW differs.
+
+\subsection{Result (identical 4320-hour window)}
+
+\begin{center}
+\begin{tabular}{lccc}
+model & MAE & rMAE & spike MAE \\
+\hline
+LEAR + conformal & \textbf{18.5} & \textbf{0.66} & 52.2 \\
+LightGBM + conformal & 18.7 & 0.67 & \textbf{49.8} \\
+TFT, 12-week context & 24.1 & 0.86 & 57.8 \\
+TFT, 4-week context & 24.5 & 0.88 & 54.3 \\
+TFT, 1-week context & 25.9 & 0.93 & 72.4 \\
+\end{tabular}
+\end{center}
+
+Two findings, and they point in opposite directions:
+
+\begin{itemize}
+  \item \textbf{The owner's mechanism is real.} rMAE improves
+        monotonically with context length. The attention model DOES
+        extract something from months of history that a week misses.
+  \item \textbf{And it is nowhere near enough.} The best TFT trails the
+        tabular models by $\sim$30\% on the same window and does not
+        fix spikes either. Matches Lago et al.\ (2021): properly built
+        LEAR/GBM are brutal baselines for day-ahead prices.
+\end{itemize}
+
+\subsection{The bug worth remembering}
+
+First run produced rMAE 2.0--2.5 --- WORSE than copying yesterday. Cause:
+prediction-time samples skipped covariate standardization, so a network
+trained on z-scored inputs received a raw-scale TSO column ($\sim$20{,}000)
+and saturated. One line of preprocessing asymmetry between fit and
+predict turned a working model into noise. Deep pipelines fail SILENTLY
+--- nothing crashed, the numbers were just wrong. Tabular pipelines with
+shared feature matrices cannot have this class of bug, which is itself
+an argument in production.
+
+\subsection{Verdict}
+
+Long context: real, small, insufficient. The binding constraint for
+spikes remains missing information (outages, fuel, cross-border), not
+architecture. The outage-feature test ran the same day. Screening
+caveats: one seed, one size; a tuned ensemble would close some gap ---
+the literature says not all of it.
+
+Interview line: ``We tested the owner's long-context hypothesis
+directly: attention over 12 weeks beats attention over 1 week --- the
+mechanism exists --- but a linear model with the right features still
+beats both by 30\%. Context is not information.''

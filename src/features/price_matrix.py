@@ -18,6 +18,7 @@ import pandas as pd
 
 from src.features.calendar import calendar_features
 from src.features.lags import lagged_load_features
+from src.features.fuel import fuel_features
 from src.features.outages import unavailable_capacity
 from src.features.price_lags import daily_price_vector, lagged_price_features
 
@@ -31,6 +32,7 @@ def build_price_features(
     tso: pd.Series | None = None,
     res: pd.DataFrame | None = None,
     outages: pd.DataFrame | None = None,
+    fuel: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """Feature matrix for a target day's hours, leakage-safe on both series.
 
@@ -54,6 +56,8 @@ def build_price_features(
         parts.append(tso.reindex(target_hours).rename("tso_forecast_mw"))
     if res is not None:
         parts.append(res.reindex(target_hours))
+    if fuel is not None:
+        parts.append(fuel_features(fuel, target_hours, load_cutoff))
     if outages is not None:
         # outage messages published before the LOAD cutoff (09:00 D-1,
         # conservative vs the 12:00 gate) — see src/features/outages.py

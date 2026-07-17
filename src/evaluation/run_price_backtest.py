@@ -34,7 +34,7 @@ PRICE_MODELS = ["price_naive_yesterday", "price_naive_week", "lear", "lgbm_quant
 def assemble_price_features(
     price: pd.Series, load: pd.Series, tso: pd.Series, tz: str,
     start: pd.Timestamp, end: pd.Timestamp, res: pd.DataFrame | None = None,
-    outages: pd.DataFrame | None = None,
+    outages: pd.DataFrame | None = None, fuel: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """Cutoff-safe X for every local day in [start, end]. One build per day."""
     frames = []
@@ -46,7 +46,7 @@ def assemble_price_features(
         frames.append(
             build_price_features(
                 hours, price, load, price_cutoff, load_cutoff, tso=tso, res=res,
-                outages=outages,
+                outages=outages, fuel=fuel,
             )
         )
         day = shift_local_day(day, 1, tz)
@@ -96,6 +96,8 @@ def main() -> int:
     parser.add_argument("--tag", default=None, help="suffix for output names")
     parser.add_argument("--with-outages", action="store_true",
                         help="add the unavailable-capacity feature")
+    parser.add_argument("--with-fuel", action="store_true",
+                        help="add TTF gas + EUA-proxy settlement features")
     args = parser.parse_args()
 
     proc = cfg.paths["data_processed"]
@@ -114,6 +116,9 @@ def main() -> int:
     outages = None
     if args.with_outages:
         outages = pd.read_parquet(proc / "outages.parquet")
+    fuel = None
+    if args.with_fuel:
+        fuel = pd.read_parquet(proc / "fuel_daily.parquet")
 
     tz = cfg.timezone_local
     first = price.index[0].tz_convert(tz) + pd.Timedelta(days=30)
@@ -128,7 +133,7 @@ def main() -> int:
     x = assemble_price_features(
         price, load, tso, tz,
         pd.Timestamp(first.date(), tz=tz), pd.Timestamp(last.date(), tz=tz),
-        res=res, outages=outages,
+        res=res, outages=outages, fuel=fuel,
     )
     y = price.reindex(x.index)
 

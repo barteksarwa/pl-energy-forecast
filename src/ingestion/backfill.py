@@ -398,6 +398,17 @@ def backfill_entsoe_outages(cfg: Config) -> None:
     print(f"entsoe_outages: total {len(combined)} events")
 
 
+def backfill_fuel(cfg: Config) -> None:
+    """TTF gas + EUA-proxy daily closes (yfinance). Full refetch — one
+    request, seconds; idempotence via overwrite."""
+    from src.clients.fuel_client import fetch_fuel_history
+
+    path = cfg.paths["data_processed"] / "fuel_daily.parquet"
+    df = fetch_fuel_history(start=cfg.backfill_start)
+    df.to_parquet(path)
+    print(f"fuel: {len(df)} trading days, {df.index.min().date()} → {df.index.max().date()}")
+
+
 def main() -> int:
     load_dotenv()
     cfg = load_config()
@@ -406,7 +417,7 @@ def main() -> int:
         "--only",
         choices=[
             "weather", "weather_forecast", "pse", "pse_prices",
-            "entsoe", "entsoe_prices", "entsoe_res", "entsoe_outages",
+            "entsoe", "entsoe_prices", "entsoe_res", "entsoe_outages", "fuel",
         ],
         default=None,
     )
@@ -427,6 +438,8 @@ def main() -> int:
         backfill_entsoe_res(cfg)
     if args.only in (None, "entsoe_outages"):
         backfill_entsoe_outages(cfg)
+    if args.only in (None, "fuel"):
+        backfill_fuel(cfg)
     return 0
 
 
