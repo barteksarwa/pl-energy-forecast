@@ -91,3 +91,89 @@ def latest_offset(
     recent = scores[scores.index >= cutoff]
     level = min(coverage * (len(recent) + 1) / len(recent), 1.0)
     return float(np.quantile(recent.to_numpy(), level))
+
+
+def rolling_conformal_asymmetric(
+    preds: pd.DataFrame,
+    y: pd.Series,
+    window_days: int = 90,
+    min_days: int = 30,
+    coverage: float = 0.8,
+    tz: str = LOCAL_TZ,
+) -> pd.DataFrame:
+    """Asymmetric CQR: separate corrections for lower and upper tails.
+
+    The existing `rolling_conformal` adds the same offset Q to both tails.
+    This function computes two independent offsets:
+      Q_lo = quantile of (p10 - y)  — how much P10 overshoots below
+      Q_hi = quantile of (y - p90)  — how much P90 undershoots above
+
+    Use case: negative-price hours cause lower-tail miscalibration that
+    symmetric CQR cannot fix without also over-widening the upper tail.
+
+    Coverage guarantee: individual tail coverage >= alpha/2 by construction.
+    Total coverage >= 1 - alpha = 0.8 (union bound is tighter than alpha).
+    """
+    y = y.reindex(preds.index)
+    lo_scores = (preds["p10"] - y).dropna()  # positive = p10 too high
+    hi_scores = (y - preds["p90"]).dropna()  # positive = p90 too low
+
+    out = preds.copy()
+    days = pd.Index(preds.index.tz_convert(tz).date)
+    lo_days = pd.Index(lo_scores.index.tz_convert(tz).date)
+    hi_days = pd.Index(hi_scores.index.tz_convert(tz).date)
+
+    alpha_half = (1.0 - coverage) / 2.0
+
+    for day in sorted(set(days)):
+        past_lo = lo_scores[
+            (lo_days < day)
+            & (lo_days >= day - pd.Timedelta(days=window_days))
+        ]
+        past_hi = hi_scores[
+            (hi_days < day)
+            & (hi_days >= day - pd.Timedelta(days=window_days))
+        ]
+        if len(past_lo) < min_days * 24:
+            continue
+        n = len(past_lo)
+        # finite-sample corrected level per tail
+        level_lo = min((1.0 - alpha_half) * (n + 1) / n, 1.0)
+        level_hi = min((1.0 - alpha_half) * (n + 1) / n, 1.0)
+        q_lo = float(np.quantile(past_lo.to_numpy(), level_lo))
+        q_hi = float(np.quantile(past_hi.to_numpy(), level_hi))
+
+        mask = days == day
+        out.loc[mask, "p10"] = preds.loc[mask, "p10"] - q_lo
+        out.loc[mask, "p90"] = preds.loc[mask, "p90"] + q_hi
+
+    out["p10"] = out[["p10", "p50"]].min(axis=1)
+    out["p90"] = out[["p90", "p50"]].max(axis=1)
+    return out
+
+
+def latest_offset_asymmetric(
+    preds: pd.DataFrame,
+    y: pd.Series,
+    window_days: int = 90,
+    coverage: float = 0.8,
+) -> tuple[float, float]:
+    """Asymmetric offsets for the NEXT day. Returns (q_lo, q_hi).
+
+    For the daily loop: apply as p10_new = p10 - q_lo, p90_new = p90 + q_hi.
+    """
+    y = y.reindex(preds.index)
+    lo_scores = (preds["p10"] - y).dropna()
+    hi_scores = (y - preds["p90"]).dropna()
+
+    cutoff = preds.index.max() - pd.Timedelta(days=window_days)
+    recent_lo = lo_scores[lo_scores.index >= cutoff]
+    recent_hi = hi_scores[hi_scores.index >= cutoff]
+
+    alpha_half = (1.0 - coverage) / 2.0
+    n = len(recent_lo)
+    level = min((1.0 - alpha_half) * (n + 1) / n, 1.0)
+
+    q_lo = float(np.quantile(recent_lo.to_numpy(), level))
+    q_hi = float(np.quantile(recent_hi.to_numpy(), level))
+    return q_lo, q_hi
