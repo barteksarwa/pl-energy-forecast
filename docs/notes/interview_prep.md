@@ -148,12 +148,21 @@ But the order of magnitude is right: 1 EUR/MWh is worth pursuing.
 
 **"What would CQR fix that your current conformal calibration doesn't?"**
 
-Symmetric conformal adds the same offset to both tails. CQR (Romano
-et al. 2019) is asymmetric: it checks P10 and P90 separately and
-widens each tail independently. Our current conformal achieves 79%
-coverage overall but the lower tail (negative-price hours) is still
-under-covered. CQR would fix the asymmetric miscalibration without
-touching the model — it is a calibration-layer upgrade.
+I tested this. My hypothesis was that negative-price hours caused
+lower-tail miscalibration that symmetric CQR could not fix. I
+implemented asymmetric CQR (separate offsets per tail), ran it on
+the same 2-year predictions, and measured.
+
+Result: symmetric CQR achieved 79.6% (LEAR) and 78.9% (LGBM) coverage.
+Asymmetric CQR achieved 79.1% and 78.4% — slightly lower. And the
+offsets revealed the surprise: q_hi > q_lo for both models (LEAR:
+q_hi 3.97 vs q_lo 2.12; LGBM: q_hi 11.3 vs q_lo 7.2). The upper tail
+— price spikes — is the bigger calibration problem, not negative prices.
+
+Asymmetric CQR creates 8–12% narrower bands (useful for position sizing)
+but at the cost of 0.5 pp lower coverage. Symmetric stays in production
+because coverage is the primary guarantee. The code for asymmetric CQR
+is in `src/evaluation/conformal.py` for when spike modelling improves.
 
 **"What happens to merit-order pricing as renewables grow?"**
 
