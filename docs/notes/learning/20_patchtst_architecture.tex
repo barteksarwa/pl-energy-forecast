@@ -114,6 +114,49 @@ Based on theoretical analysis:
 
 \textit{Fill in actual results after run\_patchtst\_sweep.py completes.}
 
+\subsection{Production bug: zero-variance columns blow up val loss}
+
+This is a real ML-ops story worth knowing.
+
+\textbf{Symptom.} First PatchTST sweep showed val pinball of $879$ vs training
+pinball of $0.26$ --- a 3000$\times$ gap, starting at epoch 0 even before
+any useful learning had occurred.
+
+\textbf{Root cause.} A new RES series appeared in the data:
+\texttt{wind\_off\_fcst\_mw} (Polish offshore wind). The first Baltic turbines
+produced their first MWh on 2026-07-01. The training period (2023--2025)
+had all zeros for this column. After the z-score normalisation step,
+the training standard deviation was $0$, clamped to $10^{-6}$. A validation
+value of $19$\,MW became $19 / 10^{-6} = 19{,}000{,}000$ in standardised
+units. This created astronomically large network inputs.
+
+\textbf{Why PatchTST failed but TFT did not.} TFT uses gated activations
+(sigmoid gates in GRN and LSTM). Sigmoid saturates at extreme inputs:
+$\sigma(10^7) \approx 1$. This acts as a hard clip. PatchTST uses linear
+projection followed by GELU: $\text{GELU}(x) \approx x$ for large $x$. No
+saturation, so the extreme input amplified through all layers.
+
+\textbf{Fix.} In \texttt{standardize\_covariates}: compute the raw std before
+clamping. Where raw std $< 10^{-4}$ (constant in training), zero that column
+in all sets after standardisation. The zero-variance column carries no training
+signal anyway; zeroing it prevents OOD values from exploding.
+
+\begin{verbatim}
+f_sd_raw = train.fut[:, :, :-n_tail].std(dim=(0, 1))
+f_zero_mask = f_sd_raw < 1e-4
+# after z-scoring:
+s.fut[:, :, :-n_tail].masked_fill_(f_zero_mask, 0.0)
+\end{verbatim}
+
+\textbf{Result.} After fix: val pinball drops to $0.143$ for
+\texttt{patch12\_s6\_ctx672} --- the expected range.
+
+\textbf{Production lesson.} In live energy systems, new RES types enter
+service every year (offshore wind, large-scale battery, hydrogen). A column
+that is zero today will become non-zero next year. Any z-score pipeline
+that relies on \texttt{clamp\_min(eps)} without a zero-variance guard is a
+ticking deployment failure.
+
 \subsection{Interview lines}
 
 \begin{itemize}
@@ -126,4 +169,10 @@ Based on theoretical analysis:
   \item ``The expected sweet spot is 12-hour patches: they preserve the
         morning/evening price regime split while still giving 5$\times$
         cheaper attention than raw hourly encoding.''
+  \item ``We hit a real production bug: Baltic offshore wind came online in
+        July 2026. The new column was all-zeros in training, so z-scoring
+        divided by $10^{-6}$ and val inputs became $10^7$-scale. PatchTST
+        exploded; TFT survived because sigmoid gates saturated. The fix is
+        to detect zero-variance training columns and zero them rather than
+        dividing by the clamp minimum.''
 \end{itemize}
