@@ -24,7 +24,7 @@ permissions:
 jobs:
   dry-run:
     runs-on: ubuntu-latest
-    timeout-minutes: 45     # cold-start backfill needs headroom
+    timeout-minutes: 90     # cold-start backfill needs headroom; warm runs take ~2 min
     steps:
       - uses: actions/checkout@v4
 
