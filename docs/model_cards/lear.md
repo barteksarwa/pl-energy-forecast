@@ -88,7 +88,9 @@ is 0.75–0.85 — fundamentals push us past it.
   reports/backtests/2026-07-16_price_conformal_summary.md.
 - Spike MAE 71 vs LGBM 60.6 — both models miss spikes badly; tails are
   the weak spot of the whole table.
-- No fuel/CO2/cross-border features yet.
+- **Fuel features (TTF/EUA proxy) adopted 2026-07-17**: MAE 18.5 → 18.24.
+  Gain concentrated in high-gas winter 2024/25 (Jan bias −15.9 → −4.6).
+  Cross-border flows and outages evaluated; outages FLAT (CI 503 endpoint).
 
 ## Status
 
@@ -96,5 +98,6 @@ is 0.75–0.85 — fundamentals push us past it.
 - [x] Fundamentals features (wind/solar forecast) + extrapolation guard
 - [x] LightGBM quantile challenger — wins MAE, loses coverage
 - [x] Spike-tail evaluation — in the summary table
-- [x] Conformal calibrated band (Phase 2.5): 72.1% -> 79.5% coverage
-- [ ] Fuel + CO2 proxies
+- [x] Conformal calibrated band (Phase 2.5): 72.1% → 79.5% coverage
+- [x] Fuel + CO2 proxy features (TTF index + EUA-tracking ETC)
+- [x] Shadow run live (2026-07-18, target day 1 of 14)

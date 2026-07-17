@@ -69,5 +69,5 @@ CAN disagree and what each one means.
 - [x] Honest first row: MAE champion, rMAE 0.638
 - [x] SHAP drivers artifact
 - [x] Band calibration (conformal, Phase 2.5): 51.4% -> 78.7% coverage
-- [ ] Tuning pass
-- [ ] Daily-loop shadow integration -> promotion candidate vs LEAR (M9 gate)
+- [x] Daily-loop shadow integration (2026-07-17); promotion gate: 14 valid shadow days
+- [ ] Tuning pass (after shadow window confirms coverage gap vs LEAR)

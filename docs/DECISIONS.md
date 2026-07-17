@@ -4,6 +4,28 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-07-17 — TFT attention campaign: HPO + PatchTST, walk-forward gate**
+Context: owner lifted model freeze; screening showed TFT trails tabular by 30% but long context IS real (monotonic improvement). Question: does full HPO close the gap?
+Decision: 60-trial Optuna search (ctx + arch jointly), then 3-seed walk-forward to confirm. PatchTST sweep after. Never quote screening numbers as results.
+Why: owner hypothesis is legitimate and testable; HPO is far cheaper than premature conclusion. Honest walk-forward result (win or loss) is more valuable than a silent skip.
+
+**2026-07-17 — Outage (UMM) feature: evaluated, rejected**
+Context: large unit outages should move price (less supply → higher price). Feature built with ENTSO-E UMM data.
+Decision: outage feature NOT adopted. Change vs full model: ±0.05 EUR/MWh (noise). Feature opt-in with --with-outages flag; backfill endpoint returns 503 in CI.
+Why: aggregate capacity unavailability is too coarse. Individual outage identity, location, and duration matter more but require unit-level matching we don't have. Documented for a future researcher; research store kept.
+
+**2026-07-17 — Fuel features (TTF/EUA proxy) adopted for LEAR**
+Context: winter 2024/25 LEAR monthly bias −15.9 EUR/MWh in January. Gas prices were high; LEAR saw no fuel signal.
+Decision: TTF index (LNG import proxy via ENTSO-E) and EUA-tracking ETF added to LEAR feature matrix. LGBM: no improvement (trees already carry the slow level via price lags).
+Why: LEAR reduced winter bias to −4.6 EUR/MWh; Jan MAE −2.5 EUR/MWh. Gain concentrated in exactly the months where the mechanism predicts it: high-gas regime. Merit-order mechanism, measured.
+
+**2026-07-17 — Shadow tally started for both load and price**
+Context: ridge+TSO challenger and LEAR price model need live proof before promotion.
+Decision: both tallies start 2026-07-18 (first valid cron run, after CI data-store fix). Promotion criterion agreed in advance: 14 consecutive valid days + metric check.
+Why: 14-day shadow window is desk standard — long enough to cover weekend patterns and holiday anomalies; short enough not to delay a clearly superior model.
+
+---
+
 **2026-07-16 — Phase 2.5: polish before Phase 3; no new models**
 Context: Phase 2 build finished ~5 weeks ahead of the get-hired schedule. Remaining gaps were polish, not build: broken bands, stale README, missing market-context docs.
 Decision: insert Phase 2.5 (conformal calibration, README overhaul, M8 notes pulled forward) before Phase 3. Freeze on new model architectures.
