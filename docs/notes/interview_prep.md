@@ -128,6 +128,44 @@ MAPE divides by price; negative or near-zero prices make it undefined
 or misleading. rMAE (MAE / MAE of naive) is sign-agnostic and gives
 the same "how much better than guessing?" interpretation.
 
+**"LGBM has better MAE than LEAR. Why did you keep LEAR as the incumbent?"**
+
+Two reasons. First, LGBM's 0.37 EUR/MWh advantage may not replicate
+in the shadow window — backtests flatter models (we measured this on
+the load task). Second, swapping the incumbent resets the daily track
+record. The tally is the product; we do not reset it on a backtest.
+The LGBM shadow gate opens after the TFT walk-forward finishes the
+MPS compute queue.
+
+**"What is the business value of a 1 EUR/MWh improvement in MAE?"**
+
+It depends on portfolio size and volatility. A rough benchmark: a BRP
+managing 100 MW of flexible load has 100 MWh to optimise per hour.
+At 1 EUR/MWh MAE improvement × 100 MWh × 8,760 hours = 876,000 EUR/year
+in expected savings from better bid timing. Real value is lower because
+no model perfectly converts forecast improvement to bid improvement.
+But the order of magnitude is right: 1 EUR/MWh is worth pursuing.
+
+**"What would CQR fix that your current conformal calibration doesn't?"**
+
+Symmetric conformal adds the same offset to both tails. CQR (Romano
+et al. 2019) is asymmetric: it checks P10 and P90 separately and
+widens each tail independently. Our current conformal achieves 79%
+coverage overall but the lower tail (negative-price hours) is still
+under-covered. CQR would fix the asymmetric miscalibration without
+touching the model — it is a calibration-layer upgrade.
+
+**"What happens to merit-order pricing as renewables grow?"**
+
+More solar flattens midday prices (duck curve). This has three effects.
+First, the spread between midday and evening prices widens: solar
+suppresses midday, gas still sets the evening peak. Second, negative
+prices appear more often (87 hours in April 2026 alone). Third, the
+marginal unit shifts faster — a cloud over Silesia can switch the
+marginal from solar to gas in 15 minutes. Models trained on 2023 data
+underestimate all three effects. Our z-clip guard (±4 std on training
+distribution) is a patch; the proper fix is an online-learning layer.
+
 ---
 
 ## Market structure questions
