@@ -232,12 +232,27 @@ how real desks change models: the burden of proof is on the challenger.
 
 **"What was the hardest bug you found?"**
 
-The solar-growth extrapolation bug. The LEAR price model extrapolated
-linearly from training data where solar installed capacity was 40% lower.
-In 2026, the solar forecast values were far outside the training range.
-LEAR produced 38,000 EUR/MWh predictions. Fix: z-clip input features
-at ±4 standard deviations of the training distribution. One line of code;
-three days of debugging to find it.
+Two bugs, different kinds.
+
+*The solar extrapolation bug.* The LEAR price model extrapolated linearly
+from training data where solar installed capacity was 40% lower. In 2026,
+the solar forecast values were far outside the training range. LEAR
+produced 38,000 EUR/MWh predictions. Fix: z-clip input features at
+±4 standard deviations of the training distribution.
+
+*The offshore wind zero-variance bug.* Baltic offshore wind came online
+July 2026. Before that, the column `wind_off_fcst_mw` was all-zeros in
+training. The z-score normalisation step clamped std to 1e-6. A validation
+value of 19 MW became 19,000,000 in standardised units. PatchTST (linear
+attention, no sigmoid gating) produced val pinball of 879 instead of the
+expected 0.14. TFT survived the same data because its LSTM and GRN sigmoid
+gates saturated at extreme inputs. Fix: detect zero-variance training
+columns (std < 1e-4) and zero them in val/test — they carry no training
+signal anyway. One guard; tested with a dedicated unit test.
+
+The deeper lesson: in live energy systems, new RES types enter service
+every year. Any z-score pipeline that uses clamp-min(eps) without a
+zero-variance guard will fail silently when a new column first appears.
 
 **"You're a PhD student in a different field. Why energy?"**
 
