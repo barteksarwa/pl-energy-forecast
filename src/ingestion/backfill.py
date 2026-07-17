@@ -436,7 +436,10 @@ def main() -> int:
         backfill_entsoe_prices(cfg)
     if args.only in (None, "entsoe_res"):
         backfill_entsoe_res(cfg)
-    if args.only in (None, "entsoe_outages"):
+    if args.only == "entsoe_outages":
+        # opt-in ONLY: heavy, throttle-prone endpoint (503s on CI), and the
+        # outage feature is research-tier (backtest verdict: flat) — the
+        # daily ops loop does not need it.
         backfill_entsoe_outages(cfg)
     if args.only in (None, "fuel"):
         backfill_fuel(cfg)

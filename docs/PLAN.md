@@ -248,12 +248,31 @@ check (owner decision with evidence).
   by TSO forecast. Both fight naive; backtest decides. Watch: ratio
   non-stationarity (portfolio churn) and multiplicative error compounding
   in design (b).
-- **TFT price challenger — conditional.** Worst price days = winter
-  scarcity spikes; current diagnosis says missing INPUTS (outages, fuel,
-  cross-border), not missing capacity. Order: fundamentals features
-  first; if spike MAE stays ~3x pooled after that, run the TFT (it can
-  attack the same features with attention + quantile heads). Runs only
-  through the M9 shadow gate like everyone else.
+- **TFT price challenger — RAN 2026-07-17.** Long context helps
+  monotonically (rMAE 0.93/0.88/0.86 for 1/4/12-week encoders) but the
+  best TFT trails tabular by ~30% on the identical window
+  (`model_selection/07_tft_long_context.tex`). Screening tier only.
+- **Attention-model campaign (owner call 2026-07-17 — model freeze
+  lifted for this thread).** Owner: attention models have the biggest
+  potential here. Running/queued:
+  1. [launched] TFT HPO, 60 Optuna trials, context length IN the search
+     space (336-2016h), resume-safe study `data/processed/tft_hpo.db`;
+     exports VSN weights (TFT-native feature selection) at the end.
+  2. [done] Channel coupling analysis for PatchTST: PL hourly channels
+     are WEAKLY coupled (1 of 21 pairs |corr|>0.5; 4 of 7 PCs for 80%)
+     — channel independence is a defensible bet
+     (`reports/sensitivity/channels_verdict.txt`).
+  3. [built+smoked] PatchTST adapted for the auction task
+     (`src/models/deep/patchtst.py`): patching + channel independence
+     + future-covariate head. Campaign next session.
+  4. [next session] Walk-forward confirm of the HPO winner (screening
+     flatters nets — measured), PatchTST screening sweep (patch_len,
+     stride, ctx), then both through the same-window comparison vs
+     LEAR/LGBM; shadow gate before anything publishes.
+- **Outage feature: tested, FLAT** (LGBM 17.90 vs 17.85; spikes
+  unchanged). Store kept; refinements: per-fuel split, unplanned-only.
+- **Fuel proxies (TTF gas, EUA-tracking ETC): built + backfilled;**
+  combined outages+fuel 2yr backtest running at handover.
 
 ## Learning thread (runs through everything)
 
