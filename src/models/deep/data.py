@@ -125,17 +125,25 @@ def standardize_covariates(
     The last n_tail fut columns are already instance-normalized (anchor,
     plus the TSO forecast when present: pass n_tail=2) — left untouched.
 
+    Zero-variance guard: columns with near-zero training std (e.g. a new
+    RES series that only started appearing in val/test period) are zeroed
+    out in all sets. Without this, a raw value of 19 MW divided by the
+    1e-6 clamp becomes a z-score of 19,000,000 and blows up the model.
+
     Returns the stats dict. PREDICTION-TIME samples built later must be
     passed through apply_covariate_stats with these stats — feeding a
     net trained on z-scores a raw-scale TSO column (~20,000) saturates
     it and the output degenerates (measured: rMAE 2.0+ vs naive).
     """
     e_mu = train.enc[:, :, 1:].mean(dim=(0, 1), keepdim=True)
-    e_sd = train.enc[:, :, 1:].std(dim=(0, 1), keepdim=True).clamp_min(1e-6)
+    e_sd_raw = train.enc[:, :, 1:].std(dim=(0, 1), keepdim=True)
+    e_sd = e_sd_raw.clamp_min(1e-6)
     f_mu = train.fut[:, :, :-n_tail].mean(dim=(0, 1), keepdim=True)
-    f_sd = train.fut[:, :, :-n_tail].std(dim=(0, 1), keepdim=True).clamp_min(1e-6)
+    f_sd_raw = train.fut[:, :, :-n_tail].std(dim=(0, 1), keepdim=True)
+    f_sd = f_sd_raw.clamp_min(1e-6)
+    f_zero_mask = f_sd_raw < 1e-4   # constant in training → zero out everywhere
     stats = {"e_mu": e_mu, "e_sd": e_sd, "f_mu": f_mu, "f_sd": f_sd,
-             "n_tail": n_tail}
+             "f_zero_mask": f_zero_mask, "n_tail": n_tail}
     for s in (train, *others):
         apply_covariate_stats(s, stats)
     return stats
@@ -147,3 +155,7 @@ def apply_covariate_stats(s: DaySamples, stats: dict) -> None:
     if s.enc.shape[-1] > 1:
         s.enc[:, :, 1:] = (s.enc[:, :, 1:] - stats["e_mu"]) / stats["e_sd"]
     s.fut[:, :, :-n_tail] = (s.fut[:, :, :-n_tail] - stats["f_mu"]) / stats["f_sd"]
+    if stats.get("f_zero_mask") is not None and stats["f_zero_mask"].any():
+        s.fut[:, :, :-n_tail] = s.fut[:, :, :-n_tail].masked_fill(
+            stats["f_zero_mask"], 0.0
+        )

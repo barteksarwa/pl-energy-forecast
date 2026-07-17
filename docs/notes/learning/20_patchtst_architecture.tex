@@ -1,0 +1,129 @@
+\section{PatchTST: Patches as Tokens for Time Series}
+
+\subsection{Motivation}
+
+Standard Transformer self-attention has complexity $O(T^2 d)$ where $T$
+is the sequence length. For price forecasting with monthly lags, $T=720$
+(30 days) gives 518,400 attention operations per head. For 56-day context
+($T=1344$), this is $1{,}806{,}336$. On a single GPU or MPS, this is the
+main reason TFT cannot go beyond ctx=2016 economically.
+
+PatchTST (Nie et al., NeurIPS 2023) fixes this by treating contiguous
+subsequences as tokens. A patch of length $P$ reduces the effective
+sequence length to $\lceil T/P \rceil$, so attention cost drops from
+$O(T^2)$ to $O((T/P)^2)$. For $P=24$ (one day per patch) and $T=1344$,
+the effective sequence is $56$ tokens instead of $1344$.
+
+\subsection{Architecture}
+
+\begin{enumerate}
+  \item \textbf{Patching}: the input series is split into overlapping
+        patches of length $P$ with stride $S$.
+        Total patches: $n\_\text{patches} = (T - P) / S + 1$.
+        Example: $T=1344$, $P=24$, $S=12$ $\to$ $n = 110$ patches.
+  \item \textbf{Projection}: each patch is linearly projected to a
+        $d\_\text{model}$-dimensional embedding.
+  \item \textbf{Positional encoding}: sinusoidal encoding added to
+        patch embeddings (patch index, not hour index).
+  \item \textbf{Multi-head self-attention}: over the $n$ patch tokens.
+        Cost: $O(n^2 d)$ instead of $O(T^2 d)$.
+  \item \textbf{Channel independence}: each variate (price, solar,
+        wind, TSO) is encoded \emph{independently}. No cross-variate
+        attention. This is both a limitation and a strength --- it
+        reduces parameter count but loses variate interactions.
+  \item \textbf{Output}: flatten the patch representations, project
+        to 24-hour quantile forecasts.
+\end{enumerate}
+
+\subsection{Patch length vs context tradeoffs}
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+patch\_len & intraday signal & context at same cost & merit-order capture \\
+\midrule
+12h & strong & medium & morning/evening splits \\
+24h & medium & high & whole-day pattern \\
+48h & weak & very high & weekday vs weekend \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+For the price task, the merit order operates at the hourly level:
+solar suppresses hours 10--15, gas peaks hours 18--21.
+A 24h patch collapses both into one token.
+A 12h patch keeps the AM/PM distinction.
+
+\subsection{Channel independence: the tradeoff}
+
+PatchTST (original version) treats each feature independently.
+When predicting price from solar, wind, and TSO:
+\begin{itemize}
+  \item Solar's encoder never ``sees'' wind's encoder.
+  \item The price predictor gets concatenated embeddings, not
+        attended cross-variate representations.
+\end{itemize}
+
+This hurts when the signal is an \emph{interaction} (e.g.\ low wind
+AND high demand $\to$ spike). TFT's temporal self-attention operates
+across all features jointly; its attention heads can learn this
+cross-feature dependency.
+
+The PatchTST-MLP variant (also in the paper) adds a cross-variate
+mixing step. We did not implement this.
+
+\subsection{Why PatchTST might beat TFT on this task}
+
+\begin{itemize}
+  \item \textbf{Fewer parameters}: PatchTST at d=64 has $\sim$50k params
+        vs TFT's 1.27M. At 300--400 training samples, smaller wins.
+  \item \textbf{Longer context at the same cost}: ctx=2016h with
+        P=24 gives 84 tokens vs 2016 tokens for TFT. Attention is
+        much cheaper; training is faster; longer history fits.
+  \item \textbf{Simpler training}: no VSN, no LSTM encoder, no
+        quantile-gating. The architecture is a more direct map from
+        patches to output.
+\end{itemize}
+
+\subsection{Why PatchTST might lose}
+
+\begin{itemize}
+  \item Channel independence loses cross-variate interactions.
+        The solar $\times$ demand interaction (duck curve) requires
+        joint encoding.
+  \item Patch compression loses intraday signal at $P=24$ or $P=48$.
+        The merit order is an \emph{hourly} effect; a daily patch
+        averages it out.
+  \item The price series is non-stationary in a regime-switching way
+        (gas crisis, solar growth). Patch tokens are not explicitly
+        normalised per-token (unlike TFT's instance normalisation).
+\end{itemize}
+
+\subsection{Expected result from the sweep}
+
+Based on theoretical analysis:
+\begin{itemize}
+  \item Best patch length: 12h (preserves intraday signal, still cheaper
+        than raw attention at ctx=1344).
+  \item Best stride: 6h (50\% overlap, more patches, richer context).
+  \item Best context: 1344h or 2016h (regime memory is the gap vs tabular).
+  \item Expected val pinball: 0.120--0.130 range (vs TFT 0.1157).
+        If PatchTST matches TFT on screening, walk-forward wins likely
+        due to fewer parameters.
+\end{itemize}
+
+\textit{Fill in actual results after run\_patchtst\_sweep.py completes.}
+
+\subsection{Interview lines}
+
+\begin{itemize}
+  \item ``PatchTST reduces attention from $O(T^2)$ to $O((T/P)^2)$
+        by treating price subsequences as tokens. This lets us use
+        84-day context at the compute cost of a 4-day raw attention window.''
+  \item ``Channel independence is a tradeoff: we lose solar $\times$ demand
+        interactions, but we gain 20$\times$ fewer parameters --- which
+        matters more when training samples are scarce.''
+  \item ``The expected sweet spot is 12-hour patches: they preserve the
+        morning/evening price regime split while still giving 5$\times$
+        cheaper attention than raw hourly encoding.''
+\end{itemize}
