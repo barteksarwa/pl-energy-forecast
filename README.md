@@ -98,6 +98,22 @@ in advance. Every non-obvious choice is logged in `docs/DECISIONS.md`.
   measured impact: DST leakage, asinh blowup, solar-growth extrapolation
   (38,000 EUR/MWh predictions → z-clip guard), gap-permanence.
 
+## Stack
+
+Python · LightGBM · PyTorch · LEAR (LASSO-AR) · scikit-learn · SHAP ·
+DuckDB · GitHub Actions · ENTSO-E API · Open-Meteo
+
+## Live status
+
+| Thing | Status |
+|---|---|
+| Cron (05:30 UTC) | live since 2026-07-17 |
+| Load challenger (ridge+TSO) | shadow run — day 1 of 14 |
+| Price incumbent (LEAR) | shadow run — day 1 of 14 |
+| Price challenger (LightGBM) | shadow run — day 1 of 14 |
+| Daily reports | 4 committed, accumulating (target: 30) |
+| TFT HPO (attention models) | 60-trial search running; walk-forward confirms |
+
 ## Quickstart
 
 ```bash
