@@ -61,6 +61,7 @@ def persist_24h(
 def _assemble(
     price: pd.Series, load: pd.Series, tso: pd.Series, res: pd.DataFrame,
     tz: str, start: pd.Timestamp, end: pd.Timestamp,
+    fuel: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     from src.pipeline.daily_run import shift_local_day
 
@@ -73,7 +74,7 @@ def _assemble(
                 hours, price, load,
                 price_cutoff=hours[0],
                 load_cutoff=shift_local_day(day, -1, tz) + pd.Timedelta(hours=9),
-                tso=tso, res=res,
+                tso=tso, res=res, fuel=fuel,
             )
         )
         day = shift_local_day(day, 1, tz)
@@ -85,7 +86,11 @@ def price_daily_step(
 ) -> tuple[dict[str, float], list[str], list[str]]:
     """Returns (scores, report_lines, oddities). Raises on hard failure —
     the caller isolates it."""
-    from src.ingestion.backfill import backfill_entsoe_prices, backfill_entsoe_res
+    from src.ingestion.backfill import (
+        backfill_entsoe_prices,
+        backfill_entsoe_res,
+        backfill_fuel,
+    )
     from src.pipeline.daily_run import shift_local_day
     from src.viz.plots import plot_forecast_band
 
@@ -97,13 +102,24 @@ def price_daily_step(
     # 1. Incremental data pull (resume-based, cheap after backfill).
     backfill_entsoe_prices(cfg)
     backfill_entsoe_res(cfg)
+    try:
+        backfill_fuel(cfg)
+    except Exception:
+        pass  # yfinance hiccup must not kill the price step; stale closes ffill
+
     price = pd.read_parquet(proc / "price_da_eur.parquet").iloc[:, 0]
     load = pd.read_parquet(proc / "load.parquet").iloc[:, 0]
     tso = pd.read_parquet(proc / "tso_forecast.parquet").iloc[:, 0]
     res = pd.read_parquet(proc / "res_forecast.parquet")
+    fuel_path = proc / "fuel_daily.parquet"
+    fuel = pd.read_parquet(fuel_path) if fuel_path.exists() else None
+
 
     scores: dict[str, float] = {}
     oddities: list[str] = []
+    if fuel is None:
+        oddities.append("Price: fuel_daily.parquet missing — running without "
+                        "TTF/EUA features (DECISIONS 2026-07-17).")
 
     # 2. Score yesterday's saved forecasts against the realized price.
     yhours = _local_day_hours_utc(yesterday, tz)
@@ -144,7 +160,7 @@ def price_daily_step(
         )
 
     train_start = shift_local_day(tomorrow, -365, tz)
-    x = _assemble(price, load, tso, res_filled, tz, train_start, tomorrow)
+    x = _assemble(price, load, tso, res_filled, tz, train_start, tomorrow, fuel=fuel)
     x_tr = x[x.index < thours[0]].dropna()
     y_tr = price.reindex(x_tr.index).dropna()
     x_tr = x_tr.reindex(y_tr.index)
