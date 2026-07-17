@@ -1,0 +1,67 @@
+\section{PatchTST: patching vs raw attention}
+
+The hypothesis behind PatchTST (Nie et al., 2023): treating hour-long
+price subsequences as tokens (``patches'') reduces the attention cost from
+$O(T^2)$ to $O((T/P)^2)$ where $P$ is the patch length. This allows
+cheap attention over months of history, which TFT cannot do at the same
+compute budget.
+
+\textbf{Key question:} does the patch inductive bias help on this task,
+or does it throw away the intraday structure that matters for prices?
+
+\subsection{Design of the sweep}
+
+27 screening configs: $\text{patch\_len} \in \{12, 24, 48\}$ hours,
+$\text{stride} \in \{6, 12, 24\}$ hours, $\text{ctx} \in \{672, 1344, 2016\}$
+hours (28, 56, 84 days). Fixed: d\_model=64, seed=42, max\_epochs=50 patience=6.
+
+Guard: configs with $n\_\text{patches} > 256$ are skipped (attention cost).
+After screening: top-3 configs by val pinball $\to$ walk-forward.
+
+\subsection{Interpretation of patch length}
+
+\begin{itemize}
+  \item \texttt{patch\_len=12}: patches cover 12 hours (half a day). Captures
+        morning vs afternoon vs evening regimes. Preserves intraday shape.
+  \item \texttt{patch\_len=24}: patches cover 1 day. Collapses the intraday
+        curve into one token. Cheap; loses hour-of-day signal.
+  \item \texttt{patch\_len=48}: patches cover 2 days. Captures weekday
+        vs weekend patterns as tokens. Very compressed.
+\end{itemize}
+
+The merit-order mechanism (solar suppresses hour 11--15; gas peaks hour 19--21)
+suggests short patches (12h) should preserve more signal. Long patches trade
+signal for context length.
+
+\subsection{Screening results}
+
+\textit{Fill in after run\_patchtst\_sweep.py completes.}
+
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+rank & patch\_len & stride & ctx & val pinball \\
+\midrule
+1 & \textit{pending} & \textit{pending} & \textit{pending} & \textit{pending} \\
+2 & \textit{pending} & \textit{pending} & \textit{pending} & \textit{pending} \\
+3 & \textit{pending} & \textit{pending} & \textit{pending} & \textit{pending} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Walk-forward verdict}
+
+\textit{Fill in after walk-forward on top-3 configs.}
+
+Comparison baseline: TFT HPO best (val 0.1157, walk-forward MAE 19.71 EUR/MWh).
+If PatchTST beats TFT on walk-forward: update model card, open shadow gate.
+If PatchTST trails TFT: document why (patch compression loses intraday signal?).
+
+\subsection{Interview lines}
+
+\textit{Fill in after verdict.}
+
+Template: ``PatchTST (Nie et al. 2023) reduces attention cost from
+$O(T^2)$ to $O((T/P)^2)$ by treating price subsequences as tokens.
+We swept 27 configs over patch length, stride, and context.
+[Result]. Root cause: [reason].''
