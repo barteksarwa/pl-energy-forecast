@@ -59,8 +59,18 @@ def fetch_weather_archive(
         "start_date": start,
         "end_date": end,
     }
-    resp = requests.get(ARCHIVE_URL, params=params, timeout=TIMEOUT_S)
-    resp.raise_for_status()
+    # Multi-year archive pulls time out on cold CI runners — retry with backoff.
+    resp = None
+    for attempt in range(3):
+        try:
+            resp = requests.get(ARCHIVE_URL, params=params, timeout=TIMEOUT_S)
+            resp.raise_for_status()
+            break
+        except (requests.Timeout, requests.ConnectionError):
+            if attempt == 2:
+                raise
+            time.sleep(10 * (attempt + 1))
+    assert resp is not None
     hourly = resp.json()["hourly"]
     index = pd.DatetimeIndex(pd.to_datetime(hourly["time"], utc=True), name="time")
     return pd.DataFrame({v: hourly[v] for v in hourly_vars}, index=index)
@@ -77,16 +87,21 @@ def backfill_weather(cfg: Config) -> None:
         if start_ts.date() > end_date:
             print(f"weather {city.name}: up to date")
             continue
-        df = fetch_weather_archive(
-            city.lat, city.lon, cfg.weather_vars, str(start_ts.date()), str(end_date)
-        )
-        combined = _merge_save(path, df)
-        gaps = log_gaps(combined.iloc[:, 0], f"weather_{city.name}", gap_log)
-        print(
-            f"weather {city.name}: {len(df)} new rows, total {len(combined)}, "
-            f"{len(gaps)} gap(s)"
-        )
-        time.sleep(cfg.request_sleep_s)
+        # Yearly chunks: one 3.5-year request is what timed out on CI.
+        combined = None
+        chunk_start = start_ts.date()
+        while chunk_start <= end_date:
+            chunk_end = min(chunk_start + pd.Timedelta(days=365), end_date)
+            df = fetch_weather_archive(
+                city.lat, city.lon, cfg.weather_vars,
+                str(chunk_start), str(chunk_end),
+            )
+            combined = _merge_save(path, df)
+            chunk_start = chunk_end + pd.Timedelta(days=1)
+            time.sleep(cfg.request_sleep_s)
+        if combined is not None:
+            gaps = log_gaps(combined.iloc[:, 0], f"weather_{city.name}", gap_log)
+            print(f"weather {city.name}: total {len(combined)}, {len(gaps)} gap(s)")
 
 
 def fetch_weather_forecast_archive(
