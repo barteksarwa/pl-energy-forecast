@@ -4,6 +4,11 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-07-18 — Zero-variance guard added to standardize_covariates**
+Context: PatchTST first sweep showed val pinball 879 vs train 0.26. Baltic offshore wind (wind_off_fcst_mw) came online 2026-07-01 — all-zero in training, non-zero in val. Training std=0, clamped to 1e-6; a 19 MW val value became z-score 19,000,000.
+Decision: add zero-variance guard to standardize_covariates. Where raw training std < 1e-4, zero the column in all sets after standardisation (instead of dividing by the clamp). Add test test_deep_data.py.
+Why: columns that are constant in training carry no training signal. Any non-zero future value should be treated as "unknown input" → zero-out is safer than a 1e6× amplification. This is a known live-system risk: new RES types enter service every year.
+
 **2026-07-17 — Asymmetric CQR evaluated; symmetric stays in production**
 Context: hypothesis that negative-price hours cause lower-tail miscalibration that symmetric CQR cannot fix independently.
 Decision: symmetric CQR stays. Measured on 2-year walk-forward: sym cov 79.6%/78.9%, asym cov 79.1%/78.4% for LEAR/LGBM. Upper tail is the bigger problem (q_hi > q_lo for both models). Asymmetric CQR offers 8-12% narrower bands but 0.5pp lower coverage.
