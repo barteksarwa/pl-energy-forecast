@@ -1,6 +1,15 @@
 # The daily job simulation: fetch → score yesterday → forecast tomorrow → report.
-# Proof-of-concept automation (PLAN M9). Keyless: PSE + Open-Meteo need no secrets.
+# Proof-of-concept automation (PLAN M9).
 # The commit history of reports/daily/ is the operational track record.
+#
+# Data store: data/ is gitignored, so the runner keeps it in a rolling
+# actions/cache. Every run restores the newest cache, backfills
+# incrementally (idempotent, resumes from last timestamp), and saves a
+# fresh cache. Cold start rebuilds everything from the APIs (~15 min);
+# warm runs fetch only the last day (~1 min).
+#
+# Secrets: ENTSOE_API_TOKEN (repo secret) for prices + RES forecasts.
+# Load data stays keyless (PSE).
 
 name: daily-dry-run
 
@@ -15,7 +24,7 @@ permissions:
 jobs:
   dry-run:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45     # cold-start backfill needs headroom
     steps:
       - uses: actions/checkout@v4
 
@@ -25,11 +34,36 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
+      - name: Restore data store
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            data/raw
+            data/processed
+          key: data-store-${{ github.run_id }}
+          restore-keys: data-store-
+
+      - name: Backfill (idempotent, incremental after first run)
+        env:
+          ENTSOE_API_TOKEN: ${{ secrets.ENTSOE_API_TOKEN }}
+        run: uv run python -m src.ingestion.backfill
+
       - name: Run the daily cycle
+        env:
+          ENTSOE_API_TOKEN: ${{ secrets.ENTSOE_API_TOKEN }}
         run: uv run python -m src.pipeline.daily_run
 
       - name: Refresh figures
         run: uv run python -m src.viz.make_all
+
+      - name: Save data store
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: |
+            data/raw
+            data/processed
+          key: data-store-${{ github.run_id }}
 
       - name: Commit the report
         run: |
