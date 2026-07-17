@@ -355,6 +355,60 @@ def backfill_entsoe_res(cfg: Config) -> None:
         print(f"entsoe_res: {len(gaps)} new gap(s) logged")
 
 
+def backfill_entsoe_outages(cfg: Config) -> None:
+    """Generation-unit outage messages, event-level store.
+
+    data/processed/outages.parquet, deduped on (mrid, revision).
+    Query windows cover the OUTAGE PERIOD, so incremental runs re-query
+    a trailing window (revisions arrive late) and the dedupe absorbs
+    the overlap. Publication time (created_doc_time) is kept — it is
+    the leakage boundary for any feature built on this store.
+    """
+    if not os.environ.get("ENTSOE_API_TOKEN"):
+        print("entsoe_outages: skipped — ENTSOE_API_TOKEN not set in .env")
+        return
+    from entsoe.exceptions import NoMatchingDataError
+
+    from src.clients.entsoe_client import fetch_outages
+
+    path = cfg.paths["data_processed"] / "outages.parquet"
+    horizon = pd.Timestamp.now(tz="UTC") + pd.Timedelta(days=60)
+    if path.exists():
+        # incremental: revisions and new messages for ongoing/future periods
+        start = pd.Timestamp.now(tz="UTC") - pd.Timedelta(days=60)
+        old = pd.read_parquet(path)
+    else:
+        start = pd.Timestamp(cfg.backfill_start, tz="UTC")
+        old = None
+    chunk = pd.Timedelta(days=30)
+    frames = [] if old is None else [old]
+    while start < horizon:
+        end = min(start + chunk, horizon)
+        try:
+            df = fetch_outages(cfg.zone, start=start, end=end)
+            frames.append(df)
+            print(f"entsoe_outages: {start.date()} → {end.date()}, {len(df)} events")
+        except NoMatchingDataError:
+            print(f"entsoe_outages: {start.date()} → {end.date()}, none")
+        start = end
+        time.sleep(cfg.request_sleep_s)
+    combined = pd.concat(frames, ignore_index=True)
+    combined = combined.drop_duplicates(subset=["mrid", "revision"], keep="last")
+    combined.to_parquet(path)
+    print(f"entsoe_outages: total {len(combined)} events")
+
+
+def backfill_fuel(cfg: Config) -> None:
+    """TTF gas + EUA-proxy daily closes (yfinance). Full refetch — one
+    request, seconds; idempotence via overwrite."""
+    from src.clients.fuel_client import fetch_fuel_history
+
+    path = cfg.paths["data_processed"] / "fuel_daily.parquet"
+    df = fetch_fuel_history(start=cfg.backfill_start)
+    df.to_parquet(path)
+    print(f"fuel: {len(df)} trading days, {df.index.min().date()} → {df.index.max().date()}")
+
+
 def main() -> int:
     load_dotenv()
     cfg = load_config()
@@ -363,7 +417,7 @@ def main() -> int:
         "--only",
         choices=[
             "weather", "weather_forecast", "pse", "pse_prices",
-            "entsoe", "entsoe_prices", "entsoe_res",
+            "entsoe", "entsoe_prices", "entsoe_res", "entsoe_outages", "fuel",
         ],
         default=None,
     )
@@ -382,6 +436,10 @@ def main() -> int:
         backfill_entsoe_prices(cfg)
     if args.only in (None, "entsoe_res"):
         backfill_entsoe_res(cfg)
+    if args.only in (None, "entsoe_outages"):
+        backfill_entsoe_outages(cfg)
+    if args.only in (None, "fuel"):
+        backfill_fuel(cfg)
     return 0
 
 

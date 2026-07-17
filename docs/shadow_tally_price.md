@@ -12,8 +12,8 @@ Valid day = forecast produced + committed + scored the next morning.
 
 | Date (target day) | Status | LEAR MAE | naive-1d MAE | Note |
 |---|---|---|---|---|
-| 2026-07-17 | pending score | – | – | first published price forecast |
-| 2026-07-18 | pending score | – | – | TSO+RES persisted (night run) |
+| 2026-07-17 | INVALID | – | – | forecast produced locally, but the CRON price step failed (no data store on runner); official track counts cron runs only |
+| 2026-07-18 | pending | – | – | cron fix merged 2026-07-17; first cron-produced price forecast expected 2026-07-18 |
 
 **Consecutive valid days: 0 (scoring starts 2026-07-17 cron)**
 

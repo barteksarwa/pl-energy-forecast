@@ -33,7 +33,7 @@ import torch
 
 from src.config import load_config
 from src.models.deep.price_data import build_price_samples
-from src.models.deep.data import standardize_covariates
+from src.models.deep.data import apply_covariate_stats, standardize_covariates
 from src.models.deep.tft import TFT
 from src.models.deep.train import device, predict_mw, train_variant
 from src.pipeline.daily_run import local_day_hours_utc
@@ -55,6 +55,7 @@ def walk_forward_tft_price(
 
     net = None
     last_refit = None
+    stats = None
     preds = []
     for test_day in test_days:
         needs_refit = (
@@ -69,7 +70,8 @@ def walk_forward_tft_price(
             va = build_price_samples(price, res, tso, window[split:], encoder_hours, tz)
             if len(tr.days) < 100 or len(va.days) < 10:
                 continue
-            standardize_covariates(tr, va, n_tail=1)
+            stats = standardize_covariates(tr, va, n_tail=1)
+            print(f"  {name} train samples: {len(tr.days)} / val: {len(va.days)}", flush=True)
             net = TFT(enc_feat=1, fut_feat=tr.fut.shape[-1], d_model=D_MODEL).to(device())
             result = train_variant(
                 net, tr, va, checkpoint=str(ckpt_dir / f"{name}.pt"), seed=SEED,
@@ -84,6 +86,7 @@ def walk_forward_tft_price(
         sample = build_price_samples(price, res, tso, [test_day], encoder_hours, tz)
         if len(sample.days) == 0:
             continue
+        apply_covariate_stats(sample, stats)
         p = predict_mw(net, sample)[0]  # (24, 3) EUR/MWh
         hours = local_day_hours_utc(pd.Timestamp(test_day, tz=tz), tz)
         if len(hours) == 24:

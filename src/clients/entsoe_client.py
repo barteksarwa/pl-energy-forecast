@@ -81,3 +81,28 @@ def fetch_res_forecast(
     out["wind_off_fcst_mw"] = out["wind_off_fcst_mw"].fillna(0.0)
     out.index.name = "time"
     return out
+
+
+OUTAGE_COLS = [
+    "created_doc_time", "start", "end", "nominal_power", "avail_qty",
+    "production_resource_name", "plant_type", "businesstype", "docstatus",
+    "mrid", "revision",
+]
+
+
+def fetch_outages(zone: str, start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame:
+    """Generation-unit unavailability messages (UMM-style, 15.1.A/B).
+
+    Event-level rows, NOT a time series. created_doc_time is the
+    publication timestamp — the leakage boundary: a forecast may only
+    use messages published before its cutoff. Deduplication on
+    (mrid, revision) happens in the store layer.
+    """
+    raw = _client().query_unavailability_of_generation_units(
+        zone, start=start, end=end
+    )
+    if raw.empty:
+        return pd.DataFrame(columns=OUTAGE_COLS)
+    raw = raw.reset_index()
+    raw["avail_qty"] = pd.to_numeric(raw["avail_qty"], errors="coerce")
+    return raw[OUTAGE_COLS]

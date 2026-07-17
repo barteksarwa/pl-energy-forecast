@@ -118,17 +118,32 @@ def build_samples(
 
 def standardize_covariates(
     train: DaySamples, *others: DaySamples, n_tail: int = 1
-) -> None:
+) -> dict:
     """Z-score non-load covariates using TRAIN statistics only (no leakage).
 
     Column 0 of enc is the instance-normalized load — left untouched.
     The last n_tail fut columns are already instance-normalized (anchor,
     plus the TSO forecast when present: pass n_tail=2) — left untouched.
+
+    Returns the stats dict. PREDICTION-TIME samples built later must be
+    passed through apply_covariate_stats with these stats — feeding a
+    net trained on z-scores a raw-scale TSO column (~20,000) saturates
+    it and the output degenerates (measured: rMAE 2.0+ vs naive).
     """
     e_mu = train.enc[:, :, 1:].mean(dim=(0, 1), keepdim=True)
     e_sd = train.enc[:, :, 1:].std(dim=(0, 1), keepdim=True).clamp_min(1e-6)
     f_mu = train.fut[:, :, :-n_tail].mean(dim=(0, 1), keepdim=True)
     f_sd = train.fut[:, :, :-n_tail].std(dim=(0, 1), keepdim=True).clamp_min(1e-6)
+    stats = {"e_mu": e_mu, "e_sd": e_sd, "f_mu": f_mu, "f_sd": f_sd,
+             "n_tail": n_tail}
     for s in (train, *others):
-        s.enc[:, :, 1:] = (s.enc[:, :, 1:] - e_mu) / e_sd
-        s.fut[:, :, :-n_tail] = (s.fut[:, :, :-n_tail] - f_mu) / f_sd
+        apply_covariate_stats(s, stats)
+    return stats
+
+
+def apply_covariate_stats(s: DaySamples, stats: dict) -> None:
+    """Apply stored train-window covariate stats to a sample (in place)."""
+    n_tail = stats["n_tail"]
+    if s.enc.shape[-1] > 1:
+        s.enc[:, :, 1:] = (s.enc[:, :, 1:] - stats["e_mu"]) / stats["e_sd"]
+    s.fut[:, :, :-n_tail] = (s.fut[:, :, :-n_tail] - stats["f_mu"]) / stats["f_sd"]
