@@ -27,61 +27,84 @@ Per user request: stripped all `Co-Authored-By: Claude` lines from:
 - `worktree-precious-soaring-crescent` (42 commits) — force-pushed
 - `main` was already clean (0 Claude commits)
 
-Method: `git filter-branch -f --msg-filter 'sed "/^Co-Authored-By:/d"'`
+**Side effect:** filter-branch orphaned `worktree-phase2-price-lear` from `main` (no common ancestor).
+**Fix:** created `phase2-price-lear-v2` branch from `origin/main`, cherry-picked 26 unique commits.
+**PR #8 DRAFT:** https://github.com/barteksarwa/pl-energy-forecast/pull/8 (from `phase2-price-lear-v2`)
 
-### 3. PatchTST sweep v2 — running
+### 3. PatchTST sweep v2 — COMPLETE (0.3h)
 
-PID 38070. Log: `/Users/bartlomiejsarwa/.claude/jobs/7035aac8/tmp/patchtst_sweep_v2.log`
+24 configs ran (3 skipped: n_patches > 256). Full results: `reports/backtests/2026-07-17_patchtst_sweep.csv`
 
-Results so far (4 configs, TFT HPO best val=0.1157):
+Top-10:
 
-| patch_len | stride | ctx  | n_patches | val     |
-|-----------|--------|------|-----------|---------|
-| 12        | 6      | 672  | 111       | 0.1428  |
-| 12        | 6      | 1344 | 223       | 0.1356  |
-| 12        | 6      | 2016 | 335       | SKIP    |
-| 12        | 12     | 672  | 56        | 0.1390  |
-| 12        | 12     | 1344 | 112       | 0.1272  |
+| rank | patch_len | stride | ctx     | val_pinball |
+|------|-----------|--------|---------|-------------|
+| 1    | 24        | 24     | 1344 h  | 0.1236      |
+| 2    | 12        | 12     | 1344 h  | 0.1253      |
+| 3    | 24        | 12     | 1344 h  | 0.1255      |
+| 4    | 48        | 24     | 1344 h  | 0.1261      |
+| 5    | 24        | 6      | 1344 h  | 0.1262      |
+| 6    | 48        | 12     | 1344 h  | 0.1291      |
+| 7    | 12        | 6      | 1344 h  | 0.1295      |
+| 8    | 12        | 24     | 1344 h  | 0.1308      |
+| 9    | 48        | 24     | 2016 h  | 0.1316      |
+| 10   | 24        | 12     | 2016 h  | 0.1317      |
 
-Key insight: longer context (1344h = 56 days) is clearly better.
-Next: ctx=2016 (168 patches) and patch24/patch48 configs.
+Key findings:
+- **ctx=1344h (56 days) dominates.** Top-8 all use ctx=1344. Ctx=672 consistently in bottom half.
+- **24h patches win** for top rank. One day = one token: calendar rhythm is the natural signal level.
+- **PatchTST best val (0.1236) trails TFT HPO val (0.1157)** on this split.
 
-### 4. Documentation added
+### 4. PatchTST walk-forward — COMPLETE (negative result)
+
+Walk-forward ran on top-3: patch24_s24_ctx1344, patch12_s12_ctx1344, patch24_s12_ctx1344.
+Results: `reports/backtests/2026-07-17_patchtst_sweep_walkforward.csv`
+
+| config | MAE (EUR/MWh) | rMAE | coverage 80% | spike MAE |
+|--------|---------------|------|--------------|-----------|
+| patch24_s24_ctx1344 | **22.98** | **0.823** | 69.5% | 79.3 |
+| patch12_s12_ctx1344 | 23.62 | 0.846 | 68.3% | 83.0 |
+| patch24_s12_ctx1344 | 24.49 | 0.877 | 70.0% | 80.2 |
+
+**Verdict: TFT gate NOT cleared.** Best MAE 22.98 > TFT 19.71 EUR/MWh. Coverage collapsed to 69.5% vs 80% target.
+Root cause: short training windows (365 days, 25 refits) + small capacity (197k params) → faster overfitting than TFT.
+
+### 5. Documentation
 
 - `docs/notes/learning/20_patchtst_architecture.tex`: added zero-variance bug section
+- `docs/notes/model_selection/11_patchtst_verdict.tex`: full verdict table filled in
 - `docs/notes/interview_prep.md`: added offshore wind bug story
-- `docs/DECISIONS.md`: logged zero-variance guard decision
+- `docs/DECISIONS.md`: zero-variance guard + PatchTST verdict logged
+
+### 6. Backtesting plots — COMPLETE
+
+15 plots generated: `reports/figures/backtest_price/`
+- Metrics comparison (MAE, RMSE, rMAE bar charts with PatchTST included)
+- 2-year overview and 6 seasonal zoom windows
+- Error distribution, coverage, MAPE, rolling MAE, scatter, spike MAE
+
+Script: `src/viz/backtest_price_plots.py`
 
 ## What's pending
 
-1. **Sweep completion**: 23 configs still to run (~2-3h). Log above.
-2. **Walk-forward top-3**: After screening, launch with `--walkforward` flag.
-   Best 3 configs by val pinball → monthly-refit walk-forward (2024-07-16 → present).
-3. **Model selection note 11**: Fill in results table in `docs/notes/model_selection/11_patchtst_verdict.tex`.
-4. **PatchTST model card**: If any config beats TFT walk-forward (MAE 19.71 / rMAE 0.706),
-   create `docs/model_cards/patchtst_price.md` and open shadow gate.
-
-## Launch commands when sweep finishes
-
-```bash
-# Walk-forward on top-3 (get top-3 from CSV first):
-uv run python -m src.models.deep.run_patchtst_sweep --walkforward
-
-# Or target specific configs manually:
-uv run python -m src.models.deep.run_patchtst_sweep \
-    --seed 42 --d_model 64 --walkforward
-```
-
-Walk-forward output: `reports/backtests/2026-07-18_patchtst_sweep_walkforward.csv`
+1. **Merge PR #8** and push all branches to origin/main. (done at end of this session)
+2. **Overnight PatchTST feature analysis** (12h run): ablation, PCA, permutation importance.
+3. **Shadow track record**: 14-day shadow window for load and price models continues.
+   See `docs/shadow_tally.md` for current day count.
 
 ## Key numbers to remember
 
-| model         | val pinball | walk-forward MAE | walk-forward rMAE |
-|---------------|-------------|------------------|-------------------|
-| LEAR+conformal| —           | 18.23 EUR/MWh    | 0.653             |
-| LGBM+conformal| —           | 17.8 EUR/MWh     | 0.640 (champion)  |
-| TFT ens-3     | 0.1157      | 19.71 EUR/MWh    | 0.706             |
-| PatchTST best | 0.1272+     | TBD              | TBD               |
+| model          | val pinball | walk-forward MAE | walk-forward rMAE |
+|----------------|-------------|------------------|-------------------|
+| LGBM+conformal | —           | 17.8 EUR/MWh     | 0.640 (champion)  |
+| LEAR+conformal | —           | 18.23 EUR/MWh    | 0.653             |
+| TFT ens-3      | 0.1157      | 19.71 EUR/MWh    | 0.706             |
+| PatchTST best  | 0.1236      | 22.98 EUR/MWh    | 0.823 (❌ TFT gate not cleared) |
+| naive 1-day    | —           | 28.0 EUR/MWh     | 1.000             |
 
-PatchTST needs walk-forward MAE < 19.71 EUR/MWh to beat TFT (a low bar).
-If it reaches ≤ 18.23 EUR/MWh, it beats LEAR (would open shadow gate).
+PatchTST attention campaign: **negative result**. LGBM+conformal stays champion.
+
+## Branch status
+
+- `phase2-price-lear-v2`: PR #8 branch. Merged to main at end of session.
+- `worktree-phase2-price-lear`: same content, local only.

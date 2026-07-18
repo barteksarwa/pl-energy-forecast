@@ -4,6 +4,18 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-07-18 — PatchTST attention campaign: negative result, archived**
+Context: PatchTST walk-forward (top-3, 25 monthly refits 2024-07-16→2026-07-16). Best config MAE 22.98 EUR/MWh, rMAE 0.823. TFT gate was 19.71 EUR/MWh. TFT gate NOT cleared.
+Decision: PatchTST archived. LGBM+conformal stays champion. Attention campaign complete. Next priority: 14-day shadow track record.
+Why: patch inductive bias does not compensate for short training windows (365 days) and small model capacity (197k params). Coverage 69.5% vs 80% target — interval quality also worse than all baselines.
+
+**2026-07-18 — Backtesting comparison plots added**
+Context: 15 plots generated from 2-year hourly predictions (LGBM, LEAR, TFT, naive). PatchTST hourly preds not saved during walk-forward (only aggregate metrics).
+Decision: plots saved to reports/figures/backtest_price/. PatchTST shown in bar charts only (aggregate MAE/rMAE).
+Why: hourly predictions needed for time-series plots; PatchTST walk-forward only wrote aggregate CSV. Re-running for hourly preds would take 90 min for diminishing return on a negative result.
+
+---
+
 **2026-07-18 — Zero-variance guard added to standardize_covariates**
 Context: PatchTST first sweep showed val pinball 879 vs train 0.26. Baltic offshore wind (wind_off_fcst_mw) came online 2026-07-01 — all-zero in training, non-zero in val. Training std=0, clamped to 1e-6; a 19 MW val value became z-score 19,000,000.
 Decision: add zero-variance guard to standardize_covariates. Where raw training std < 1e-4, zero the column in all sets after standardisation (instead of dividing by the clamp). Add test test_deep_data.py.

@@ -91,26 +91,32 @@ rank & patch\_len & stride & ctx & val pinball \\
 
 \subsection{Walk-forward verdict}
 
-\textit{Walk-forward running on top-3 configs (patch24\_s24\_ctx1344,
-patch24\_s12\_ctx1344, patch48\_s24\_ctx1344). Fill in when complete.}
-
-Comparison baseline: TFT ens-3 MAE 19.71 EUR/MWh (rMAE 0.706).
-Gate to open: MAE $<$ 18.23 EUR/MWh (LEAR benchmark).
-Champion: LGBM+conformal MAE 17.8 EUR/MWh (rMAE 0.640).
+Walk-forward on top-3 configs (monthly refit, 2024-07-16 $\to$ 2026-07-16,
+25 refits each, test set 17,472~h).
 
 \begin{center}
 \begin{tabular}{lcccc}
 \toprule
 model & MAE (EUR/MWh) & rMAE & coverage 80\% & spike MAE \\
 \midrule
-LGBM+conformal & 17.8 & 0.640 & 78.7\% & \textit{pending} \\
-LEAR+conformal & 18.23 & 0.653 & 79.5\% & \textit{pending} \\
-TFT ens-3      & 19.71 & 0.706 & \textit{pending} & \textit{pending} \\
-PatchTST best  & \textit{pending} & \textit{pending} & \textit{pending} & \textit{pending} \\
+LGBM+conformal & 17.87 & 0.640 & 78.9\% & 60.7 \\
+LEAR+conformal & 18.23 & 0.653 & 79.6\% & 69.9 \\
+TFT ens-3      & 19.71 & 0.706 & 79.6\% & 74.7 \\
+\textbf{PatchTST best (p24\_s24\_ctx1344)} & \textbf{22.98} & \textbf{0.823} & \textbf{69.5\%} & \textbf{79.3} \\
 naive 1-day    & 28.0  & 1.000 & --- & --- \\
 \bottomrule
 \end{tabular}
 \end{center}
+
+\textbf{Verdict: negative.} PatchTST did not clear the TFT gate
+(22.98 vs 19.71 EUR/MWh). Coverage collapsed to 69.5\% against a
+target of 80\%. Spike MAE 79.3 vs LGBM 60.7.
+
+Why did screening val predict the wrong ranking? The screening split
+(2026-01-01 cut) rewards models that memorise 2025 regime. Walk-forward
+uses monthly refits on a rolling 365-day window -- a much harder task.
+PatchTST (197k params) overfits faster than TFT (1.27M params) on short
+training windows. The patch inductive bias does not compensate.
 
 \subsection{Interview lines}
 
@@ -119,17 +125,19 @@ $O((T/P)^2)$ by treating price subsequences as tokens. We swept 27
 configs over patch length, stride, and context on the Polish day-ahead
 price task.
 
-Key finding from screening: 24-hour patches with 56-day context dominated.
+Screening finding: 24-hour patches with 56-day context dominated.
 One patch = one calendar day made weekday/holiday/seasonal cycles the
 natural token-level signal.
 
-\textit{[Fill in walk-forward result and conclusion when available.]}
+Walk-forward finding: \textit{negative}. Best config (patch24, ctx1344)
+MAE 22.98 EUR/MWh, rMAE 0.823 -- 16\% worse than TFT (19.71, rMAE 0.706)
+and 29\% worse than champion LGBM (17.87, rMAE 0.640). Coverage 69.5\%
+vs target 80\%. The patch inductive bias does not compensate for the
+smaller model capacity on short training windows.
 
-Production lesson: a zero-variance column that enters training as a
-constant (Baltic offshore wind, commissioned July 2026) destroyed
-PatchTST val pinball from an expected 0.14 to 879. The guard:
-detect training columns where $\sigma < 10^{-4}$, zero them in all
-sets instead of dividing by $10^{-6}$. TFT survived the same data
-because its LSTM and GRN sigmoid gates saturate at extreme inputs.
-PatchTST's linear attention amplified the $1.9 \times 10^7$ z-score
-directly.
+Production lesson: a zero-variance column (Baltic offshore wind,
+commissioned July 2026) drove val pinball from 0.14 to 879.
+Fix: detect $\sigma < 10^{-4}$ in training, zero that column in all
+sets instead of dividing by $10^{-6}$. TFT survived because LSTM and
+GRN sigmoid gates saturate at extreme inputs; PatchTST's linear attention
+amplified the $1.9 \times 10^7$ z-score directly.
