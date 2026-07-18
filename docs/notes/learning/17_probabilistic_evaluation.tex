@@ -1,0 +1,129 @@
+\section{Probabilistic Evaluation and Conformal Upgrades}
+
+\subsection{Why probabilistic output matters}
+
+A point forecast tells a trader \emph{where} the price lands.
+A probabilistic forecast tells them \emph{how wide to quote the spread}.
+Risk managers and portfolio optimisers need quantiles, not just P50.
+
+EU energy contracts increasingly require scenario generation.
+If you only ship P50, you cannot do that.
+
+\subsection{What we evaluate}
+
+Three forecast objects:
+
+\begin{itemize}
+  \item \textbf{P50} (median): evaluated with MAE, rMAE.
+  \item \textbf{P10/P90 band}: evaluated with pinball loss and empirical coverage.
+  \item \textbf{Calibration}: does the 80\% band actually cover 80\% of outcomes?
+\end{itemize}
+
+\subsection{Pinball loss}
+
+Also called quantile loss or tick loss.
+For quantile $\tau \in (0,1)$ and forecast error $e = y - \hat{q}_\tau$:
+
+\[
+  L_\tau(e) =
+  \begin{cases}
+    \tau \cdot e      & \text{if } e \geq 0 \\
+    (\tau - 1) \cdot e & \text{if } e < 0
+  \end{cases}
+\]
+
+P10 ($\tau=0.1$) penalises over-forecasting 9$\times$ more than
+under-forecasting. P90 is the mirror.
+Sum the two: $L_{0.1} + L_{0.9}$. Lower is better.
+Scale-independent comparison: divide by naive pinball.
+
+In this project: LGBM pinball 0.124 vs naive 0.194 (36\% lower).
+
+\subsection{Empirical coverage}
+
+Count the fraction of hours where the actual price falls inside
+$[\hat{q}_{0.1}, \hat{q}_{0.9}]$.
+A well-calibrated model: coverage $\approx 80\%$.
+
+Raw LGBM quantile regression: 51.4\% coverage on nominal 80\% band.
+After conformal calibration: 78.7\%.
+The gap shows raw quantile regression can be poorly calibrated.
+
+\subsection{Conformal prediction recap}
+
+\emph{Split conformal} (from note 16, summary):
+
+\begin{enumerate}
+  \item Calibration set: walk-forward out-of-sample errors from last 90 days.
+  \item Compute nonconformity scores: $s_t = \max(\hat{q}_{0.1,t} - y_t,\ y_t - \hat{q}_{0.9,t})$.
+  \item Find $\hat{q}_{0.9}(S)$ over all calibration scores.
+  \item At test time: widen band by $\hat{q}_{0.9}(S)$ on each side.
+\end{enumerate}
+
+Coverage guarantee: $\Pr[y \in \text{band}] \geq 1 - \alpha = 0.80$.
+No distributional assumption needed.
+
+\subsection{Conformal Quantile Regression (CQR) — the upgrade}
+
+Symmetric conformal widens both tails by the same amount.
+CQR (Romano, Patterson \& Cand{\`e}s, 2019) is asymmetric:
+
+\begin{align}
+  s_t &= \max\!\bigl(\hat{q}_{0.1,t} - y_t,\ y_t - \hat{q}_{0.9,t}\bigr)
+\end{align}
+
+The key difference: CQR keeps the asymmetry learned by the quantile model.
+If P90 is already well-calibrated but P10 undershoots,
+CQR widens the lower tail more than the upper tail.
+Symmetric CP cannot do this.
+
+Gap in this project: symmetric CP corrects overall coverage from 51\% to 79\%.
+It does not fix the asymmetric miscalibration that remains.
+CQR is the next upgrade.
+
+\subsection{Winkler score}
+
+One number that combines sharpness and coverage:
+
+\[
+  W = (q_{0.9} - q_{0.1}) + \frac{2}{\alpha}
+      \bigl[\max(q_{0.1}-y,0) + \max(y-q_{0.9},0)\bigr]
+\]
+
+Narrow band = low width term.
+Missed coverage = high penalty term.
+Lower is better. Useful for comparing conformal vs CQR vs other calibrators.
+
+Limitation: if coverage drops below $1-\alpha$, the penalty
+dominates and width differences become invisible.
+Use Winkler only when comparing models with similar coverage.
+
+\subsection{Interview lines}
+
+\begin{itemize}
+  \item ``Our raw quantile model achieved 51\% coverage on a nominal 80\% band.
+        Conformal calibration fixed it to 79\% with no model retraining.''
+  \item ``Pinball loss decomposes into two weighted MAE terms — one for
+        over-forecasting, one for under-forecasting. The weights are $\tau$
+        and $1-\tau$.''
+  \item ``Symmetric conformal assumes both tails need the same correction.
+        CQR is the right fix when one tail is already calibrated.''
+  \item ``Winkler score combines sharpness and coverage in one number.
+        It is the natural metric for comparing interval forecasts.''
+\end{itemize}
+
+\subsection{Practical checklist for shipping a probabilistic model}
+
+\begin{enumerate}
+  \item Plot empirical coverage by hour-of-day. Coverage should be flat.
+        Spikes or dips reveal regime-specific miscalibration.
+  \item Check coverage on high-price hours separately (e.g.\ $y > 150$ EUR/MWh).
+        Most models under-cover extremes even with good overall coverage.
+  \item Use rolling calibration (not a fixed window) so corrections adapt
+        to regime shifts (e.g.\ winter gas crisis, summer solar oversupply).
+  \item Log the conformal offset daily. A sudden jump indicates the model
+        has entered a new regime.
+  \item Never quote calibrated quantiles to a trading system without a
+        stale-offset guard: if today's calibration data is missing,
+        fall back to the last known-good offset, not to uncalibrated output.
+\end{enumerate}

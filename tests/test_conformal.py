@@ -6,7 +6,9 @@ import pandas as pd
 from src.evaluation.conformal import (
     conformity_scores,
     latest_offset,
+    latest_offset_asymmetric,
     rolling_conformal,
+    rolling_conformal_asymmetric,
 )
 
 
@@ -70,3 +72,46 @@ def test_band_still_contains_p50() -> None:
 def test_latest_offset_positive_for_narrow_band() -> None:
     preds, y = _make()
     assert latest_offset(preds, y) > 0
+
+
+def _make_asymmetric(n_days: int = 200) -> tuple:
+    """Narrow band, but lower tail much more miscalibrated than upper tail."""
+    rng = np.random.default_rng(1)
+    idx = pd.date_range("2025-01-01", periods=n_days * 24, freq="1h", tz="UTC")
+    p50 = pd.Series(100.0, index=idx)
+    # y skewed: large left-tail (negative spikes) — lower tail will need bigger fix
+    y = p50 + rng.normal(0, 5, len(idx)) + rng.exponential(15, len(idx)) * -1
+    preds = pd.DataFrame({"p10": p50 - 3.0, "p50": p50, "p90": p50 + 3.0})
+    return preds, y
+
+
+def test_asymmetric_coverage_near_nominal() -> None:
+    preds, y = _make_asymmetric()
+    adj = rolling_conformal_asymmetric(preds, y)
+    changed = adj["p90"] != preds["p90"]
+    cov = ((y >= adj["p10"]) & (y <= adj["p90"]))[changed].mean()
+    assert cov >= 0.70  # asymmetric should achieve near 80%
+
+
+def test_asymmetric_tails_differ() -> None:
+    """Lower tail gets a bigger correction than upper tail (skewed data)."""
+    preds, y = _make_asymmetric()
+    adj = rolling_conformal_asymmetric(preds, y)
+    changed = adj["p90"] != preds["p90"]
+    lower_shift = (preds.loc[changed, "p10"] - adj.loc[changed, "p10"]).mean()
+    upper_shift = (adj.loc[changed, "p90"] - preds.loc[changed, "p90"]).mean()
+    # lower tail is more miscalibrated in _make_asymmetric → bigger shift
+    assert lower_shift > upper_shift
+
+
+def test_asymmetric_band_contains_p50() -> None:
+    preds, y = _make_asymmetric()
+    adj = rolling_conformal_asymmetric(preds, y)
+    assert (adj["p10"] <= adj["p50"]).all()
+    assert (adj["p90"] >= adj["p50"]).all()
+
+
+def test_latest_offset_asymmetric_returns_pair() -> None:
+    preds, y = _make_asymmetric()
+    q_lo, q_hi = latest_offset_asymmetric(preds, y)
+    assert q_lo > q_hi  # lower tail needs bigger fix in skewed data

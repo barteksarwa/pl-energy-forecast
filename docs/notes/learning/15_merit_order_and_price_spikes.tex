@@ -1,0 +1,117 @@
+\section{Merit order and price spikes --- why price is hard}
+
+\subsection{The merit order}
+
+Electricity is dispatched in cost order. The system operator calls the
+cheapest plant first, then the next, until supply meets demand. The
+\emph{marginal} plant --- the last one needed --- sets the price for
+everyone. This is the merit order.
+
+In practice (Poland, any hour):
+
+\begin{enumerate}
+  \item Nuclear and run-of-river hydro: near-zero marginal cost, always on.
+  \item Wind and solar: zero fuel cost. They run whenever they produce.
+  \item Lignite (r\k{e}gowe kopalnia): cheapest thermal, base-load.
+  \item Hard coal: mid-merit.
+  \item Gas (CCGT): most expensive common thermal.
+  \item Imports, peak hydro, demand response: sets the price only when
+        cheaper options are exhausted.
+\end{enumerate}
+
+\textbf{Key consequence.} More wind or solar pushes coal/gas down the stack.
+When enough renewables enter, the marginal unit flips from gas to coal,
+then to lignite. Price falls. If renewables exceed demand, the price can
+go \emph{negative}: inflexible generators pay to stay on.
+
+\textbf{Measured in our data.} Wind $>4\,\mathrm{GW}$ (Poland): average price
+$87.8\,\mathrm{EUR/MWh}$ vs $111.0\,\mathrm{EUR/MWh}$ at low wind --- a 21\%
+discount, recoverable by a single DuckDB query (notebook cell 4).
+
+\subsection{Price formation through a day}
+
+A typical summer day (Poland):
+
+\begin{itemize}
+  \item 00:00--06:00: low demand, base-load only. Price $\sim90$ EUR.
+  \item 06:00--08:00: morning ramp, industrial demand. Price spikes to
+        $130+$ EUR (gas enters).
+  \item 09:00--14:00: solar peak. Price falls, sometimes to negative
+        (April 2026 had 87 negative hours). LEAR sees this as the
+        ``solar trough''.
+  \item 15:00--21:00: solar wanes, demand holds high. Evening ramp.
+        Gas is marginal again. Price returns to 130--165 EUR.
+  \item 22:00--23:00: demand drops; night settle. Prices fall back.
+\end{itemize}
+
+This shape appears in our SQL output (notebook cell 3): weekday midday
+48 EUR (solar), evening 165 EUR (gas). Weekend midday 48 EUR too, but
+evening ramp is smaller (less industrial demand).
+
+\subsection{Why spikes are hard to forecast}
+
+A price spike ($>250\,\mathrm{EUR/MWh}$) happens when:
+
+\begin{itemize}
+  \item Unexpected demand peak (cold snap, hot spell) AND
+  \item Unexpected supply loss (plant outage, calm wind) AND
+  \item Low import capacity (interconnectors congested).
+\end{itemize}
+
+All three must align. Our feature set captures the first two partially
+(temperature forecast, wind forecast) but misses:
+\begin{itemize}
+  \item \textbf{Unit outages}: large generators file Urgent Market Messages
+        (UMM) on ENTSO-E. We built the feature; it was FLAT in our test.
+        The aggregate signal is too coarse and revises after events.
+  \item \textbf{Interconnector capacity}: cross-border transfer limits
+        change daily. Not yet in our feature set.
+  \item \textbf{Gas-day prices}: TTF intraday moves during the forecast window.
+        Our proxy (overnight settlement) is a lag.
+\end{itemize}
+
+\textbf{Spike MAE benchmark}: LGBM 60.6 EUR/MWh vs naive 77.6 EUR/MWh.
+A 22\% improvement, but still 3$\times$ the pooled-hour MAE. This is honest.
+Any price forecaster who claims to ``solve'' spikes is selling something.
+
+\subsection{Gas and CO2 as level drivers}
+
+Gas (TTF) sets the variable cost of the marginal CCGT. When TTF is high,
+the merit-order price for every gas-dispatched hour rises.
+
+CO2 (EUA permit price) adds to the marginal cost of fossil plants:
+lignite has higher specific emissions than gas (more CO2 per MWh), so
+high EUA prices narrow the gas-coal spread and can flip merit-order
+ranking.
+
+\textbf{In our fuel test (2026-07-17)}: including a TTF index and an
+EUA-proxy ETF reduced LEAR winter-2024/25 bias from $-15.9$ to $-4.6$
+EUR/MWh ($+2.5$ MAE). The gain concentrated exactly in high-gas months.
+Calm-gas period (2025/26): no effect. Merit-order mechanism, measured.
+
+\subsection{Negative prices}
+
+Negative prices arise when wind+solar generation exceeds demand and
+inflexible thermal plants cannot ramp down fast enough. They ``pay'' the
+grid to take their power so they can keep running (start-up costs exceed
+one hour of negative revenue).
+
+Poland negative hours by month (from notebook):
+April 2026: 87 hours (peak solar, mild spring demand).
+December 2025: 0 hours (low solar, high heating demand).
+
+Negative price hours cannot be handled by MAPE (division by price $\to$
+sign change). We use rMAE (MAE relative to naive) throughout.
+
+\subsection{Interview lines}
+
+``The merit order is why solar is our \#1 feature. A large wind ramp 90
+minutes before delivery changes the marginal unit from gas to coal --- 30
+EUR/MWh difference. Our SHAP and group ablation both recovered this.''
+
+``Spikes need information we don't have: real-time outages, intraday gas
+prices, interconnector limits. We tried the outage feature; it was flat.
+Admitting that is more credible than claiming to solve it.''
+
+``We use rMAE, not MAPE, because 798 hours in our 3-year dataset had
+negative prices. MAPE would give meaningless values or divide-by-zero.''

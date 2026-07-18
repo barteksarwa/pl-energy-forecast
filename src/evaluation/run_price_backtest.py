@@ -23,7 +23,7 @@ import src.models.gbm  # noqa: F401  (populates REGISTRY)
 import src.models.price  # noqa: F401
 from src.config import Config, load_config
 from src.evaluation.backtest import BacktestResult, walk_forward_backtest
-from src.evaluation.metrics import mae, pinball_loss, rmse
+from src.evaluation.metrics import mae, pinball_loss, rmse, winkler_score
 from src.features.price_matrix import build_price_features
 from src.models.base import REGISTRY
 from src.pipeline.daily_run import local_day_hours_utc, shift_local_day
@@ -77,6 +77,7 @@ def summarize_price(results: list[BacktestResult], y: pd.Series) -> pd.DataFrame
                 "pinball_p50": pinball_loss(y, p["p50"], 0.5),
                 "pinball_p90": pinball_loss(y, p["p90"], 0.9),
                 "coverage_80_pct": 100.0 * inside.mean(),
+                "winkler": winkler_score(y_r, p),
                 "spike_mae": mae(y_r[spike], p.loc[spike, "p50"]),
                 "spike_cover_pct": 100.0 * (y_r[spike] <= p.loc[spike, "p90"]).mean(),
                 "n_hours": int(p["p50"].notna().sum()),

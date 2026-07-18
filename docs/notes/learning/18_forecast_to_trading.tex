@@ -1,0 +1,128 @@
+\section{From Forecast to Trading Decision}
+
+\subsection{Why forecasts must feed decisions}
+
+A price forecast is not the end product. It is an input to a decision.
+Understanding that decision is what separates a forecasting engineer
+from a forecasting scientist.
+
+On a trading desk, the decision is: how much power to buy or sell
+in the day-ahead auction, at what price.
+A forecast helps if it changes what the desk does.
+If the forecast is the same as the TSO's, the desk learns nothing new.
+
+\subsection{The bid optimisation problem}
+
+A balance-responsible party (BRP) must submit bids for each of the 24
+hours of tomorrow. For each hour $h$, they choose:
+
+\begin{itemize}
+  \item \textbf{Quantity} $q_h$ (MWh): how much to buy/sell.
+  \item \textbf{Price} $p_h$ (EUR/MWh): the limit price (below which they do not execute).
+\end{itemize}
+
+If they own generation, they want to sell when price is high.
+If they own consumption, they want to buy when price is low.
+If they get the timing wrong, they pay the balancing market.
+
+A better price forecast lets them time bids more accurately.
+
+\subsection{Expected value of forecast improvement}
+
+Suppose the desk has 100 MW of flexible consumption (a factory).
+Daily energy cost = $\sum_{h=1}^{24} q_h \cdot p_h^{\text{actual}}$.
+
+Naive strategy: buy flat (4 MWh/h = 100 MW $\times$ 1h). No timing.
+Smart strategy: shift consumption to the cheapest 8 hours.
+
+Over 2 years of PL data, the spread between cheapest 8 and most expensive 8
+hours averages 47 EUR/MWh. At 100 MW that is 4,700 EUR/day, 1.7M EUR/year.
+A 10\% improvement in price forecast accuracy is not nothing.
+
+\subsection{Where probabilistic output matters most}
+
+P50 (median) finds the best hour to buy.
+P10 and P90 answer: \emph{how confident are we?}
+
+A trader will not shift 100 MW of load if the P90 suggests prices
+might still be high. The decision threshold depends on the band width.
+
+Wide band: stick closer to the baseline (less timing risk).
+Narrow band: push harder on the optimal hour.
+The quantile forecast is the input to a \emph{risk-adjusted} decision.
+
+\subsection{Value at Risk and forecast uncertainty}
+
+A portfolio optimiser uses price scenarios, not point forecasts.
+Typical workflow:
+
+\begin{enumerate}
+  \item Sample $N=1000$ price paths from the P10/P90 band.
+  \item For each path, compute portfolio value.
+  \item Report Value at Risk: the 5th percentile of portfolio value across paths.
+  \item Accept bids only when VaR is above the position limit.
+\end{enumerate}
+
+This is why the CQR upgrade matters: if the band is too narrow,
+VaR is underestimated, positions are too large, losses can exceed limits.
+
+\subsection{The merit-order link}
+
+Price is set by the most expensive running unit (section 15).
+A good price forecast is therefore also an implicit capacity forecast:
+
+\begin{itemize}
+  \item Low solar + high demand → gas marginal → 90--120 EUR/MWh.
+  \item High wind + low demand → wind/coal marginal → 30--60 EUR/MWh.
+  \item Emergency: must-run capacity fails → reserve scarcity pricing → 300+ EUR/MWh.
+\end{itemize}
+
+Our LGBM SHAP says solar forecast is driver \#1 (mean $|\text{SHAP}|$ = 18.7 EUR/MWh).
+That is the merit-order link made quantitative.
+
+\subsection{Imbalance settlement}
+
+After gate closure, reality deviates from the declared position.
+The deviation is settled at the balancing price (section 10).
+
+Since June 2024 PSE reform: balancing uses scarcity pricing.
+When the system is short, the balancing price can exceed 500 EUR/MWh.
+When long (oversupply), balancing price drops below day-ahead.
+
+A BRP with a good load forecast minimises deviations.
+Each 1 MWh deviation at 100 EUR imbalance price = 100 EUR cost.
+At 100 MW peak, even 1\% MAPE improvement saves meaningful money.
+
+\subsection{Capacity market connection}
+
+Rynek mocy (section 11) contracts pay capacity providers
+to guarantee availability, regardless of how much they generate.
+A capacity auction 5 years ahead requires forecasts of:
+
+\begin{itemize}
+  \item Future peak demand (load model).
+  \item Future renewable generation profiles (reducing residual demand).
+  \item Whether a given unit will be called as the marginal unit.
+\end{itemize}
+
+The day-ahead price model provides the market context:
+if solar growth continues to suppress midday prices,
+midday peakers lose revenue → they exit → future peak scarcity risk rises.
+
+This is the long-run equilibrium that capacity markets try to prevent.
+
+\subsection{Interview lines}
+
+\begin{itemize}
+  \item ``The value of a price forecast is in the decisions it improves.
+        On a 100 MW flexible load, a 1 EUR/MWh MAE improvement is worth
+        roughly 365 EUR/day in expected savings. That is the conversation
+        I would have with a trading desk.''
+  \item ``Probabilistic output is not a nice-to-have. It is the input to
+        risk-adjusted decision-making. P50 alone cannot size positions.''
+  \item ``Our SHAP analysis shows solar forecast is price driver \#1.
+        That means the quality of the RES forecast limits price forecast
+        quality — a direct link from meteorology to trading P\&L.''
+  \item ``Imbalance settlement since June 2024 uses scarcity pricing.
+        The payoff to load forecast accuracy has increased.''
+\end{itemize}

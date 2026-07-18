@@ -13,9 +13,9 @@ Valid day = forecast produced + committed + scored the next morning.
 | Date (target day) | Status | LEAR MAE | naive-1d MAE | Note |
 |---|---|---|---|---|
 | 2026-07-17 | INVALID | – | – | forecast produced locally, but the CRON price step failed (no data store on runner); official track counts cron runs only |
-| 2026-07-18 | pending | – | – | cron fix merged 2026-07-17; first cron-produced price forecast expected 2026-07-18 |
+| 2026-07-18 | pending (scored 2026-07-19) | – | – | LEAR + LGBM forecasts produced by 2026-07-17 cron ✓ (price_2026-07-18.csv + price_2026-07-18_challenger.csv committed) |
 
-**Consecutive valid days: 0 (scoring starts 2026-07-17 cron)**
+**Consecutive valid days: 0 (scoring starts 2026-07-19)**
 
 ## Track 2: LightGBM+conformal (challenger) — beats incumbent?
 
@@ -29,9 +29,9 @@ never published. Promotion criterion, agreed IN ADVANCE (M9 rule):
 
 | Date (target day) | LGBM MAE | LEAR MAE | LGBM wins? |
 |---|---|---|---|
-| 2026-07-18 | – | – | pending |
+| 2026-07-18 | pending | pending | pending (scored 2026-07-19) |
 
-**Valid shadow days: 0**
+**Valid shadow days: 0 (scoring starts 2026-07-19)**
 
 ## Bookkeeping rules
 

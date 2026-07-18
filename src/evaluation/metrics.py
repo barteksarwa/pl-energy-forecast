@@ -42,3 +42,28 @@ def pinball_loss(actual: pd.Series, forecast: pd.Series, quantile: float) -> flo
         return float("nan")
     diff = a - f
     return float(np.mean(np.maximum(quantile * diff, (quantile - 1.0) * diff)))
+
+
+def winkler_score(
+    actual: pd.Series,
+    preds: pd.DataFrame,
+    coverage: float = 0.8,
+) -> float:
+    """Winkler score for interval forecasts. Lower is better.
+
+    Combines band sharpness with a penalty for missed coverage.
+    preds must have 'p10' and 'p90' columns; alpha = 1 - coverage.
+
+    W = (p90 - p10) + (2/alpha) * max(p10 - y, 0) + (2/alpha) * max(y - p90, 0)
+
+    Mean over all hours. When y falls inside [p10, p90], only the width term
+    contributes. When y falls outside, the penalty term dominates.
+    """
+    alpha = 1.0 - coverage
+    y = actual.reindex(preds.index).dropna()
+    p = preds.reindex(y.index)
+    width = p["p90"] - p["p10"]
+    lo_pen = np.maximum(p["p10"] - y, 0.0)
+    hi_pen = np.maximum(y - p["p90"], 0.0)
+    scores = width + (2.0 / alpha) * (lo_pen + hi_pen)
+    return float(scores.mean())

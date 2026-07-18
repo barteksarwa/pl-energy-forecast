@@ -4,6 +4,55 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-07-18 — PatchTST attention campaign: negative result, archived**
+Context: PatchTST walk-forward (top-3, 25 monthly refits 2024-07-16→2026-07-16). Best config MAE 22.98 EUR/MWh, rMAE 0.823. TFT gate was 19.71 EUR/MWh. TFT gate NOT cleared.
+Decision: PatchTST archived. LGBM+conformal stays champion. Attention campaign complete. Next priority: 14-day shadow track record.
+Why: patch inductive bias does not compensate for short training windows (365 days) and small model capacity (197k params). Coverage 69.5% vs 80% target — interval quality also worse than all baselines.
+
+**2026-07-18 — Backtesting comparison plots added**
+Context: 15 plots generated from 2-year hourly predictions (LGBM, LEAR, TFT, naive). PatchTST hourly preds not saved during walk-forward (only aggregate metrics).
+Decision: plots saved to reports/figures/backtest_price/. PatchTST shown in bar charts only (aggregate MAE/rMAE).
+Why: hourly predictions needed for time-series plots; PatchTST walk-forward only wrote aggregate CSV. Re-running for hourly preds would take 90 min for diminishing return on a negative result.
+
+---
+
+**2026-07-18 — Zero-variance guard added to standardize_covariates**
+Context: PatchTST first sweep showed val pinball 879 vs train 0.26. Baltic offshore wind (wind_off_fcst_mw) came online 2026-07-01 — all-zero in training, non-zero in val. Training std=0, clamped to 1e-6; a 19 MW val value became z-score 19,000,000.
+Decision: add zero-variance guard to standardize_covariates. Where raw training std < 1e-4, zero the column in all sets after standardisation (instead of dividing by the clamp). Add test test_deep_data.py.
+Why: columns that are constant in training carry no training signal. Any non-zero future value should be treated as "unknown input" → zero-out is safer than a 1e6× amplification. This is a known live-system risk: new RES types enter service every year.
+
+**2026-07-17 — Asymmetric CQR evaluated; symmetric stays in production**
+Context: hypothesis that negative-price hours cause lower-tail miscalibration that symmetric CQR cannot fix independently.
+Decision: symmetric CQR stays. Measured on 2-year walk-forward: sym cov 79.6%/78.9%, asym cov 79.1%/78.4% for LEAR/LGBM. Upper tail is the bigger problem (q_hi > q_lo for both models). Asymmetric CQR offers 8-12% narrower bands but 0.5pp lower coverage.
+Why: coverage guarantee is the primary requirement. Spike forecasting — not negative prices — is the main calibration gap. Asymmetric code kept in conformal.py for future use when spike modelling improves.
+
+**2026-07-17 — TFT walk-forward verdict: trails LEAR, shadow gate not opened**
+Context: 60-trial HPO best (val 0.1157, ctx=1344, d128, h8, l2) sent to 3-seed walk-forward over 17,472 test hours (2024-07-16 → 2026-07-18).
+Decision: shadow gate NOT opened. TFT ens-3 rMAE 0.706 vs LEAR 0.653 vs LGBM 0.640. Root causes: data ceiling (1.27M params, 300-400 training samples), signal sparsity, quantile training cost. PatchTST sweep next (cheaper architecture, different inductive bias).
+Why: 8.1% worse MAE is not a rounding error. Model card and model_selection/08 updated with the honest verdict.
+
+**2026-07-17 — TFT attention campaign: HPO + PatchTST, walk-forward gate**
+Context: owner lifted model freeze; screening showed TFT trails tabular by 30% but long context IS real (monotonic improvement). Question: does full HPO close the gap?
+Decision: 60-trial Optuna search (ctx + arch jointly), then 3-seed walk-forward to confirm. PatchTST sweep after. Never quote screening numbers as results.
+Why: owner hypothesis is legitimate and testable; HPO is far cheaper than premature conclusion. Honest walk-forward result (win or loss) is more valuable than a silent skip.
+
+**2026-07-17 — Outage (UMM) feature: evaluated, rejected**
+Context: large unit outages should move price (less supply → higher price). Feature built with ENTSO-E UMM data.
+Decision: outage feature NOT adopted. Change vs full model: ±0.05 EUR/MWh (noise). Feature opt-in with --with-outages flag; backfill endpoint returns 503 in CI.
+Why: aggregate capacity unavailability is too coarse. Individual outage identity, location, and duration matter more but require unit-level matching we don't have. Documented for a future researcher; research store kept.
+
+**2026-07-17 — Fuel features (TTF/EUA proxy) adopted for LEAR**
+Context: winter 2024/25 LEAR monthly bias −15.9 EUR/MWh in January. Gas prices were high; LEAR saw no fuel signal.
+Decision: TTF index (LNG import proxy via ENTSO-E) and EUA-tracking ETF added to LEAR feature matrix. LGBM: no improvement (trees already carry the slow level via price lags).
+Why: LEAR reduced winter bias to −4.6 EUR/MWh; Jan MAE −2.5 EUR/MWh. Gain concentrated in exactly the months where the mechanism predicts it: high-gas regime. Merit-order mechanism, measured.
+
+**2026-07-17 — Shadow tally started for both load and price**
+Context: ridge+TSO challenger and LEAR price model need live proof before promotion.
+Decision: both tallies start 2026-07-18 (first valid cron run, after CI data-store fix). Promotion criterion agreed in advance: 14 consecutive valid days + metric check.
+Why: 14-day shadow window is desk standard — long enough to cover weekend patterns and holiday anomalies; short enough not to delay a clearly superior model.
+
+---
+
 **2026-07-16 — Phase 2.5: polish before Phase 3; no new models**
 Context: Phase 2 build finished ~5 weeks ahead of the get-hired schedule. Remaining gaps were polish, not build: broken bands, stale README, missing market-context docs.
 Decision: insert Phase 2.5 (conformal calibration, README overhaul, M8 notes pulled forward) before Phase 3. Freeze on new model architectures.

@@ -1,0 +1,143 @@
+\section{PatchTST: patching vs raw attention}
+
+The hypothesis behind PatchTST (Nie et al., 2023): treating hour-long
+price subsequences as tokens (``patches'') reduces the attention cost from
+$O(T^2)$ to $O((T/P)^2)$ where $P$ is the patch length. This allows
+cheap attention over months of history, which TFT cannot do at the same
+compute budget.
+
+\textbf{Key question:} does the patch inductive bias help on this task,
+or does it throw away the intraday structure that matters for prices?
+
+\subsection{Design of the sweep}
+
+27 screening configs: $\text{patch\_len} \in \{12, 24, 48\}$ hours,
+$\text{stride} \in \{6, 12, 24\}$ hours, $\text{ctx} \in \{672, 1344, 2016\}$
+hours (28, 56, 84 days). Fixed: d\_model=64, seed=42, max\_epochs=50 patience=6.
+
+Guard: configs with $n\_\text{patches} > 256$ are skipped (attention cost).
+After screening: top-3 configs by val pinball $\to$ walk-forward.
+
+\subsection{Interpretation of patch length}
+
+\begin{itemize}
+  \item \texttt{patch\_len=12}: patches cover 12 hours (half a day). Captures
+        morning vs afternoon vs evening regimes. Preserves intraday shape.
+  \item \texttt{patch\_len=24}: patches cover 1 day. Collapses the intraday
+        curve into one token. Cheap; loses hour-of-day signal.
+  \item \texttt{patch\_len=48}: patches cover 2 days. Captures weekday
+        vs weekend patterns as tokens. Very compressed.
+\end{itemize}
+
+The merit-order mechanism (solar suppresses hour 11--15; gas peaks hour 19--21)
+suggests short patches (12h) should preserve more signal. Long patches trade
+signal for context length.
+
+\subsection{Screening results}
+
+27 configs screened (3 skipped: $n_\text{patches} > 256$). 24 completed.
+Zero-variance bug fixed before this run: \texttt{wind\_off\_fcst\_mw} was
+all-zero in training $\to$ val input became $1.9 \times 10^7$
+$\to$ val pinball 879. Fix: zero-out constant columns after z-scoring.
+See section~\ref{sec:zero-variance-guard} in the architecture note.
+
+Full top-10 (val pinball, single seed, screening split 2026-01-01):
+
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+rank & patch\_len & stride & ctx & val pinball \\
+\midrule
+1  & 24 h & 24 h & 1344 h (56 d) & 0.1236 \\
+2  & 24 h & 12 h & 1344 h         & 0.1255 \\
+3  & 48 h & 24 h & 1344 h         & 0.1261 \\
+4  & 12 h & 12 h & 1344 h         & 0.1272 \\
+5  & 12 h & 24 h & 1344 h         & 0.1289 \\
+6  & 48 h & 12 h & 1344 h         & 0.1291 \\
+7  & 24 h & 6 h  & 1344 h         & 0.1303 \\
+8  & 48 h & 24 h & 2016 h (84 d)  & 0.1316 \\
+9  & 24 h & 12 h & 2016 h         & 0.1317 \\
+10 & 48 h & 6 h  & 1344 h         & 0.1339 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Key observations.}
+
+\begin{itemize}
+  \item \textbf{Context = 1344 h (56 days) dominates.} All top-7 configs
+        use ctx=1344. Ctx=672 consistently lands in the bottom half.
+        Conclusion: 8 weeks of price history is better than 4 weeks.
+        Ctx=2016 (84 days) loses to 56 days -- possibly because the sample
+        count drops too low for the longer receptive field to pay off.
+
+  \item \textbf{Patch length 24 h wins, not 12 h.} I expected 12 h patches
+        to win because intraday price shape (solar noon dip, evening peak)
+        matters. Instead, 24 h patches topped the ranking. Likely reason:
+        one patch = one calendar day makes weekday/weekend and holiday
+        patterns the natural token-level signal. The model can then attend
+        across 56 day-tokens and pick up the week rhythm.
+
+  \item \textbf{Stride does not matter much at ctx=1344.} Rank 1 uses
+        stride=24 h (non-overlapping), rank 2 uses stride=12 h. The 0.002
+        difference is within noise for a single-seed screen.
+
+  \item \textbf{Best PatchTST val (0.1236) vs best TFT HPO val (0.1157).}
+        PatchTST trails by 0.007 on the screening split. This does not
+        settle the walk-forward comparison -- TFT HPO val 0.1157 became
+        walk-forward rMAE 0.706 (worse than LEAR 0.653). PatchTST has
+        $\sim$197k params vs TFT 1.27M, so may generalise better.
+\end{itemize}
+
+\subsection{Walk-forward verdict}
+
+Walk-forward on top-3 configs (monthly refit, 2024-07-16 $\to$ 2026-07-16,
+25 refits each, test set 17,472~h).
+
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+model & MAE (EUR/MWh) & rMAE & coverage 80\% & spike MAE \\
+\midrule
+LGBM+conformal & 17.87 & 0.640 & 78.9\% & 60.7 \\
+LEAR+conformal & 18.23 & 0.653 & 79.6\% & 69.9 \\
+TFT ens-3      & 19.71 & 0.706 & 79.6\% & 74.7 \\
+\textbf{PatchTST best (p24\_s24\_ctx1344)} & \textbf{22.98} & \textbf{0.823} & \textbf{69.5\%} & \textbf{79.3} \\
+naive 1-day    & 28.0  & 1.000 & --- & --- \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Verdict: negative.} PatchTST did not clear the TFT gate
+(22.98 vs 19.71 EUR/MWh). Coverage collapsed to 69.5\% against a
+target of 80\%. Spike MAE 79.3 vs LGBM 60.7.
+
+Why did screening val predict the wrong ranking? The screening split
+(2026-01-01 cut) rewards models that memorise 2025 regime. Walk-forward
+uses monthly refits on a rolling 365-day window -- a much harder task.
+PatchTST (197k params) overfits faster than TFT (1.27M params) on short
+training windows. The patch inductive bias does not compensate.
+
+\subsection{Interview lines}
+
+PatchTST (Nie et al. 2023) reduces attention cost from $O(T^2)$ to
+$O((T/P)^2)$ by treating price subsequences as tokens. We swept 27
+configs over patch length, stride, and context on the Polish day-ahead
+price task.
+
+Screening finding: 24-hour patches with 56-day context dominated.
+One patch = one calendar day made weekday/holiday/seasonal cycles the
+natural token-level signal.
+
+Walk-forward finding: \textit{negative}. Best config (patch24, ctx1344)
+MAE 22.98 EUR/MWh, rMAE 0.823 -- 16\% worse than TFT (19.71, rMAE 0.706)
+and 29\% worse than champion LGBM (17.87, rMAE 0.640). Coverage 69.5\%
+vs target 80\%. The patch inductive bias does not compensate for the
+smaller model capacity on short training windows.
+
+Production lesson: a zero-variance column (Baltic offshore wind,
+commissioned July 2026) drove val pinball from 0.14 to 879.
+Fix: detect $\sigma < 10^{-4}$ in training, zero that column in all
+sets instead of dividing by $10^{-6}$. TFT survived because LSTM and
+GRN sigmoid gates saturate at extreme inputs; PatchTST's linear attention
+amplified the $1.9 \times 10^7$ z-score directly.

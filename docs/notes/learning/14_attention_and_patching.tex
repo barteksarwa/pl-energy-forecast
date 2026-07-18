@@ -1,0 +1,125 @@
+\section{Attention models for price forecasting --- what they do, what they cost}
+
+\subsection{The motivation}
+
+LEAR and LightGBM encode the past through hand-crafted lags: prices at
+lag 24, 48, 168 hours. The 168-hour lag reaches back one week. If price
+depends on a regime that formed a month ago (a prolonged high-gas period,
+a cold snap, a nuclear outage cluster), those lags are blind to it.
+Attention models can look back months, and do so dynamically:
+every forecast hour decides for itself which past hours matter most.
+
+\subsection{Self-attention in one sentence}
+
+Given a sequence of vectors $z_1, \ldots, z_T$, attention computes for
+each position $t$ a weighted average of all other positions. The weight
+between $t$ and $s$ is proportional to $\exp(q_t \cdot k_s / \sqrt{d})$,
+where $q_t$ (``query'') and $k_s$ (``key'') are learned linear projections.
+Positions that are semantically similar attract large weights.
+
+Cost: $O(T^2 d)$. For $T = 2016$ (84 days hourly), this is $4 \times 10^6$
+operations per layer --- feasible on GPU/MPS but slow.
+
+\subsection{Temporal Fusion Transformer (TFT)}
+
+TFT (Lim et al.\ 2021) wraps attention inside three structures.
+
+\textbf{Variable Selection Network (VSN).} Before the sequence enters
+the LSTM, the VSN computes a soft weight for each input feature at each
+timestep. This is the key interpretability contribution: export the
+weights and you know which feature mattered at which hour, without any
+post-hoc explanation method. In our price model, the VSN learns to
+up-weight the RES forecast hours before sunset and the TSO load forecast
+on cold winter mornings.
+
+\textbf{LSTM encoder-decoder.} The long series goes through an LSTM
+first; this compresses local patterns (within-day seasonality, hour-to-hour
+autocorrelation) into a fixed-size state. Only the resulting hidden states
+enter the attention layer --- the sequence is shorter, so attention is cheaper.
+
+\textbf{Temporal self-attention.} Attention over the compressed LSTM
+states. This is where the long-range dependencies are captured.
+Quantile output heads ($\tau = 0.1, 0.5, 0.9$) project to the three
+forecast values.
+
+\subsection{What our TFT test found}
+
+We ran a direct test: does longer context help? Encoder lengths
+1 / 4 / 12 weeks, otherwise identical. Results on the price task
+(same 4320-hour window):
+
+\begin{center}
+\begin{tabular}{lcc}
+model & rMAE & spike MAE \\
+\hline
+LEAR + conformal & 0.66 & 52.2 \\
+LightGBM + conformal & 0.67 & 49.8 \\
+TFT, 12-week context & 0.86 & 57.8 \\
+TFT, 4-week context & 0.88 & 54.3 \\
+TFT, 1-week context & 0.93 & 72.4 \\
+\end{tabular}
+\end{center}
+
+Two things are both true:
+
+\begin{itemize}
+  \item Long context works: rMAE falls monotonically as the encoder
+        looks further back. The attention mechanism IS extracting
+        something from month-old history.
+  \item It is not enough: the best TFT trails LEAR by 30\%. The binding
+        limit is not architecture but information --- the outage and
+        fuel features that explain spikes are not in our input set.
+        A perfect attention model over bad inputs cannot beat a linear
+        model over the right inputs.
+\end{itemize}
+
+\subsection{PatchTST --- cheaper long context via patching}
+
+PatchTST (Nie et al.\ 2023) cuts the input series into overlapping
+\emph{patches} (e.g.\ 24-hour windows, 12-hour stride). Each patch
+becomes one transformer token. For a 2016-hour encoder with 24-hour
+patches and 12-hour stride, the sequence length is
+$(2016 - 24) / 12 + 1 = 166$ tokens instead of 2016 --- 12$\times$ shorter.
+Attention cost drops from $2016^2$ to $166^2$ (144$\times$ faster).
+
+The price paid: within-patch structure is lost. If two adjacent hours
+differ in ways the patch mean masks (a sudden spike, a DST gap),
+the model is blind to that.
+
+Channel independence: each input variable passes through its own
+copy of the same weights, with no cross-channel attention. Our data
+supports this (1 of 21 pairs $|\rho| > 0.5$). The bet is that
+price channels are weakly coupled at the hourly level, so sharing
+weights across channels is better than trying to learn sparse interactions
+from a small dataset.
+
+\subsection{VSN vs SHAP vs ablation --- three interpretation layers}
+
+Section \ref{sec:shap-vs-ablation} compared SHAP and ablation. For TFT,
+a third signal exists: the VSN weights.
+
+\begin{center}
+\begin{tabular}{lll}
+Method & What it measures & Cost \\
+\hline
+VSN weight & in-model softmax over features at each hour & free (a forward pass) \\
+SHAP & local gradient of output w.r.t.\ input & 1 min per day \\
+Ablation & marginal skill contribution of feature groups & one backtest per group \\
+\end{tabular}
+\end{center}
+
+They agree on the direction but differ in granularity. VSN is the cheapest
+and the only one that varies hour-by-hour. SHAP is the most trusted for
+tabular models. Ablation is the most honest for groups.
+
+Use all three when a model is in production; use VSN alone for daily
+driver reports (it is free).
+
+\subsection{Interview line}
+
+``We tested the long-context hypothesis directly: 12 weeks of attention
+beats 1 week --- the mechanism is real --- but LEAR with the right
+features still wins by 30\%. We concluded the bottleneck was missing
+information (outages, fuel), not architecture. So we added the fuel
+features first, then ran TFT again with HPO. The honest comparison is
+in the model card.''

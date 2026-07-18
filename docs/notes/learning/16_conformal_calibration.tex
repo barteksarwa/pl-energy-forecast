@@ -1,0 +1,92 @@
+\section{Conformal calibration --- why ``80\% band'' must mean 80\%}
+
+\subsection{The problem}
+
+A quantile model outputs P10 and P90 forecasts. Nominally, 80\% of
+actual values should fall inside this band. In practice, almost no model
+achieves this without correction:
+
+\begin{itemize}
+  \item \textbf{LightGBM quantile}: raw band covered 51.4\% (target 80\%).
+        The model learned asymmetric error structures and the band was too narrow.
+  \item \textbf{LEAR}: raw band covered 72.1\%.
+\end{itemize}
+
+A 51\% band that claims 80\% is useless for risk management. A balance-
+responsible party sizing their position on the 80\% interval would be
+wrong half the time.
+
+\subsection{Conformal prediction (split CP)}
+
+Split conformal prediction fixes calibration with a held-out set:
+
+\begin{enumerate}
+  \item Fit the model on training data. Produce P10 and P90 forecasts on
+        a \emph{calibration set} (data the model never saw during training).
+  \item For each calibration hour, compute the nonconformity score:
+        $s = \max(q_\tau(x) - y,\ y - q_{1-\tau}(x))$, i.e.\ how much
+        the actual value exceeded the predicted band.
+  \item Find the empirical $(1 - \alpha)$ quantile of these scores, call
+        it $\hat{q}$.
+  \item At test time, widen the band by $\hat{q}$ in each direction.
+\end{enumerate}
+
+The guarantee: on exchangeable test data (same distribution as the
+calibration set), the corrected band achieves at least $1 - \alpha$
+coverage. No distributional assumptions. No parametric model needed.
+
+\subsection{Rolling calibration in production}
+
+A static calibration set becomes stale as the market evolves. We use a
+\emph{rolling} 90-day calibration window, updating daily:
+
+\begin{enumerate}
+  \item Each morning after scoring yesterday's forecast, recompute the
+        nonconformity scores from the last 90 days.
+  \item Recompute $\hat{q}$ from those 90 scores.
+  \item Apply to today's forecast.
+\end{enumerate}
+
+This makes calibration adaptive: if the model has been overconfident for
+3 months (e.g.\ after a structural change in the market), $\hat{q}$
+grows and the band widens. If the model has been well-calibrated, the
+band stays tight.
+
+\textbf{In numbers}: LGBM raw 51.4\% $\to$ post-conformal 78.7\%
+(nominal 80\%). LEAR raw 72.1\% $\to$ post-conformal 79.5\%.
+Both models now produce honest bands. The calibration offset is stored in
+\texttt{config/price\_conformal.json} and loaded at scoring time.
+
+\subsection{Why this matters in practice}
+
+A trader sizing an intraday hedge on the P10--P90 interval needs to know
+the interval is empirically valid. ``I used conformal calibration; here
+is the out-of-sample coverage number'' is a complete, verifiable answer.
+``My model was trained with quantile loss at $\tau = 0.1$ and $\tau = 0.9$''
+is not.
+
+Additionally, pinball loss (the standard training objective) does not
+guarantee coverage --- it penalizes distributional fit, not interval validity.
+A model trained purely on pinball can have any coverage.
+
+\subsection{Limitations}
+
+\begin{itemize}
+  \item Exchangeability: the guarantee holds only if tomorrow's errors
+        look like the last 90 days. A market regime shift (e.g.\ a sudden
+        gas price spike) can make the calibration set unrepresentative.
+  \item Symmetric correction: we add the same offset to both tails.
+        Asymmetric calibration (CQR --- conformalized quantile regression)
+        would apply separate corrections to each tail. Our implementation
+        is the simpler symmetric version; CQR is the upgrade path.
+  \item Window length: 90 days is a design choice. Shorter = more
+        reactive but noisier; longer = more stable but slower to adapt.
+\end{itemize}
+
+\subsection{Interview line}
+
+``Raw quantile regression gave us 51\% empirical coverage on a nominal
+80\% band. We fixed it with rolling conformal calibration (90-day window):
+78.7\% coverage, renewed daily. The offset lives in a JSON file; it
+changes every morning. No human touch. If you ask me to prove it works,
+the calibration CSV is in the repo.''

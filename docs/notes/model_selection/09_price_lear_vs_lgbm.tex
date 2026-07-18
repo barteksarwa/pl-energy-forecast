@@ -1,0 +1,132 @@
+\section{Price Task: LEAR vs LightGBM}
+
+\subsection{Starting point}
+
+The price task began with one hard constraint: any model must beat LEAR.
+LEAR (LASSO-Estimated AutoRegression, Ziel \& Weron 2018) is the
+reproducible benchmark in the EPF (electricity price forecasting) literature.
+Every published paper that claims to beat a baseline must beat LEAR.
+Our rMAE target: below 0.660.
+
+We implemented LEAR from the specification in Uniejewski, Weron \& Ziel (2018):
+per-hour models, robust standardisation ($\asinh((p-\text{med})/\text{MAD})$),
+price lags at $24h$, $48h$, $168h$, same-day-last-week mean, load forecast.
+Three variants were tested; only the third matched the literature result.
+The failed variants are documented in the LEAR model card.
+
+\subsection{LEAR result after fuel features}
+
+Base LEAR (no fuel signal): MAE 18.5, winter bias $-15.9$ EUR/MWh in January.
+Fuel features (TTF gas proxy, EUA CO2 proxy): MAE 18.24, winter bias $-4.6$ EUR/MWh.
+
+The improvement is concentrated in high-gas months: November--February.
+In the summer months, the fuel features add noise (gas not marginal).
+LASSO handles this: it zeros the fuel coefficients in summer-hour models
+where gas price variation does not co-move with price.
+
+Mechanism confirmed: fuel features improve exactly where the merit-order
+predicts (when gas is the marginal unit). This is the right kind of improvement.
+
+\subsection{LightGBM challenger}
+
+LightGBM received the same feature set as LEAR plus interaction terms
+(solar $\times$ demand, wind $\times$ season, price lag $\times$ gas regime).
+LGBM can learn these nonlinear interactions; LASSO cannot.
+
+Results on the same 2-year walk-forward (2024-07-16 to present):
+
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+Model & MAE & rMAE & Coverage 80\% & Spike MAE \\
+\midrule
+Naive (same hour -1d) & 27.94 & 1.000 & 53.1\% & 77.6 \\
+LEAR + fuel + conformal & 18.24 & 0.653 & 79.5\% & 71.0 \\
+LGBM + conformal & 17.87 & 0.640 & 78.7\% & 60.6 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+LGBM wins on MAE by 0.37 EUR/MWh (2.0\%).
+LEAR wins on coverage (79.5 vs 78.7\%).
+LGBM wins on spike MAE by 10.4 EUR/MWh (15\%).
+
+The spike result is the clearest LGBM advantage. Trees can learn
+nonlinear combinations (low wind AND high demand AND summer)
+that LASSO cannot represent.
+
+\subsection{Why LEAR stays as incumbent}
+
+Two reasons:
+
+\textbf{1. Backtest is not production.}
+LGBM's 0.37 EUR/MWh MAE advantage is real but modest.
+On a 14-day shadow window it may not replicate.
+The desk rule: promotion requires evidence from the shadow window,
+not just the backtest. LGBM's shadow gate starts after TFT walks forward.
+
+\textbf{2. Incumbency cost.}
+Changing the published model resets the daily-report track record.
+We are on day 1 of the shadow tally. Swapping now would reset to day 0.
+The tally is the product; resetting it is not free.
+
+Decision logged in DECISIONS.md (2026-07-16).
+
+\subsection{SHAP interpretation}
+
+LGBM gives us SHAP; LEAR gives us LASSO coefficients.
+Both agree on the top driver: solar forecast.
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+Rank & SHAP (LGBM) & LEAR coeff (mean $|$coeff$|$) \\
+\midrule
+1 & solar\_fcst\_mw 18.7 & solar\_fcst\_mw (high in summer) \\
+2 & price\_lag\_1d 14.1 & price\_lag\_168h (all hours) \\
+3 & wind\_on\_fcst\_mw 8.4 & tso\_forecast\_mw \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Solar ranks \#1 in both interpretability frameworks on a task where
+we did not engineer that signal. It emerges from the merit order: PV
+at midday dispatches before coal, suppressing the price.
+The model learned the physics.
+
+\subsection{Known limitations}
+
+Both LEAR and LGBM share the same structural weakness:
+
+\begin{itemize}
+  \item \textbf{Spike MAE 60--70 EUR/MWh}: 3$\times$ the pooled MAE.
+        Spikes require unit-level outage data. The ENTSO-E UMM aggregate
+        feature was evaluated and rejected (flat, \S10 in DECISIONS.md).
+  \item \textbf{Negative prices}: 798 hours in the test set had price $< 0$.
+        LGBM's quantile regression undercovers the lower tail.
+        Conformal calibration partially fixes this; CQR would do it properly.
+  \item \textbf{Gas regime changes}: TTF proxy is a 6-month lagged ENTSO-E
+        series, not real-time gas price. A live TTF feed would improve the
+        speed of regime-shift detection.
+\end{itemize}
+
+\subsection{What the TFT verdict will settle}
+
+The open question is whether attention over 8+ weeks of price history
+adds information beyond the 168h lag that both LEAR and LGBM already use.
+Screening (note 07) showed long context IS real: rMAE improves monotonically
+with encoder length up to 1344h. But the screening val number (0.1176)
+is 0.6--0.9pp optimistic vs walk-forward.
+
+After HPO + 3-seed walk-forward, we will know:
+
+\begin{itemize}
+  \item Does TFT beat LGBM on MAE?
+  \item Does TFT beat LGBM on spike MAE (attention as implicit regime memory)?
+  \item Does TFT's coverage degrade without conformal (raw quantile training)?
+\end{itemize}
+
+If TFT wins: shadow gate, 14-day tally, promotion decision.
+If TFT loses: this note records the honest verdict.
+Either outcome advances the owner's knowledge.
+\emph{An honest loss is worth more than a hidden one.}

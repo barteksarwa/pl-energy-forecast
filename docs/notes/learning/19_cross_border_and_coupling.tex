@@ -1,0 +1,96 @@
+\section{Cross-Border Flows and Market Coupling}
+
+\subsection{Why PL price is not an island}
+
+The Polish bidding zone is connected to six neighbours:
+Germany/Luxemburg (DE-LU), Czechia (CZ), Slovakia (SK),
+Lithuania (LT), Sweden (SE4), and Ukraine (UA-BEI, limited).
+
+When German price is lower than Polish price, power flows in (import).
+The physical flow equals the scheduled cross-border exchange.
+The flow continues until the prices converge (arbitrage closes the gap)
+or the interconnector hits its capacity limit.
+
+That limit is the Net Transfer Capacity (NTC) or, after implementation,
+the Flow-Based Capacity (FBC) model.
+
+\subsection{Market coupling: SDAC}
+
+Poland participates in the Single Day-Ahead Coupling (SDAC),
+which optimises allocation of cross-border capacity and market matching
+simultaneously across the whole CWE/CEE region.
+
+The SDAC algorithm (EUPHEMIA) does not allocate capacity separately
+from the energy auction — it co-optimises. This means:
+
+\begin{itemize}
+  \item Interconnector capacity is allocated to whoever values it most.
+  \item Prices tend to converge across coupled zones.
+  \item Isolated zones (Ukraine, until recently Belarus) have no coupling
+        benefit — they face their own merit order.
+\end{itemize}
+
+The result: PL day-ahead price is increasingly correlated with DE price
+as inter-connector capacity grows. A model that ignores cross-border
+flows misses this coupling signal.
+
+\subsection{Price convergence and congestion}
+
+When lines are not congested: PL price = DE price + transmission losses (small).
+When lines are congested: prices diverge. PL can be higher than DE
+even with a surplus in Germany if the cable is full.
+
+In practice, PL is a net importer in winter (more demand than domestic capacity)
+and a net exporter when domestic solar + wind peaks.
+Congestion is common in both directions during extreme events.
+
+Measured in our data: PL--DE price spread averages 4.2 EUR/MWh (absolute).
+On congested hours, spread can exceed 50 EUR/MWh.
+
+\subsection{Net position as a feature}
+
+The scheduled net position (net export/import for PL) is published by ENTSO-E.
+It is available for day D at roughly 13:00 on D-1 (after SDAC results).
+This is after our 09:00 cutoff.
+
+A proxy available at cutoff: the TSO RES forecast implies the residual
+load, which implies whether PL will be exporting or importing.
+This is why the TSO load and RES forecasts are already strong proxies
+for the cross-border signal.
+
+Adding neighbour prices as a direct lag feature (lag-24h DE price,
+lag-24h CZ price) is the next upgrade. It would capture:
+- Periods when PL is tightly coupled to a cheap-price neighbour
+- Gas crisis propagation from the TTF-exposed DE market
+
+This feature addition requires config/one-file change only
+(modular input design, see CLAUDE.md). Implementation time: \textless 1h.
+
+\subsection{Flow-Based Capacity (FBC): the structural change}
+
+ENTSO-E is migrating the CWE region from NTC (net transfer capacity —
+a simple per-interconnector limit) to Flow-Based Capacity modelling.
+Under FBC, the available capacity depends on the actual power flows
+through the transmission grid (the Power Transfer Distribution Factor,
+PTDF, matrix).
+
+FBC affects how quickly prices converge across borders. A model trained
+on NTC data may mis-estimate correlation under FBC.
+Poland is scheduled to join the FBC region, but the timeline has slipped.
+
+\subsection{Interview lines}
+
+\begin{itemize}
+  \item ``PL price is market-coupled to six neighbours via SDAC. When
+        interconnectors are not congested, prices converge. Our model
+        captures this through the TSO RES forecast proxy, which predicts
+        net position direction. A direct lag of DE-LU price is the next
+        feature on the backlog.''
+  \item ``PL--DE price spread averages 4.2 EUR/MWh but exceeds 50 EUR/MWh
+        on congested hours. Congestion events align with extreme weather
+        and should be captured by the merit-order feature set.''
+  \item ``I did not add neighbour prices in Phase 2 because the modular
+        feature design (config-driven, one file per concern) means it is
+        a single pipeline change. I deferred it to Phase 3 to avoid
+        scope creep during the shadow window.''
+\end{itemize}
