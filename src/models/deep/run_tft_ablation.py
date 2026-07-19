@@ -66,6 +66,9 @@ def hpo_params() -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--seeds", type=int, nargs="+", default=[42])
+    parser.add_argument("--train-days", type=int, default=365)
+    parser.add_argument("--groups", nargs="+", default=GROUP_ORDER,
+                        choices=GROUP_ORDER)
     parser.add_argument("--smoke", action="store_true")
     args = parser.parse_args()
 
@@ -91,14 +94,15 @@ def main() -> int:
         test_days = test_days[:35]
         kw = {"max_epochs": 2, "patience": 2}
 
-    csv = OUT / "ablation_walkforward.csv"
+    suffix = "" if args.train_days == 365 else f"_w{args.train_days}"
+    csv = OUT / f"ablation_walkforward{suffix}.csv"
     done = set()
     if csv.exists():
         prev = pd.read_csv(csv)
         done = {(r.group, int(r.seed)) for r in prev.itertuples()}
         print(f"tft ablation: {len(done)} runs already done, skipping them")
 
-    first_needed = test_days[0] - pd.Timedelta(days=366)
+    first_needed = test_days[0] - pd.Timedelta(days=args.train_days + 1)
     t0 = time.time()
     master = build_price_samples(
         price, res, tso, [d for d in all_dates if d >= first_needed], ctx, TZ)
@@ -106,15 +110,17 @@ def main() -> int:
           f"({time.time() - t0:.0f}s)", flush=True)
 
     for seed in args.seeds:
-        for group in GROUP_ORDER:
+        for group in args.groups:
             if (group, seed) in done:
                 continue
-            print(f"\n=== tft ablation {group} seed={seed} ===", flush=True)
+            print(f"\n=== tft ablation {group} seed={seed} "
+                  f"w{args.train_days} ===", flush=True)
             t0 = time.time()
             pred = walk_forward_ablate(
                 master, price, group, seed, test_days,
+                train_days=args.train_days,
                 net_factory=net_factory, lr=p["lr"], batch=p["batch"],
-                name=f"tft_abl_{group}_s{seed}", **kw)
+                name=f"tft_abl{suffix}_{group}_s{seed}", **kw)
             if pred is None:
                 print(f"  {group} s{seed}: no predictions, skipped", flush=True)
                 continue
@@ -140,10 +146,11 @@ def main() -> int:
             ax.axvline(0, color="k", lw=0.8)
             ax.set_xlabel("ΔMAE vs full TFT (EUR/MWh) — higher = more important")
             ax.set_title(f"TFT group ablation, walk-forward {TEST_START}→ | "
+                         f"train {args.train_days}d | "
                          f"full MAE {base:.2f} EUR/MWh")
             ax.grid(axis="x", alpha=0.3)
             fig.tight_layout()
-            fig.savefig(OUT / "ablation_delta_mae.png", dpi=150)
+            fig.savefig(OUT / f"ablation_delta_mae{suffix}.png", dpi=150)
             plt.close(fig)
     print(f"[{pd.Timestamp.now()}] DONE", flush=True)
     return 0

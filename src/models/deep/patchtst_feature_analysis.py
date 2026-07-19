@@ -214,8 +214,14 @@ def score_preds(pred: pd.DataFrame, price: pd.Series) -> dict:
     }
 
 
-def stage_ablation(price, res, tso, seeds: list[int], smoke: bool) -> None:
-    csv = OUT / "ablation_walkforward.csv"
+def stage_ablation(price, res, tso, seeds: list[int], smoke: bool,
+                   train_days: int = 365) -> None:
+    """train_days != 365 writes to a suffixed CSV (robustness check: is the
+    group ranking stable when the training window doubles?). The test
+    period then starts 2025-07-16 so the longer window has history."""
+    suffix = "" if train_days == 365 else f"_w{train_days}"
+    csv = OUT / f"ablation_walkforward{suffix}.csv"
+    test_start_s = TEST_START if train_days == 365 else "2025-07-16"
     done = set()
     if csv.exists():
         prev = pd.read_csv(csv)
@@ -223,7 +229,7 @@ def stage_ablation(price, res, tso, seeds: list[int], smoke: bool) -> None:
         print(f"ablation: {len(done)} runs already done, skipping them")
 
     all_dates = sorted(set(price.index.tz_convert(TZ).date))
-    test_start = pd.Timestamp(TEST_START).date()
+    test_start = pd.Timestamp(test_start_s).date()
     test_days = [d for d in all_dates if d >= test_start]
     kw = {}
     if smoke:
@@ -231,7 +237,7 @@ def stage_ablation(price, res, tso, seeds: list[int], smoke: bool) -> None:
         kw = {"max_epochs": 2, "patience": 2}
 
     # one master build for every walk-forward run (raw covariates, no stats)
-    first_needed = test_days[0] - pd.Timedelta(days=366)
+    first_needed = test_days[0] - pd.Timedelta(days=train_days + 1)
     t0 = time.time()
     master = build_price_samples(
         price, res, tso, [d for d in all_dates if d >= first_needed], CTX, TZ)
@@ -243,10 +249,13 @@ def stage_ablation(price, res, tso, seeds: list[int], smoke: bool) -> None:
         for group in groups:
             if (group, seed) in done:
                 continue
-            print(f"\n=== ablation {group} seed={seed} ===", flush=True)
+            print(f"\n=== ablation {group} seed={seed} w{train_days} ===",
+                  flush=True)
             t0 = time.time()
             pred = walk_forward_ablate(master, price, group, seed,
-                                       test_days, **kw)
+                                       test_days, train_days=train_days,
+                                       name=f"abl{suffix}_{group}_s{seed}",
+                                       **kw)
             if pred is None:
                 print(f"  {group} s{seed}: no predictions, skipped", flush=True)
                 continue
@@ -258,10 +267,11 @@ def stage_ablation(price, res, tso, seeds: list[int], smoke: bool) -> None:
             print(f"  -> MAE {row['mae']:.2f} rMAE {row['rmae']:.3f} "
                   f"({row['wall_min']} min)", flush=True)
 
-    _plot_ablation(csv)
+    _plot_ablation(csv, suffix, test_start_s)
 
 
-def _plot_ablation(csv: Path) -> None:
+def _plot_ablation(csv: Path, suffix: str = "", test_start: str = TEST_START,
+                   ) -> None:
     if not csv.exists():
         return
     df = pd.read_csv(csv)
@@ -275,11 +285,11 @@ def _plot_ablation(csv: Path) -> None:
     ax.barh(agg.index, agg["delta_mae"], xerr=agg["std"], color="#4878a8")
     ax.axvline(0, color="k", lw=0.8)
     ax.set_xlabel("ΔMAE vs full model (EUR/MWh) — higher = more important")
-    ax.set_title(f"PatchTST group ablation, walk-forward {TEST_START}→ | "
+    ax.set_title(f"PatchTST group ablation, walk-forward {test_start}→ | "
                  f"full MAE {base:.2f} EUR/MWh")
     ax.grid(axis="x", alpha=0.3)
     fig.tight_layout()
-    fig.savefig(OUT / "ablation_delta_mae.png", dpi=150)
+    fig.savefig(OUT / f"ablation_delta_mae{suffix}.png", dpi=150)
     plt.close(fig)
 
 
@@ -615,6 +625,8 @@ def main() -> int:
                         choices=["all", "ablation", "window", "perm", "pca",
                                  "attention", "report"])
     parser.add_argument("--seeds", type=int, nargs="+", default=[42, 7, 2026])
+    parser.add_argument("--train-days", type=int, default=365,
+                        help="ablation stage only: walk-forward train window")
     parser.add_argument("--smoke", action="store_true",
                         help="tiny run to verify code paths")
     args = parser.parse_args()
@@ -640,7 +652,8 @@ def main() -> int:
     if args.stage in ("all", "attention"):
         stage_attention(price, res, tso, args.smoke)
     if args.stage in ("all", "ablation"):
-        stage_ablation(price, res, tso, args.seeds, args.smoke)
+        stage_ablation(price, res, tso, args.seeds, args.smoke,
+                       train_days=args.train_days)
     if args.stage == "window":       # not in "all": separate follow-up question
         stage_window(price, res, tso, args.seeds, args.smoke)
     stage_report()
