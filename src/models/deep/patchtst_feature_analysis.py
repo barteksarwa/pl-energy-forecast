@@ -141,12 +141,16 @@ def walk_forward_ablate(
     master: DaySamples, price, group: str, seed: int,
     test_days, train_days=365, refit_every=30,
     max_epochs=60, patience=8,
+    net_factory=None, lr=5e-4, batch=32, name=None,
 ) -> pd.DataFrame | None:
     """Walk-forward identical to run_patchtst_sweep.walk_forward_patchtst,
     plus zero_group() on every sample set. Slices a prebuilt master sample
     set instead of rebuilding samples per refit (same tensors, ~10x faster).
+    net_factory: () -> nn.Module; defaults to the PatchTST best config.
     Returns hourly p10/p50/p90."""
-    name = f"abl_{group}_s{seed}"
+    if net_factory is None:
+        net_factory = make_net
+    name = name or f"abl_{group}_s{seed}"
     day_pos = {d: i for i, d in enumerate(master.days)}
     net, last_refit, stats, preds, val_scores = None, None, None, [], []
 
@@ -165,12 +169,12 @@ def walk_forward_ablate(
             zero_group(tr, group)
             zero_group(va, group)
             torch.manual_seed(seed)  # net INIT must be seeded too, not only training
-            net = make_net()
+            net = net_factory()
             result = train_variant(
                 net, tr, va,
                 checkpoint=str(CKPT_DIR / f"{name}.pt"),
                 seed=seed, max_epochs=max_epochs, patience=patience,
-                lr=5e-4, batch=32,
+                lr=lr, batch=batch,
             )
             val_scores.append(result["best_val_pinball_norm"])
             print(f"  [{name}] @{test_day} val={result['best_val_pinball_norm']:.4f} "
@@ -277,6 +281,54 @@ def _plot_ablation(csv: Path) -> None:
     fig.tight_layout()
     fig.savefig(OUT / "ablation_delta_mae.png", dpi=150)
     plt.close(fig)
+
+
+def stage_window(price, res, tso, seeds: list[int], smoke: bool) -> None:
+    """Test the stated root cause of the PatchTST loss: '365-day training
+    windows overfit'. Same walk-forward, train_days in {365, 730}, full
+    inputs, paired test days (2025-07-16 on, so 730d of history exists)."""
+    csv = OUT / "window_walkforward.csv"
+    done = set()
+    if csv.exists():
+        prev = pd.read_csv(csv)
+        done = {(int(r.train_days), int(r.seed)) for r in prev.itertuples()}
+        print(f"window: {len(done)} runs already done, skipping them")
+
+    all_dates = sorted(set(price.index.tz_convert(TZ).date))
+    test_start = pd.Timestamp("2025-07-16").date()
+    test_days = [d for d in all_dates if d >= test_start]
+    kw = {}
+    if smoke:
+        test_days = test_days[:35]
+        kw = {"max_epochs": 2, "patience": 2}
+
+    first_needed = test_days[0] - pd.Timedelta(days=731)
+    t0 = time.time()
+    master = build_price_samples(
+        price, res, tso, [d for d in all_dates if d >= first_needed], CTX, TZ)
+    print(f"window: master samples {len(master.days)} days "
+          f"({time.time() - t0:.0f}s)", flush=True)
+
+    for seed in seeds:
+        for train_days in (365, 730):
+            if (train_days, seed) in done:
+                continue
+            print(f"\n=== window train_days={train_days} seed={seed} ===",
+                  flush=True)
+            t0 = time.time()
+            pred = walk_forward_ablate(
+                master, price, "full", seed, test_days,
+                train_days=train_days, name=f"win{train_days}_s{seed}", **kw)
+            if pred is None:
+                continue
+            row = {"train_days": train_days, "seed": seed,
+                   **score_preds(pred, price),
+                   "mean_val_pinball": pred.attrs["mean_val_pinball"],
+                   "wall_min": round((time.time() - t0) / 60, 1)}
+            pd.DataFrame([row]).to_csv(csv, mode="a", header=not csv.exists(),
+                                       index=False)
+            print(f"  -> MAE {row['mae']:.2f} rMAE {row['rmae']:.3f} "
+                  f"({row['wall_min']} min)", flush=True)
 
 
 # ---------------------------------------------------------------- perm
@@ -560,7 +612,7 @@ def stage_report() -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--stage", default="all",
-                        choices=["all", "ablation", "perm", "pca",
+                        choices=["all", "ablation", "window", "perm", "pca",
                                  "attention", "report"])
     parser.add_argument("--seeds", type=int, nargs="+", default=[42, 7, 2026])
     parser.add_argument("--smoke", action="store_true",
@@ -589,6 +641,8 @@ def main() -> int:
         stage_attention(price, res, tso, args.smoke)
     if args.stage in ("all", "ablation"):
         stage_ablation(price, res, tso, args.seeds, args.smoke)
+    if args.stage == "window":       # not in "all": separate follow-up question
+        stage_window(price, res, tso, args.seeds, args.smoke)
     stage_report()
     print(f"[{pd.Timestamp.now()}] DONE", flush=True)
     return 0
