@@ -118,6 +118,62 @@ uses monthly refits on a rolling 365-day window -- a much harder task.
 PatchTST (197k params) overfits faster than TFT (1.27M params) on short
 training windows. The patch inductive bias does not compensate.
 
+\subsection{Feature analysis: why it lost}
+
+Post-mortem on the best config (patch24\_s24\_ctx1344). Four analyses;
+artifacts in \texttt{reports/sensitivity/patchtst/}.
+
+\textbf{Group ablation} (zero one input group, retrain, full 2-year
+walk-forward, 3 seeds):
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+ablated group & MAE (EUR/MWh) & $\Delta$MAE vs full & coverage 80\% \\
+\midrule
+--- (full model) & 23.61 $\pm$ 0.53 & 0 & 68.5\% \\
+encoder (56 d price history) & 23.23 $\pm$ 0.10 & $-0.38$ & 73.2\% \\
+calendar & 23.68 $\pm$ 0.43 & $+0.08$ & 71.4\% \\
+TSO load forecast & 24.08 $\pm$ 0.55 & $+0.47$ & 70.7\% \\
+anchor (lag-168 price) & 24.47 $\pm$ 0.30 & $+0.86$ & 67.2\% \\
+RES forecast & 29.84 $\pm$ 0.36 & $+6.23$ & 74.0\% \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Two facts jump out.
+
+\begin{itemize}
+  \item \textbf{The encoder is dead weight.} Removing the entire 56-day
+        price history does not hurt ($-0.38$, within seed noise) and
+        \emph{improves} coverage by 4.6~pp. PatchTST's core mechanism ---
+        cheap attention over long history --- contributes nothing here.
+        The model is an expensive MLP over tomorrow's covariates.
+  \item \textbf{The RES forecast carries the skill} ($+6.2$ EUR/MWh).
+        Without it the model is worse than naive (rMAE 1.07).
+        Merit-order: renewables set the day-ahead price.
+\end{itemize}
+
+\textbf{Permutation vs ablation --- a teaching moment.} Permutation
+importance (fixed model, shuffle one input) ranks the encoder FIRST
+($\Delta$pinball $+0.18$, $\Delta$MAE $+26$ EUR/MWh). Ablation with
+retraining ranks it last. Both are correct: permutation measures what
+the trained model \emph{relies on}; ablation measures whether the
+information is \emph{unique}. Price history is fully redundant with the
+covariates --- the model uses it, but does not need it. Quoting only
+permutation importance would have led to the wrong conclusion.
+
+\textbf{Attention maps} (patch $=$ stride $=$ 24 h, so one patch $=$ one
+day): top attended day ages are 0 (yesterday), 7, 12, 1 --- plausible
+recency and weekly structure. But the map is nearly flat: weights span
+0.014--0.022 against a uniform 1/56 $=$ 0.018. Plausible-looking
+attention is not evidence of value; the ablation settles it.
+
+\textbf{PCA}: raw 24-h price patches are low-rank (PC1--4 $=$ 93\% of
+variance); the learned pooled representation is effectively
+2-dimensional (PC1--2 $=$ 97\%). The encoder compresses 56 days into
+almost nothing --- consistent with redundancy.
+
 \subsection{Interview lines}
 
 PatchTST (Nie et al. 2023) reduces attention cost from $O(T^2)$ to
@@ -134,6 +190,13 @@ MAE 22.98 EUR/MWh, rMAE 0.823 -- 16\% worse than TFT (19.71, rMAE 0.706)
 and 29\% worse than champion LGBM (17.87, rMAE 0.640). Coverage 69.5\%
 vs target 80\%. The patch inductive bias does not compensate for the
 smaller model capacity on short training windows.
+
+Feature-analysis line: group ablation with retraining showed the
+56-day price-history encoder adds \emph{zero} skill --- all signal
+sits in the known-future RES forecast ($+6.2$ EUR/MWh when removed).
+Permutation importance on the fixed model said the opposite (encoder
+ranked first) --- the classic reliance-vs-redundancy gap between the
+two methods. The negative result is explained, not just observed.
 
 Production lesson: a zero-variance column (Baltic offshore wind,
 commissioned July 2026) drove val pinball from 0.14 to 879.

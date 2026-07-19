@@ -4,6 +4,11 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-07-19 — PatchTST loss explained: encoder redundant, RES forecast carries skill**
+Context: overnight feature analysis (group-ablation walk-forward 3 seeds, permutation, PCA, attention) on best config patch24_s24_ctx1344.
+Decision: ablating the 56-day price encoder costs nothing (MAE 23.23 vs full 23.61); ablating RES forecast costs +6.2 EUR/MWh. Verdict note updated; quote ablation (not permutation) for information content.
+Why: permutation ranked the encoder first — reliance, not unique information. Retraining ablation is the honest measure; PatchTST's long-context premise adds no skill on this task.
+
 **2026-07-18 — PatchTST attention campaign: negative result, archived**
 Context: PatchTST walk-forward (top-3, 25 monthly refits 2024-07-16→2026-07-16). Best config MAE 22.98 EUR/MWh, rMAE 0.823. TFT gate was 19.71 EUR/MWh. TFT gate NOT cleared.
 Decision: PatchTST archived. LGBM+conformal stays champion. Attention campaign complete. Next priority: 14-day shadow track record.

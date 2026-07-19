@@ -1,61 +1,113 @@
-# PatchTST feature analysis
+# PatchTST feature analysis — why it lost
 
-Config: patch24_s24_ctx1344, d_model=64.
-Context: PatchTST lost the 2-year walk-forward (MAE 22.98 vs TFT 19.71 vs LGBM 17.8 EUR/MWh).
-This analysis shows where its signal comes from.
+Config: patch24_s24_ctx1344 (best of 27-config sweep), d_model=64, 197k params.
+Context: PatchTST lost the 2-year walk-forward.
+MAE 22.98 vs TFT 19.71 vs LGBM 17.8 EUR/MWh. Coverage 69.5% vs 80% target.
+This analysis shows why.
 
-## Group ablation (walk-forward, 3 seeds)
+## Headline finding
 
-Zero one input group, retrain, rerun 2-year walk-forward.
-ΔMAE vs full = importance of that group.
+**The price-history encoder adds nothing.** Zero the entire 56-day
+encoder input, retrain, and the model does not get worse
+(MAE 23.23 vs 23.61 with the encoder; the -0.38 gap is within seed noise,
+full-model seed std is 0.53). All the skill lives in the known-future
+covariates. The RES generation forecast dominates.
 
-| group     |   mae_mean |   mae_std |   rmae_mean |   cov_mean |   seeds |   delta_mae |
-|:----------|-----------:|----------:|------------:|-----------:|--------:|------------:|
-| encoder   |     37.267 |       nan |       1.492 |     87.143 |       1 |      -1.457 |
-| res_fcst  |     38.424 |       nan |       1.538 |     85.952 |       1 |      -0.299 |
-| anchor168 |     38.474 |       nan |       1.54  |     85.714 |       1 |      -0.249 |
-| calendar  |     38.704 |       nan |       1.549 |     85.119 |       1 |      -0.019 |
-| full      |     38.723 |       nan |       1.55  |     85.595 |       1 |       0     |
-| tso_load  |     38.779 |       nan |       1.552 |     85.595 |       1 |       0.055 |
+PatchTST's selling point is cheap attention over months of price history.
+On this task that history is redundant with the covariates. The model is,
+in effect, an expensive MLP over tomorrow's RES + load forecasts.
+
+## Group ablation (walk-forward, 3 seeds: 42, 7, 2026)
+
+Zero one input group after standardization, retrain, rerun the full
+2-year walk-forward (monthly refits, 17,472 test hours per run).
+ΔMAE vs full = the group's non-redundant information.
+
+| group      | MAE mean | MAE std | rMAE  | coverage 80% | ΔMAE vs full |
+|:-----------|---------:|--------:|------:|-------------:|-------------:|
+| encoder    |   23.231 |   0.102 | 0.832 |        73.2% |       -0.376 |
+| full       |   23.607 |   0.529 | 0.845 |        68.5% |        0     |
+| calendar   |   23.683 |   0.434 | 0.848 |        71.4% |       +0.076 |
+| tso_load   |   24.079 |   0.549 | 0.862 |        70.7% |       +0.473 |
+| anchor168  |   24.466 |   0.296 | 0.876 |        67.2% |       +0.860 |
+| res_fcst   |   29.838 |   0.360 | 1.068 |        74.0% |       +6.231 |
+
+- **res_fcst (solar + onshore + offshore wind forecast): +6.2 EUR/MWh.**
+  Without it the model is worse than the naive lag-24 baseline (rMAE 1.07).
+  Merit-order in action: renewables set tomorrow's price.
+- **anchor168 (+0.9) and tso_load (+0.5)**: small but real.
+- **calendar (+0.1)**: redundant. Weekly rhythm already sits in the
+  RES/TSO forecasts and the anchor.
+- **encoder (-0.4)**: removing 56 days of price history *helps* slightly
+  (and improves coverage by 4.6pp). The encoder is dead weight that adds
+  overfitting surface on 365-day training windows.
 
 ![ablation](ablation_delta_mae.png)
 
-## Permutation importance (screening split, val 2026+)
+## Permutation importance (screening split, val 2026+, 10 shuffles)
 
-| feature             |   delta_pinball |   delta_pinball_std |   delta_mae_eur |   delta_mae_std |
-|:--------------------|----------------:|--------------------:|----------------:|----------------:|
-| enc_price_history   |          0.1749 |              0.0056 |         25.5787 |          0.7721 |
-| solar_fcst_mw       |          0.1211 |              0.0117 |         16.3539 |          1.4954 |
-| tso_load_fcst       |          0.1    |              0.0017 |         14.6074 |          0.2887 |
-| wind_on_fcst_mw     |          0.0569 |              0.009  |          8.1488 |          0.8649 |
-| price_anchor_lag168 |          0.0033 |              0.0007 |          0.4677 |          0.0714 |
-| is_weekend          |          0.0024 |              0.0004 |          0.646  |          0.0924 |
-| is_holiday          |          0.0009 |              0      |          0.0873 |          0.0334 |
-| doy_sin             |          0.0001 |              0      |          0.0517 |          0.0251 |
-| hour_sin            |          0      |              0      |          0      |          0      |
-| hour_cos            |          0      |              0      |          0      |          0      |
-| wind_off_fcst_mw    |          0      |              0      |          0      |          0      |
-| doy_cos             |         -0.0002 |              0      |         -0.1032 |          0.0122 |
-| is_bridge_day       |         -0.0002 |              0.0003 |         -0.0459 |          0.0435 |
+Shuffle one input across val days, keep the trained model fixed.
+
+| feature             | Δ pinball | ΔMAE (EUR/MWh) |
+|:--------------------|----------:|---------------:|
+| enc_price_history   |    +0.179 |         +26.1 |
+| solar_fcst_mw       |    +0.112 |         +15.2 |
+| tso_load_fcst       |    +0.095 |         +13.9 |
+| wind_on_fcst_mw     |    +0.058 |          +8.3 |
+| price_anchor_lag168 |    +0.004 |          +0.5 |
+| is_weekend          |    +0.003 |          +0.8 |
+| others              |     ~0    |           ~0  |
+
+**Permutation says the encoder matters most; ablation says it matters
+not at all. Both are correct.** Permutation measures what a *fixed*
+trained model relies on. Ablation with retraining measures whether the
+information is *unique*. The trained model leans on price history, but
+everything it extracts from it is also recoverable from the covariates —
+so a model trained without the encoder loses nothing. Classic
+redundancy signature.
+
+Caveats:
+- hour_sin/hour_cos are identical for every sample, so shuffling across
+  samples is a no-op. Their zero score is structural, not evidence.
+- wind_off_fcst_mw is zeroed by the zero-variance guard (all-zero in
+  training), so its zero score is expected.
 
 ![perm](permutation_importance.png)
 
-## Attention
+## Attention patterns
 
-Top-5 most-attended past days (last layer):
+patch = stride = 24h, so one patch = one day and the attention map reads
+as "which past days does the model look at".
 
-|   day_age |   mean_attention_last_layer |
-|----------:|----------------------------:|
-|        12 |                      0.0287 |
-|        10 |                      0.0261 |
-|        13 |                      0.0255 |
-|        11 |                      0.0255 |
-|        25 |                      0.0242 |
+- Top-5 attended day ages: 0 (yesterday), 7, 12, 1, 10.
+- But the map is nearly flat: weights span 0.014-0.022 against a
+  uniform baseline of 1/56 = 0.018. Faint recency and weekly stripes,
+  nothing more.
+
+Sensible-looking attention, near-zero marginal value — the ablation
+proves the flat map is not hiding useful structure.
 
 ![attention](attention_patterns.png)
 
 ## PCA
 
-![patches](pca_patches.png)
+- Raw 24h price patches: PC1-4 explain 93% of variance. Daily price
+  shapes are low-rank (level, morning/evening ramp, midday solar dip).
+- Learned pooled representation: PC1-2 explain 97%. The encoder
+  compresses 56 days into what is effectively a 2-dimensional summary —
+  consistent with it carrying little unique information.
 
+![patches](pca_patches.png)
 ![reps](pca_representations.png)
+
+## Takeaway for the model portfolio
+
+The PatchTST negative result is now explained, not just observed:
+
+1. On PL day-ahead price, skill comes from known-future covariates
+   (RES forecast above all), not from long price history.
+2. Long-context attention is architecture spent on redundant input.
+3. LGBM wins because it spends its capacity directly on the covariates.
+
+Generated by `src/models/deep/patchtst_feature_analysis.py`
+(ablation CSV: `ablation_walkforward.csv`, incremental, idempotent).

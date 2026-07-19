@@ -547,8 +547,9 @@ def stage_report() -> None:
         lines += ["## PCA", "",
                   "![patches](pca_patches.png)", "",
                   "![reps](pca_representations.png)", ""]
-    (OUT / "README.md").write_text("\n".join(lines))
-    print(f"report -> {OUT}/README.md")
+    # auto_report.md, not README.md: README holds the hand-written analysis
+    (OUT / "auto_report.md").write_text("\n".join(lines))
+    print(f"report -> {OUT}/auto_report.md")
 
 
 # ---------------------------------------------------------------- main
