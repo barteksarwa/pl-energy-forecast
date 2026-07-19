@@ -30,11 +30,18 @@ Zero one input group after standardization, retrain, rerun the full
 | calendar   |   23.683 |   0.434 | 0.848 |        71.4% |       +0.076 |
 | tso_load   |   24.079 |   0.549 | 0.862 |        70.7% |       +0.473 |
 | anchor168  |   24.466 |   0.296 | 0.876 |        67.2% |       +0.860 |
+| solar      |   26.673 |   0.217 | 0.955 |        69.0% |       +3.066 |
+| wind_on    |   27.721 |   0.212 | 0.993 |        73.3% |       +4.114 |
 | res_fcst   |   29.838 |   0.360 | 1.068 |        74.0% |       +6.231 |
 
 - **res_fcst (solar + onshore + offshore wind forecast): +6.2 EUR/MWh.**
   Without it the model is worse than the naive lag-24 baseline (rMAE 1.07).
   Merit-order in action: renewables set tomorrow's price.
+- **RES split: wind (+4.1) beats solar (+3.1).** Wind is the less
+  predictable series, so its forecast carries more unique information —
+  solar is partly recoverable from calendar + season. The individual
+  deltas sum to 7.2 > joint 6.2: the two forecasts overlap (both proxy
+  residual load).
 - **anchor168 (+0.9) and tso_load (+0.5)**: small but real.
 - **calendar (+0.1)**: redundant. Weekly rhythm already sits in the
   RES/TSO forecasts and the anchor.

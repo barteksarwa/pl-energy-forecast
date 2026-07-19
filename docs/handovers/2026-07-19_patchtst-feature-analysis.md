@@ -33,7 +33,9 @@ All numbers: `reports/sensitivity/patchtst/` (README has the full story).
 | calendar | 23.68 | +0.08 |
 | tso_load | 24.08 | +0.47 |
 | anchor168 | 24.47 | +0.86 |
-| res_fcst | 29.84 | **+6.23** |
+| solar only | 26.67 | +3.07 |
+| wind_on only | 27.72 | +4.11 |
+| res_fcst (all) | 29.84 | **+6.23** |
 
 - The price-history encoder adds NOTHING. Zeroing it even improves
   coverage (68.5% → 73.2%). PatchTST's core premise is dead weight here.
@@ -65,8 +67,8 @@ is a no-op; wind_off zeroed by the zero-variance guard.
 
 1. Shadow track record continues (`docs/shadow_tally.md`).
 2. Portfolio README once track record established.
-3. Optional follow-up: per-feature ablation inside res_fcst
-   (solar vs wind_on) — cheap now, ~20 min per walk-forward.
+3. ~~Per-feature ablation inside res_fcst~~ DONE same session:
+   wind_on +4.11 > solar +3.07; sum 7.2 > joint 6.2 (overlap).
 
 ## Key numbers to remember
 

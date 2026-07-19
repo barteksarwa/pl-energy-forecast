@@ -136,7 +136,9 @@ encoder (56 d price history) & 23.23 $\pm$ 0.10 & $-0.38$ & 73.2\% \\
 calendar & 23.68 $\pm$ 0.43 & $+0.08$ & 71.4\% \\
 TSO load forecast & 24.08 $\pm$ 0.55 & $+0.47$ & 70.7\% \\
 anchor (lag-168 price) & 24.47 $\pm$ 0.30 & $+0.86$ & 67.2\% \\
-RES forecast & 29.84 $\pm$ 0.36 & $+6.23$ & 74.0\% \\
+solar forecast only & 26.67 $\pm$ 0.22 & $+3.07$ & 69.0\% \\
+onshore wind forecast only & 27.72 $\pm$ 0.21 & $+4.11$ & 73.3\% \\
+RES forecast (all) & 29.84 $\pm$ 0.36 & $+6.23$ & 74.0\% \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -152,6 +154,11 @@ Two facts jump out.
   \item \textbf{The RES forecast carries the skill} ($+6.2$ EUR/MWh).
         Without it the model is worse than naive (rMAE 1.07).
         Merit-order: renewables set the day-ahead price.
+  \item \textbf{Within RES, wind beats solar} ($+4.1$ vs $+3.1$).
+        Wind is the less predictable series, so its forecast carries
+        more unique information; solar is partly recoverable from
+        calendar and season. Individual deltas sum to 7.2 $>$ joint
+        6.2 --- the two forecasts overlap (both proxy residual load).
 \end{itemize}
 
 \textbf{Permutation vs ablation --- a teaching moment.} Permutation

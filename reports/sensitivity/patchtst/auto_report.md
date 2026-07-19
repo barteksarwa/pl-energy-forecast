@@ -16,6 +16,8 @@ Zero one input group, retrain, rerun 2-year walk-forward.
 | calendar  |     23.683 |     0.434 |       0.848 |     71.35  |       3 |       0.076 |
 | tso_load  |     24.079 |     0.549 |       0.862 |     70.662 |       3 |       0.473 |
 | anchor168 |     24.466 |     0.296 |       0.876 |     67.151 |       3 |       0.86  |
+| solar     |     26.673 |     0.217 |       0.955 |     69.027 |       3 |       3.066 |
+| wind_on   |     27.721 |     0.212 |       0.993 |     73.331 |       3 |       4.114 |
 | res_fcst  |     29.838 |     0.36  |       1.068 |     73.958 |       3 |       6.231 |
 
 ![ablation](ablation_delta_mae.png)

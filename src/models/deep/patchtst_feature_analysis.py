@@ -73,6 +73,8 @@ FUT_COLS = FUTURE_CAL_COLS + [
 GROUPS: dict[str, list[int]] = {
     "calendar": list(range(0, 7)),
     "res_fcst": [7, 8, 9],
+    "solar": [7],          # res_fcst split: which RES component carries it?
+    "wind_on": [8],        # (wind_off is structurally zero pre-2026 — skipped)
     "tso_load": [10],
     "anchor168": [11],
     "encoder": [],
