@@ -259,6 +259,8 @@ def stage_ablation(price, res, tso, seeds: list[int], smoke: bool,
             if pred is None:
                 print(f"  {group} s{seed}: no predictions, skipped", flush=True)
                 continue
+            if group == "full":   # keep hourly preds: ensembling needs them
+                pred.to_parquet(OUT / f"preds_full_w{train_days}_s{seed}.parquet")
             row = {"group": group, "seed": seed, **score_preds(pred, price),
                    "mean_val_pinball": pred.attrs["mean_val_pinball"],
                    "wall_min": round((time.time() - t0) / 60, 1)}
