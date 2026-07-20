@@ -39,6 +39,19 @@
 - Known trap: `ps aux | grep` self-match killed a queue launcher whose
   payload contained the pattern; bracket the pattern *everywhere*.
 
+## Addendum (same session, after night 2)
+
+Same-window follow-up (test 2025-07-16 →, 8,760 h):
+
+- LGBM re-ablated on the deep test window: full 17.66 | RES +4.12 |
+  history +2.02 | TSO +0.58 | calendar +0.39 | load_lags −0.08.
+  Ordering FLIPS vs the 2-yr window: RES > history on the calm year.
+  LGBM history value (+2.02) ≈ TFT-730 encoder (+2.00).
+- **TFT-730 ens-3 (median of 3 seeds): MAE 18.31, rMAE 0.668,
+  coverage 82.8%.** Gap to champion now 0.65 EUR/MWh (3.7%), down
+  from ~3. LGBM stays champion; verdicts window-qualified.
+- Rerun determinism verified: 18.63/19.56/19.18 bit-exact.
+
 ## Possible next steps
 
 1. **Deep re-benchmark at 730d windows** on the full 2-year test is NOT
