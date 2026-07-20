@@ -181,6 +181,47 @@ variance); the learned pooled representation is effectively
 2-dimensional (PC1--2 $=$ 97\%). The encoder compresses 56 days into
 almost nothing --- consistent with redundancy.
 
+\subsection{Training-window robustness: the redundancy was an artifact}
+
+Overnight follow-up (2026-07-19/20). Three runs, all on the 1-year test
+window 2025-07-16$\to$, monthly refits, 3 seeds.
+
+\textbf{1. Window test (PatchTST, full inputs).} 365 d windows: MAE
+21.50 $\pm$ 0.55, coverage 67.0\%. 730 d windows: MAE 20.27 $\pm$ 0.23,
+coverage 74.9\%. Doubling the window recovers 1.2 EUR/MWh and halves
+seed spread. Root cause of the walk-forward loss confirmed.
+
+\textbf{2. Ablation at 730 d (PatchTST).} The encoder REVERSES:
+$+2.5$ EUR/MWh when removed (was $-0.4$ at 365 d, all three seeds
+agree). With enough data the model learns to use price history; at
+365 d it could not. The ``encoder is dead weight'' finding was true
+of the short-window regime, not of the architecture or the task.
+
+\textbf{3. Cross-model table} (retrain ablation, value of price
+history vs RES forecast, EUR/MWh):
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+ & LGBM & TFT (730 d) & PatchTST (730 d) \\
+\midrule
+full-model MAE & 17.87 & 19.12 & 20.27 \\
+price history  & $+3.95$ & $+2.00$ & $+2.46$ \\
+RES forecast   & $+3.60$ & $+3.20$ & $+5.76$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Caveat: LGBM test window is 2024-07-16$\to$ (2 y); deep models
+2025-07-16$\to$ (1 y). Rankings stable, exact deltas not comparable.
+
+Readings: the champion LGBM extracts the MOST from price history and
+has the best MAE --- it wins by using yesterday's prices harder, not by
+ignoring them. The weaker a model's use of history, the harder it leans
+on the RES forecast. TFT at 730 d windows reaches MAE 19.12 with
+coverage 79.6\% --- at the 80\% target without conformal wrapping; the
+whole deep campaign ran on 365 d windows and was handicapped by it.
+
 \subsection{Interview lines}
 
 PatchTST (Nie et al. 2023) reduces attention cost from $O(T^2)$ to
@@ -204,6 +245,13 @@ sits in the known-future RES forecast ($+6.2$ EUR/MWh when removed).
 Permutation importance on the fixed model said the opposite (encoder
 ranked first) --- the classic reliance-vs-redundancy gap between the
 two methods. The negative result is explained, not just observed.
+
+Window-robustness line: we then doubled the training window and the
+encoder finding REVERSED ($-0.4 \to +2.5$ EUR/MWh, 3 seeds). The
+redundancy was a property of the 365-day training regime, not of the
+architecture. Lesson I quote in interviews: an ablation verdict is
+conditional on the training configuration --- always stress-test the
+conclusion against the one hyperparameter it depends on most.
 
 Production lesson: a zero-variance column (Baltic offshore wind,
 commissioned July 2026) drove val pinball from 0.14 to 879.

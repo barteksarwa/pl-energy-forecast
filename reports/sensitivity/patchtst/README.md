@@ -7,15 +7,21 @@ This analysis shows why.
 
 ## Headline finding
 
-**The price-history encoder adds nothing.** Zero the entire 56-day
-encoder input, retrain, and the model does not get worse
-(MAE 23.23 vs 23.61 with the encoder; the -0.38 gap is within seed noise,
-full-model seed std is 0.53). All the skill lives in the known-future
-covariates. The RES generation forecast dominates.
+**At the 365-day training windows used in the original walk-forward, the
+price-history encoder adds nothing.** Zero the entire 56-day encoder
+input, retrain, and the model does not get worse (MAE 23.23 vs 23.61;
+-0.38, within seed noise). All the skill lives in the known-future
+covariates. The RES generation forecast dominates. The model is, in
+effect, an expensive MLP over tomorrow's RES + load forecasts.
 
-PatchTST's selling point is cheap attention over months of price history.
-On this task that history is redundant with the covariates. The model is,
-in effect, an expensive MLP over tomorrow's RES + load forecasts.
+**Follow-up (730-day windows): the redundancy is a window artifact.**
+With twice the training data the encoder is worth +2.5 EUR/MWh (all 3
+seeds, `ablation_walkforward_w730.csv`) and the full model improves to
+MAE 20.27 with coverage 67→75%. The model *can* use price history — 365
+days was too little data to learn how. Both statements matter: the
+original negative verdict stands for the walk-forward as run, and the
+diagnosis is "training window too short", not "history is useless".
+See `../tft/README.md` for the cross-model table.
 
 ## Group ablation (walk-forward, 3 seeds: 42, 7, 2026)
 
@@ -50,6 +56,24 @@ Zero one input group after standardization, retrain, rerun the full
   overfitting surface on 365-day training windows.
 
 ![ablation](ablation_delta_mae.png)
+
+## Training-window test (root-cause check)
+
+Claim under test: "365-day windows overfit the 197k-param net."
+Same walk-forward, test 2025-07-16 →, 3 seeds
+(`window_walkforward.csv`):
+
+| train window | MAE           | coverage 80% |
+|:-------------|--------------:|-------------:|
+| 365 d        | 21.50 ± 0.55  |        67.0% |
+| 730 d        | 20.27 ± 0.23  |        74.9% |
+
+Doubling the window: −1.2 EUR/MWh, +7.9pp coverage, seed spread halves.
+Root cause confirmed. The 730d group ablation
+(`ablation_walkforward_w730.csv`) shows the input ranking under the
+longer window: RES +5.8 > wind +4.3 > solar +2.9 > **encoder +2.5** >
+TSO +1.3 > calendar +0.4 > anchor +0.1 (anchor value migrates into the
+encoder once the model can use history).
 
 ## Permutation importance (screening split, val 2026+, 10 shuffles)
 

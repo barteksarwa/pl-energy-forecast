@@ -4,6 +4,11 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-07-20 — Deep models were window-handicapped; encoder redundancy was an artifact**
+Context: overnight robustness runs — PatchTST/TFT ablations at 730d training windows + LGBM 730d ablation + cross-model table.
+Decision: quote ablation verdicts WITH their training window. At 730d: PatchTST encoder +2.5 (was −0.4), TFT 19.12 MAE at 79.6% coverage. Deep-model re-benchmark at 730d windows is a candidate future milestone; champion unchanged (LGBM 17.87, extracts most from history +3.95).
+Why: ablation conclusions proved conditional on train window — 3 seeds reversed the sign. Honest reporting requires the qualifier; LGBM still wins outright.
+
 **2026-07-19 — PatchTST loss explained: encoder redundant, RES forecast carries skill**
 Context: overnight feature analysis (group-ablation walk-forward 3 seeds, permutation, PCA, attention) on best config patch24_s24_ctx1344.
 Decision: ablating the 56-day price encoder costs nothing (MAE 23.23 vs full 23.61); ablating RES forecast costs +6.2 EUR/MWh. Verdict note updated; quote ablation (not permutation) for information content.
