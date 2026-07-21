@@ -92,8 +92,13 @@ def ensemble(cfg_name: str, seeds: list[int], price) -> dict:
          for q in ("p10", "p50", "p90")}, index=idx)
     ens[:] = np.sort(ens.to_numpy(), axis=1)
     ens.to_parquet(OUT / f"preds_sweep_{cfg_name}_ens{len(seeds)}.parquet")
+    d_model, lstm_layers, dropout, lr = CONFIGS[cfg_name]
+    # same column set as run_one rows — appending with fewer keys shifts
+    # the header-less CSV append and corrupts the row
     return {"config": f"{cfg_name}_ens{len(seeds)}", "seed": -1,
-            **score_preds(ens, price)}
+            "d_model": d_model, "lstm_layers": lstm_layers,
+            "dropout": dropout, "lr": lr, **score_preds(ens, price),
+            "wall_min": 0.0}
 
 
 def main() -> int:

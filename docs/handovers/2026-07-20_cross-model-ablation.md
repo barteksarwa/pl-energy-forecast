@@ -52,6 +52,20 @@ Same-window follow-up (test 2025-07-16 →, 8,760 h):
   from ~3. LGBM stays champion; verdicts window-qualified.
 - Rerun determinism verified: 18.63/19.56/19.18 bit-exact.
 
+## Addendum 2 (overnight 3, 2026-07-21)
+
+TFT-730 config sweep (8 configs, 1-yr walk-forward, then confirm):
+
+- Seed-42 winner dropout=0.30 (17.97) did NOT replicate on seeds
+  7/2026 (20.17/19.43). dr030 ens-3 18.36 ≈ baseline ens-3 18.31.
+- **Verdict: hyperparams are not the remaining gap. TFT-730 plateaus
+  at ~18.3 vs champion 17.66.** Real levers were window (+1.5) and
+  seed-ensemble (+0.8).
+- Third demonstration this project that 1-seed screening picks mirages.
+- PatchTST-730 ens-3 built for completeness: 19.94, coverage 75.8%.
+- Bug fixed: header-less CSV append with a different column set
+  silently corrupts rows (ensemble row in sweep730.csv, repaired).
+
 ## Possible next steps
 
 1. **Deep re-benchmark at 730d windows** on the full 2-year test is NOT
