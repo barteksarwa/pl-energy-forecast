@@ -1,0 +1,76 @@
+# The daily job simulation: fetch → score yesterday → forecast tomorrow → report.
+# Proof-of-concept automation (PLAN M9).
+# The commit history of reports/daily/ is the operational track record.
+#
+# Data store: data/ is gitignored, so the runner keeps it in a rolling
+# actions/cache. Every run restores the newest cache, backfills
+# incrementally (idempotent, resumes from last timestamp), and saves a
+# fresh cache. Cold start rebuilds everything from the APIs (~15 min);
+# warm runs fetch only the last day (~1 min).
+#
+# Secrets: ENTSOE_API_TOKEN (repo secret) for prices + RES forecasts.
+# Load data stays keyless (PSE).
+
+name: daily-dry-run
+
+on:
+  schedule:
+    - cron: "30 5 * * *"   # 05:30 UTC = 07:30 Warsaw, well before the 09:00 cutoff
+  workflow_dispatch: {}     # manual trigger for testing
+
+permissions:
+  contents: write
+
+jobs:
+  dry-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90     # cold-start backfill needs headroom; warm runs take ~2 min
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Restore data store
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            data/raw
+            data/processed
+          key: data-store-${{ github.run_id }}
+          restore-keys: data-store-
+
+      - name: Backfill (idempotent, incremental after first run)
+        env:
+          ENTSOE_API_TOKEN: ${{ secrets.ENTSOE_API_TOKEN }}
+        run: uv run python -m src.ingestion.backfill
+
+      - name: Run the daily cycle
+        env:
+          ENTSOE_API_TOKEN: ${{ secrets.ENTSOE_API_TOKEN }}
+        run: uv run python -m src.pipeline.daily_run
+
+      - name: Refresh figures
+        run: uv run python -m src.viz.make_all
+
+      - name: Save data store
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: |
+            data/raw
+            data/processed
+          key: data-store-${{ github.run_id }}
+
+      - name: Commit the report
+        run: |
+          git config user.name "daily-dry-run bot"
+          git config user.email "actions@github.com"
+          git add reports/ data/forecasts/
+          git diff --cached --quiet && echo "nothing new" && exit 0
+          git commit -m "ops: daily report $(date -u +%F)"
+          git pull --rebase origin main
+          git push
