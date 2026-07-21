@@ -12,8 +12,11 @@ backfill:
 setup:
 	uv sync
 
+# Deep tests run in a separate process: torch + LightGBM in one process
+# double-load OpenMP on macOS and segfault.
 test:
-	uv run pytest -q -m "not smoke"
+	uv run pytest -q -m "not smoke" --ignore=tests/test_deep_data.py
+	uv run pytest -q -m "not smoke" tests/test_deep_data.py
 
 smoke:
 	uv run pytest -q -m smoke
