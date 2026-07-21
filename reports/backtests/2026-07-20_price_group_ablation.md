@@ -1,0 +1,15 @@
+# Price LGBM feature-group ablation — 2026-07-20_price_group_ablation
+
+Walk-forward, weekly refits, last 365 days, P50 MAE (EUR/MWh).
+Retrain ablation = value of information. Compare with SHAP rank
+(reports/sensitivity/shap_importance_price.csv) — they answer
+different questions; the gap between them measures redundancy.
+
+| config                      |    mae |   delta_vs_full |
+|:----------------------------|-------:|----------------:|
+| full                        | 17.664 |           0     |
+| drop price_lags (29 cols)   | 19.683 |           2.019 |
+| drop res_forecast (3 cols)  | 21.784 |           4.12  |
+| drop tso_load_fcst (1 cols) | 18.248 |           0.584 |
+| drop load_lags (7 cols)     | 17.588 |          -0.076 |
+| drop calendar (10 cols)     | 18.05  |           0.386 |
