@@ -2,376 +2,118 @@
 
 Status: **v3, updated 2026-07-21.** Phases 1–3 complete except the track
 record (M10) — cron outage 07-18→21, see DECISIONS 2026-07-21.
-Current milestone: **Phase 4 / M11-M13** (proposed below, needs owner approval).
-Canonical numbers: `docs/RESULTS.md`. History: v2 approved 2026-07-14.
+Current milestone: **Phase 4 / M11–M13** (needs owner approval).
+Canonical numbers: `docs/RESULTS.md`. Job market research: `docs/notes/career.md`.
+History: v1/v2 details in git (this file was compressed 2026-07-21).
 
 ## Where we stand (2026-07-21)
 
 - Phase 1 (load): DONE. Champion ridge_tso 2.08% MAPE, beats TSO (2.23%).
 - Phase 2 + 2.5 (price): DONE. Champion LGBM quantile + CQR, rMAE 0.640.
 - Phase 3 M9 (ops): DONE. Shadow/promotion discipline built and documented.
-- Attention campaign (backlog item): DONE, closed 2026-07-21. TFT and
-  PatchTST tested, decomposed, archived. See RESULTS.md.
+- Attention campaign: DONE, closed 2026-07-21. TFT and PatchTST tested,
+  decomposed, archived. See RESULTS.md.
 - M10 track record: BROKEN — 4 reports, then cron died with the old
   remote. Restart is Phase 4 work.
 - Open owner actions: blog post, learning notes reading, publication call.
 
-## What the job market wants (researched 2026-07-14)
+## Ambition level (owner call, standing)
 
-Sources: Shell careers, pracuj.pl (Polenergia, Tauron, PGE), EPF literature.
+Near-production quality, senior-job level. Publication-grade honesty:
+never invent numbers; unknown = say so. Clean contracts: new model =
+new file, zero edits elsewhere. Free tools only.
 
-**Load or price?** Both exist. The split:
+## Phases 1–3 — complete (summary)
 
-- Trading desks (Shell, Orlen, Polenergia, Axpo): **price** forecasting.
-  Power day-ahead, gas (TTF), CO2 (EUA). Plus fundamentals analysis.
-- Utilities, DSOs, balance-responsible parties: **load** forecasting.
-  Load errors cost money on the balancing market.
-- Load forecast is an *input* to price forecast. The skills stack.
+Full milestone text lives in git history (PLAN v2).
 
-**Models named in ads and industry practice:**
-
-- LASSO-regularized autoregression (LEAR). The standard price baseline. Hard to beat.
-- Gradient boosting (XGBoost/LightGBM). Quantile regression for probabilistic output.
-- LSTM / deep nets as challengers. Shell explicitly wants ML PhDs.
-- Optimization models (stack, dispatch) at fundamentals desks. Out of our scope, but
-  we explain the concept in docs.
-
-**Other requirements that repeat:** Python + SQL, model deployment/productionization,
-explaining forecasts to non-experts, market knowledge (day-ahead auction, balancing,
-CO2, capacity market).
-
-**Conclusion.** Build load first (cleanest daily-ops simulation, data is free and
-clean). Then price as Phase 2 on the same infrastructure. Same features pipeline,
-same backtest engine, same daily loop. This mirrors a real desk and doubles the
-interview surface.
-
-## Ambition level
-
-Owner's call: build system that could be basically level of a senior job.
-Since we are doing PhD potentially we could publish so keep sources true, if you dont know something tell that so i can fetch more data, or explain the assumptions.
-So we target near-production quality:
-
-- Clean contracts between components. New model = new file, zero edits elsewhere.
-- UAT/prod split (see Phase 3). Real deployment discipline, free tools only.
-- Reproducible benchmark tables. Publication angle: honest open PL benchmark
-  (load + price, quantiles, vs TSO and LEAR) — these are rare for Poland.
-
-## Phase 1 — Load forecasting core
-
-### M0 — Walking skeleton (1 session)
-
-Thinnest end-to-end path. Real data in, naive forecast out, report written.
-
-- Scaffolding: `pyproject.toml`, `Makefile`, `config/config.yaml`, `.env`.
-- ENTSO-E client: PL load + TSO day-ahead forecast, few days.
-- Open-Meteo client: one city.
-- Seasonal naive forecast. One ugly report in `reports/daily/`.
-- One smoke test per client.
-
-Done when: `make dry-run` produces a report from live APIs.
-
-### M1 — Data foundation + data-source analysis (2 sessions)
-
-Goal: know what data the job actually uses, then store it cleanly. Before doing this stage i will need to analyze online sources that would allow you to find more information whether that would be science papers or some explanations anywhere online.
-
-- **Data-source analysis** (new, per owner): document in `docs/DATA_CATALOG.md`
-  every driver a real desk watches, its source, cost, and when we need it:
-  - Load + TSO forecast: ENTSO-E. Free. Phase 1.
-  - Weather (temp, wind, radiation, humidity): Open-Meteo. Free. Phase 1.
-  - Wind + solar generation forecasts: ENTSO-E. Free. Phase 2 (price driver #1).
-  - Cross-border flows and capacity: ENTSO-E. Free. Phase 2.
-  - Unit outages: ENTSO-E UMM / PSE. Free. Phase 2.
-  - Gas (TTF), coal (API2), CO2 (EUA): free proxies exist (e.g. energy-charts,
-    public settlement data); paid feeds are the desk reality. Document both. Phase 2.
-  - TGE / ENTSO-E day-ahead prices for PL: target of Phase 2.
-- Backfill 3+ years: load, TSO forecast, weather for all config cities.
-- Parquet in `data/`, UTC, stable schemas. Gap log, never silent fills.
-- Tests: DST days (23h/25h), UTC↔Warsaw.
-
-Done when: backfill idempotent, gap report exists, data catalog reviewed by owner.
-
-### M2 — Features + evaluation engine (1–2 sessions)
-
-- Calendar: hour, weekday, month, PL holidays, bridge days.
-- Weather: population-weighted city average.
-- Lags respecting the 09:00 D-1 cutoff.
-- Metrics: MAE, RMSE, MAPE, pinball. Skill-vs-naive as headline. I need to be able to explain why such metrics is used and what are pros and cons.
-- The leakage test: assert no feature sees past the cutoff.
-- Full testing campaign
-
-Done when: feature matrix builds for any historical day; cutoff test passes.
-
-### M3 — Baseline campaign (3+ sessions, per owner: full campaign)
-
-Goal: honest, exhaustive baseline table before any fancy model. This is the
-credibility core of the repo.
-
-- Baselines: seasonal naive (hour-of-week), 7-day persistence, climatology,
-  linear/ridge on lags+calendar, LASSO-AR (LEAR-style, also preps Phase 2).
-- TSO day-ahead forecast as the external benchmark.
-- Walk-forward backtest over 12+ months. Cutoff respected in every fold.
-- Breakdowns: by hour, weekday vs weekend, holidays, seasons, DST days.
-- Report: which baseline wins where, and why. Losses documented.
-- At this stage i need to be able to explain all seasonality add ons to the models, when to use, where.
-- Also which models are good at which use cases (data availability, goals of the task). Which have potential but still need some time/work to be done. And which to scrap and why,
-Done when: `make backtest` reproduces the full table; findings written up.
-
-### M4 — LightGBM quantile, the production model (2 sessions)
-
-- LightGBM quantile: P10/P50/P90 per hour.
-- SHAP: summary + per-day top-3 drivers in plain words.
-- Model card. Swap into daily loop behind config flag.
-- Fights the M3 table. If it loses anywhere, we say where.
-
-Done when: report explains its own forecast; P50 beats naive on backtest.
-
-### M5 — Deep challengers (2–3 sessions)
-
-- LSTM with known-future covariates (weather forecast, calendar).
-- Small transformer second.
-- Permutation importance + saliency. Model cards.
-- Into the backtest table. Honest verdict vs LightGBM.
-
-## Phase 2 — Price forecasting (the trading-desk skill)
-
-**Why Phase 2 is the priority.** Job research (2026-07-16, see `docs/notes/job_market.md`)
-confirms: trading-quant roles (highest pay, fastest hiring) care about **price**,
-not load. Load alone targets utilities. Adding TGE day-ahead price doubles
-the number of reachable roles. LEAR is the standard baseline to beat.
-
-### M6 — Price data + fundamentals features (2 sessions)
-
-- [x] **TGE day-ahead prices (RDN):** DONE 2026-07-16. `price_da_eur.parquet`,
-  31,022 h from 2023-01-01, zero gaps. ENTSO-E EUR/MWh is the modeling
-  target (DECISIONS 2026-07-16); PSE PLN stays for display.
-- **Price drivers from M1 catalog:**
-  - Wind + solar actual generation (ENTSO-E `query_generation`): free, best driver.
-  - Cross-border flow capacity (ENTSO-E `query_crossborder_flows`): interconnection state.
-  - Unit outages (ENTSO-E UMM): large unavailabilities move prices.
-  - Gas (TTF) proxy: ENTSO-E LNG/gas net imports, or public EEX settlement data.
-  - CO2 (EUA) proxy: ICE daily settlement CSV (free, delayed 1 day).
-  - Our own load forecast (D-1 produced) as a feature.
-- [x] Extend gap log and DST tests to price series. DONE 2026-07-16
-  (tests/test_price_features.py — the 25h-day leakage test found a real bug).
-- [x] **DuckDB/SQL layer**: DONE 2026-07-16. `notebooks/01_sql_analysis.ipynb`.
-
-### M7 — Price models (3+ sessions)
-
-- [x] **Baseline 1: naive.** DONE 2026-07-16. Yesterday + last-week variants.
-- [x] **Baseline 2: LEAR.** DONE 2026-07-16. Per-hour LASSO, D-1 day vector,
-  robust-standardized asinh (Uniejewski, Weron & Ziel 2018).
-  **Result: rMAE 0.744 vs naive over 2 years, wins all 25 months.**
-  Model card: `docs/model_cards/lear.md`. Two failed variants documented there.
-- [x] **LightGBM quantile** on fundamentals. DONE 2026-07-16.
-  **rMAE 0.638, MAE champion.** SHAP: solar forecast is price driver #1.
-  BUT band coverage 51% vs 80% nominal — conformal calibration REQUIRED
-  before shipping. Card: `docs/model_cards/lgbm_price.md`.
-- [x] Wind+solar day-ahead forecasts backfilled (31,021 h, zero gaps).
-  LEAR + RES + extrapolation guard: rMAE 0.660 (z-clip story in card).
-- [x] **Price spikes:** DONE — spike MAE + P90 coverage columns in table.
-  Both models miss spikes badly (spike MAE ~3x pooled); open problem.
-- Same walk-forward engine as M3. Honest table: LGBM wins MAE, LEAR wins
-  coverage; neither band is calibrated yet.
-- **Next:** conformal band calibration, gas/CO2 proxies, daily-loop
-  shadow integration for the price model.
-- [x] Learning note: DONE 2026-07-16, `08_price_formation_and_lear.tex`.
-
-### Phase 2.5 — Course correction: polish before Phase 3 (2026-07-16, owner-approved)
-
-Build ran ~5 weeks ahead of the get-hired schedule. Decision: stop adding
-models; convert the head start into hire-signal. All items below DONE
-2026-07-16/17 unless marked.
-
-- [x] **Conformal band calibration** (rolling CQR, 90d window,
-  walk-forward honest). LGBM coverage 51%→79%, LEAR 72%→79.5%. P50
-  untouched. Daily loop publishes the calibrated band; offsets in
-  `config/price_conformal.json`, refreshed by `run_price_calibration`.
-  Tests incl. future-corruption leakage proof.
-- [x] **README recruiter-ready**: both product lines, headline numbers
-  up top, honest-findings sections, 3-minute read. All numbers traced
-  to CSVs (2-yr vs 12-mo campaigns explicitly separated).
-- [x] **M8 market-context notes** (pulled forward from M8):
-  `10_balancing_market.tex` (2024 reform, 15-min settlement, scarcity
-  pricing), `11_rynek_mocy.tex`, `12_intraday_market.tex` (SIDC/XBID,
-  end-to-end timeline).
-- [x] Desk-style backtest review pack + interpretation README +
-  `09_desk_model_review.tex` (added during Phase 2 close-out).
-- [x] Living daily figures: every forecast chart re-rendered with the
-  realized line the next morning.
-- **Owner actions (not code):** merge PR #2; write the blog post from
-  `docs/archive/blog_post_outline.md`; read learning notes 01–12.
-
-### M8 — Market-context docs + portfolio polish
-
-- [x] Learning notes: balancing market (RB 2024 reform), rynek mocy,
-  intraday/SIDC — done in Phase 2.5. DAM mechanics already in note 02/08.
-- [ ] CO2/ETS note — with the fuel/CO2 feature work (post-Phase 3).
-- **Blog post draft:** outline done (`docs/archive/blog_post_outline.md`);
-  owner writes the text.
-- [x] README final: results tables up top, 3-minute recruiter read.
-- Apply at 30+ daily reports (accumulating since 2026-07-16).
-
-## Phase 3 — Ops maturity (the "senior job transfer" layer)
-
-### M9 — UAT/prod split + POC automation (2 sessions)
-
-**Status 2026-07-17:** cron live since 07-15; load challenger in shadow
-(tally: docs/shadow_tally.md); price incumbent (LEAR+conformal) publishing
-and price challenger (LGBM+conformal) in shadow since 07-17 with
-pre-agreed promotion criteria (docs/shadow_tally_price.md). Fixed this
-session: secret-redaction in report oddities (ENTSO-E error URLs carried
-the token), publish-horizon fetching (DA prices/RES exist through
-tomorrow, not "now"), shape-preserving persist_24h for unpublished
-TSO/RES, empty-forecast guard. Env keys (dev/uat/prod) in config:
-consciously deferred — shadow/prod separation already exists through
-the challenger mechanism; config ceremony adds nothing a recruiter or
-the ops loop needs right now.
-
-Per owner: simulate real deployment discipline, free tools only.
-
-- Environments in config: `dev` (local, any branch), `uat` (shadow run),
-  `prod` (the committed track record).
-- Promotion rule: a model runs ≥N days in UAT shadow mode; its forecasts are
-  scored but not "official". Beats incumbent → promoted to prod. Logged in
-  DECISIONS.md. This is how real desks change models.
-- POC automation: GitHub Actions cron (free) runs the daily loop for a trial
-  window (e.g. 7–14 days) to prove it works unattended. Full 30-day unattended
-  push comes after, per owner.
-
-### M10 — Track record + recruiter/publication polish
-
-**Status 2026-07-17:** README done (Phase 2.5). HOW_A_FORECAST_IS_MADE.md
-written (definition-of-done item). Track record accumulating (cron).
-Remaining: 30+ daily reports (time), blog post (owner), publication
-check (owner decision with evidence).
-
-- 30+ daily reports accumulate in prod mode.
-- README final: results tables up top, 3-minute read.
-- "How a forecast is made" doc. Model cards complete.
-- Publication check: is the PL benchmark table novel enough to write up
-  (blog post minimum, workshop paper stretch)? Owner decides with evidence.
+- **M0–M2**: skeleton, clients (ENTSO-E, PSE, Open-Meteo), 3.5y backfill,
+  UTC + DST tests, leakage-safe feature matrix, metrics + walk-forward engine.
+- **M3–M5 (load)**: baseline campaign → ridge_tso champion; LightGBM
+  quantile + SHAP; 7 deep architectures tried, none beat the linear
+  combiner once TSO signal is in. All in RESULTS.md + model cards.
+- **M6–M7 (price)**: EUR/MWh target, RES/fuel/outage drivers, LEAR
+  baseline, LGBM quantile champion, spike problem documented.
+- **Phase 2.5**: conformal calibration (coverage 51%→79%), recruiter
+  README, market-context notes (balancing, rynek mocy, intraday).
+- **M8**: market docs done; CO2/ETS note still pending (M13).
+- **M9 (ops)**: cron, UAT/prod via shadow+promotion rules, secret
+  redaction, publish-horizon fetching, persist_24h fallback.
+- **M10**: HOW_A_FORECAST_IS_MADE.md done; track record interrupted.
+- **Attention campaign**: TFT HPO + walk-forward, PatchTST build/sweep,
+  730d window + ensemble + capacity decomposition. Verdict in
+  RESULTS.md and `notes/model_selection/12_deep_gap_decomposition.tex`.
 
 ## Phase 4 — Repo revival + RES geography (proposed 2026-07-21)
 
-### M11 — Repo reconciliation + track record restart (1 session + calendar time)
+### M11 — Repo reconciliation + track record restart
 
-The local repo and the new public repo (`barteksarwa/pl-energy-forecast`,
-created by owner 2026-07-21) have no common history. Owner picks one:
+Local repo and the new public repo (`barteksarwa/pl-energy-forecast`,
+created by owner 2026-07-21) share no history. Owner picks one:
 
-- (a) Force-push local history to the public repo. Full 122-commit story,
-  overwrites the curated 7 commits.
-- (b) Keep the curated public repo. Push local work as squashed,
-  story-shaped commits on top. Working repo stays private or local.
-- (c) Two remotes: private working repo (full history) + public showcase
-  (curated). Cron runs on the private one; showcase updated manually.
+- (a) Force-push local history (122 commits) to the public repo.
+- (b) Keep curated public repo; push squashed story-shaped commits.
+- (c) Two remotes: private working (full history, cron) + public showcase.
 
-Then:
-- Re-enable the GitHub Actions cron (needs `ENTSOE_API_TOKEN` secret).
-- Score the stranded 2026-07-18 forecasts retroactively (they were
-  produced before the outage — no leakage).
-- Run the 14-day shadow window to the end. Promote or reject per the
-  pre-agreed criteria. 30+ daily reports accumulate.
+Then: re-enable Actions cron (`ENTSOE_API_TOKEN` secret), retro-score
+the stranded 2026-07-18 forecasts, run the 14-day shadow window to the
+end, accumulate 30+ daily reports.
 
-### M12 — RES geography (owner priority, 2026-07-21)
+### M12 — RES geography (owner priority)
 
-Goal: stop treating renewables as a zone-level blob. Where wind and PV
-sit changes how weather moves the price.
+Where wind and PV sit changes how weather moves the price. Stop
+treating renewables as a zone-level blob.
 
-- **Data hunt first (1 session).** Candidate sources, verify before use:
-  - ENTSO-E installed capacity per production type + per unit (≥100 MW).
-  - URE / ARE reports: PV and wind capacity per voivodship.
-  - PSE published wind/PV capacity statistics.
-  - OpenStreetMap wind turbine locations (`power=generator`) as a
-    free spatial fallback.
-  Document findings + license terms in DATA_CATALOG. Decide granularity
-  (voivodship is likely enough; unit-level is a bonus).
-- **Capacity-weighted weather (1-2 sessions).** New weights in config:
-  wind-capacity-weighted wind speed, PV-capacity-weighted irradiance.
-  Reuses the existing city-grid machinery — new weight vectors, new
-  grid points if needed. Zero model-code changes (rule 10).
-- **Test honestly.** Add to the price feature matrix as a group.
-  Group ablation vs the TSO RES forecast: does our geography add skill
-  the TSO forecast doesn't already carry? Expected outcome is "small or
-  none" — the TSO forecast already embeds site locations. Negative
-  result is fine and gets documented.
-- **Stretch: own RES generation forecast.** Predict wind_on / solar MW
-  from capacity-weighted weather; benchmark vs the TSO RES forecast.
-  RES generation forecasting is its own job category in PL/EU — strong
-  interview surface even if we lose to the TSO.
+1. **Data hunt** (1 session). Verify before use: ENTSO-E installed
+   capacity per unit (≥100 MW); URE/ARE capacity per voivodship; PSE
+   capacity statistics; OSM turbine locations as spatial fallback.
+   Document in DATA_CATALOG with license terms. Voivodship granularity
+   is likely enough.
+2. **Capacity-weighted weather** (1–2 sessions). New weight vectors in
+   config: wind-capacity-weighted wind speed, PV-capacity-weighted
+   irradiance. Reuses city-grid machinery. Zero model-code edits (rule 10).
+3. **Honest test.** Group ablation vs the TSO RES forecast. Expected:
+   small or none — the TSO forecast already embeds site locations.
+   Negative result documented, not hidden.
+4. **Stretch: own RES generation forecast.** Wind/solar MW from
+   capacity-weighted weather; benchmark vs TSO RES forecast. RES
+   forecasting is its own job category in PL/EU.
 
 ### M13 — Portfolio close-out
 
-- README refresh with track-record section once 30+ reports exist.
-- Blog post (owner writes; draft exists for load, needs a price/deep
-  chapter — see `docs/notes/blog_post_draft.md`).
-- CO2/ETS learning note (pending from M8).
-- Publication check: PL benchmark table (load + price + deep verdicts)
-  as blog minimum, workshop paper stretch. Owner decides.
+- README track-record section once 30+ reports exist.
+- Blog post (owner; draft covers load, needs price/deep chapter).
+- CO2/ETS learning note.
+- Publication check: PL benchmark table as blog minimum, workshop
+  paper stretch. Owner decides with evidence.
 
-## Backlog — owner ideas, scoped but not scheduled (2026-07-17)
+## Backlog (scoped, not scheduled)
 
-- **Sub-national / portfolio load POC.** Simulate a retailer/regional
-  desk: target = a constructed sub-series (e.g. a fixed share of national
-  load + noise + its own weekly pattern), national TSO forecast as a
-  covariate. Compare two designs: (a) TSO as plain feature (architecture
-  unchanged), (b) share model — forecast local/national ratio, multiply
-  by TSO forecast. Both fight naive; backtest decides. Watch: ratio
-  non-stationarity (portfolio churn) and multiplicative error compounding
-  in design (b).
-- **TFT price challenger — RAN 2026-07-17.** Long context helps
-  monotonically (rMAE 0.93/0.88/0.86 for 1/4/12-week encoders) but the
-  best TFT trails tabular by ~30% on the identical window
-  (`model_selection/07_tft_long_context.tex`). Screening tier only.
-- **Attention-model campaign (owner call 2026-07-17 — model freeze
-  lifted for this thread).** Owner: attention models have the biggest
-  potential here. Running/queued:
-  1. [launched] TFT HPO, 60 Optuna trials, context length IN the search
-     space (336-2016h), resume-safe study `data/processed/tft_hpo.db`;
-     exports VSN weights (TFT-native feature selection) at the end.
-  2. [done] Channel coupling analysis for PatchTST: PL hourly channels
-     are WEAKLY coupled (1 of 21 pairs |corr|>0.5; 4 of 7 PCs for 80%)
-     — channel independence is a defensible bet
-     (`reports/sensitivity/channels_verdict.txt`).
-  3. [built+smoked] PatchTST adapted for the auction task
-     (`src/models/deep/patchtst.py`): patching + channel independence
-     + future-covariate head. Campaign next session.
-  4. [next session] Walk-forward confirm of the HPO winner (screening
-     flatters nets — measured), PatchTST screening sweep (patch_len,
-     stride, ctx), then both through the same-window comparison vs
-     LEAR/LGBM; shadow gate before anything publishes.
-- **Outage feature: tested, FLAT** (LGBM 17.90 vs 17.85; spikes
-  unchanged). Store kept; refinements: per-fuel split, unplanned-only.
-- **Fuel proxies (TTF gas, EUA-tracking ETC): built + backfilled;**
-  combined outages+fuel 2yr backtest running at handover.
+- Sub-national/portfolio load POC — ran 2026-07-17, see
+  `reports/backtests/2026-07-17_portfolio_poc.md`.
+- Outage feature refinements (per-fuel, unplanned-only) — base version
+  tested FLAT.
+- Deep re-benchmark at 730d on full 2-yr test — possible 2027+ (needs
+  730d history before 2024-07; data starts 2023-01).
+- Drop load_lags from LGBM price champion (−0.12 dead weight) — config
+  change + confirm backtest.
 
 ## Learning thread (runs through everything)
 
-Owner must explain every piece in interviews. Knows ML, not forecasting
-concepts yet. One short explainer per milestone in `docs/notes/learning/`:
+Owner must explain every piece in interviews. One short explainer per
+concept in `docs/notes/learning/` (20 notes) and verdicts in
+`docs/notes/model_selection/` (12 notes). Rule: under one page, short
+sentences, one worked example each.
 
-- M0: seasonality, seasonal naive.
-- M1: day-ahead market timeline, the 09:00 cutoff.
-- M2: leakage, walk-forward CV.
-- M3: why baselines rule forecasting; skill scores.
-- M4: quantile regression, pinball loss, SHAP in plain words.
-- M5: why deep models often lose on tabular time series.
-- M6–M7: merit order, price drivers, LEAR, spike risk.
-- M9: UAT/shadow deployment, why desks promote models slowly.
+## Token-saving rules
 
-Rule: under one page, short sentences, one worked example each.
-
-## Token-saving proposals (per CLAUDE.md request)
-
-- One config file: `config/config.yaml`. Environments are keys inside it, not files.
-- Handovers under one page. Agents read only the latest.
-- Cavecrew subagents for code search in long sessions, preferably by Opus, while Fable is main.
-- Notebooks out of agent context. EDA summaries go into docs.
+- One config file. Handovers under one page; agents read only latest.
+- Canonical numbers only in RESULTS.md.
+- Notebooks out of agent context.
 
 ## Risks
 
-- ENTSO-E delays/gaps → gap log from M1, oddities section in reports.
-- DST breakage → tests in M1, extended to price in M6.
-- Free gas/CO2 data is patchy → documented in data catalog; proxies acceptable,
-  stated openly.
-- Price spikes break point metrics → tail evaluation in M7.
-- Scope creep → Phase 1 must produce a working daily loop before Phase 2 starts.
+- ENTSO-E delays/gaps → gap log + oddities section in reports.
+- Free gas/CO2 data patchy → proxies, stated openly.
+- Price spikes break point metrics → tail evaluation stays in tables.
+- Single-seed screening lies → 3-seed minimum for deep verdicts (proven 3x).

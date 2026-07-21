@@ -75,11 +75,12 @@ Loss decomposition, TFT gap to champion:
   TSO load +0.58, calendar +0.39, load lags −0.08 (dead weight).
 - Ablation verdicts depend on the training window. Documented sign flip:
   PatchTST price-history encoder −0.4 → +2.5 EUR/MWh at 365d → 730d.
-- Tables: `reports/sensitivity/tft/README.md`, `reports/backtests/2026-07-20_price_group_ablation.md`.
+- Tables: `reports/sensitivity/group_ablation.md` (load),
+  `reports/sensitivity/tft/README.md`, `reports/backtests/2026-07-20_price_group_ablation.md`.
 
 ## Where the details live
 
 - Model cards: `docs/model_cards/`.
 - Campaign handovers: `docs/handovers/`.
 - Comparison figures: `reports/figures/backtest_price/` (15 plots).
-- Shadow track record: `docs/shadow_tally.md`, `docs/shadow_tally_price.md`.
+- Shadow track record: `docs/shadow_tally.md`.

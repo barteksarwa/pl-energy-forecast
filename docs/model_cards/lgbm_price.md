@@ -22,7 +22,7 @@ cannot happen here structurally.
 
 ## Performance (walk-forward, 2024-07-16 → 2026-07-14, 17,480 h)
 
-`reports/backtests/2026-07-16_price_res_summary.md`:
+`reports/backtests/2026-07-16_price_res_summary.csv`:
 
 | metric | lgbm_quantile | lear | naive yesterday |
 |---|---|---|---|
