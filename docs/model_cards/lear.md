@@ -42,7 +42,7 @@ residuals in z-space, mapped back with the monotone inverse.
 Measured failure without the centering: asinh on raw ~100 EUR prices sits
 in its log regime; sinh-back amplifies z-errors ~100x. Winter months hit
 monthly rMAE 2.64 (Dec 2025). With robust standardization the same months
-score 0.7. Full history in `reports/backtests/2026-07-16_price_summary.md`.
+score 0.7. Full history in `reports/backtests/2026-07-16_price_summary.csv`.
 
 ## Training
 
@@ -61,7 +61,7 @@ RMSE 558 → 32.9, MAE 27.2 → 18.5.
 
 ## Performance (walk-forward, 2024-07-16 → 2026-07-14, 17,480 h)
 
-With RES features + z-clip (`reports/backtests/2026-07-16_price_res_summary.md`):
+With RES features + z-clip (`reports/backtests/2026-07-16_price_res_summary.csv`):
 
 | model | MAE (EUR/MWh) | RMSE | rMAE | coverage 80% | spike MAE | spike P90 cov |
 |---|---|---|---|---|---|---|
@@ -70,7 +70,7 @@ With RES features + z-clip (`reports/backtests/2026-07-16_price_res_summary.md`)
 | naive yesterday | 28.0 | 44.2 | 1.000 | 53.1% | 77.6 | 37.1% |
 | naive last week | 34.0 | 52.9 | 1.216 | 53.7% | 93.0 | 37.2% |
 
-Lags-only variant (no RES, `2026-07-16_price_summary.md`): MAE 20.8,
+Lags-only variant (no RES, `2026-07-16_price_summary.csv`): MAE 20.8,
 rMAE 0.744, wins all 25 test months. Literature range for LEAR vs naive
 is 0.75–0.85 — fundamentals push us past it.
 
@@ -85,7 +85,7 @@ is 0.75–0.85 — fundamentals push us past it.
   conformal calibration (CQR, 90d trailing window): **79.5%**. The daily
   loop publishes the conformal band (offset +3.6 EUR/MWh each side,
   config/price_conformal.json). Table:
-  reports/backtests/2026-07-16_price_conformal_summary.md.
+  reports/backtests/2026-07-17_price_conformal_summary.md.
 - Spike MAE 71 vs LGBM 60.6 — both models miss spikes badly; tails are
   the weak spot of the whole table.
 - **Fuel features (TTF/EUA proxy) adopted 2026-07-17**: MAE 18.5 → 18.24.
