@@ -1,0 +1,119 @@
+# TFT feature analysis + cross-model comparison
+
+Same protocol as the PatchTST analysis (`../patchtst/README.md`):
+zero one input group after standardization, retrain, walk forward.
+Model: the TFT HPO winner (ctx=1344h, d_model=128, 2 LSTM layers,
+1.27M params). Test window 2025-07-16 →, monthly refits, 3 seeds.
+
+## Results
+
+**365-day training windows** (`ablation_walkforward.csv`):
+
+| ablated    | MAE   | ΔMAE  | coverage 80% |
+|:-----------|------:|------:|-------------:|
+| — (full)   | 20.65 |   0   |        72.9% |
+| calendar   | 20.86 | +0.21 |        75.4% |
+| tso_load   | 20.91 | +0.26 |        74.1% |
+| anchor168  | 20.94 | +0.29 |        71.8% |
+| encoder    | 21.88 | +1.23 |        70.3% |
+| res_fcst   | 23.25 | +2.60 |        77.4% |
+
+**730-day training windows** (`ablation_walkforward_w730.csv`,
+full/encoder/res_fcst only):
+
+| ablated    | MAE   | ΔMAE  | coverage 80% |
+|:-----------|------:|------:|-------------:|
+| — (full)   | 19.12 |   0   |        79.6% |
+| encoder    | 21.13 | +2.00 |        78.5% |
+| res_fcst   | 22.33 | +3.20 |        80.1% |
+
+Key facts:
+
+- **TFT uses the price-history encoder.** +1.2 EUR/MWh at 365d windows,
+  +2.0 at 730d. PatchTST at 365d extracted nothing from the same input —
+  that gap is the architectural difference in one number (LSTM + variable
+  selection + 6x capacity vs mean-pooled patch attention).
+- **730-day windows lift TFT to MAE 19.12 and coverage 79.6%** — at the
+  80% target, without conformal wrapping. The whole deep-model campaign
+  ran on 365d windows; that handicapped every net.
+- RES forecast is still the top input (+3.2), as in every model.
+
+## Cross-model value of information (retrain ablation, EUR/MWh)
+
+| input group      | LGBM (17.87) | TFT-730 (19.12) | PatchTST-730 (20.27) |
+|:-----------------|-------------:|----------------:|---------------------:|
+| price history    |        +3.95 |           +2.00 |                +2.46 |
+| RES forecast     |        +3.60 |           +3.20 |                +5.76 |
+| TSO load fcst    |        +0.54 |     +0.26 (365d)|                +1.27 |
+| calendar         |        +0.43 |     +0.21 (365d)|                +0.38 |
+
+Caveats: LGBM tested on 2024-07-16 → (2 years, weekly refits,
+`reports/backtests/2026-07-19_price_group_ablation.csv`); deep models on
+2025-07-16 → (1 year, monthly refits). TFT tso/calendar cells are from
+the 365d run. Directions and rankings are stable across windows; exact
+deltas are not directly comparable across test periods.
+
+Reading:
+
+- **LGBM extracts the most from price history** (+3.95) AND holds the
+  best MAE. The champion wins by using yesterday's prices harder, not by
+  ignoring them.
+- The weaker the model's use of history, the more it leans on the RES
+  forecast (PatchTST +5.8 vs LGBM +3.6).
+- Load lags are dead weight in LGBM (−0.12) — candidate for removal.
+
+## Same-window comparison + TFT ens-3 (test 2025-07-16 →, 8,760 h)
+
+LGBM re-ablated on the exact deep-model test window
+(`reports/backtests/2026-07-20_price_group_ablation.csv`):
+full 17.66 | RES +4.12 | price history +2.02 | TSO +0.58 |
+calendar +0.39 | load_lags −0.08.
+
+Note the flip: on the calm 2025-26 year RES > history for LGBM too
+(+4.12 vs +2.02); the 2-year window's history dominance (+3.95) came
+from the spiky 2024 half. And LGBM's history value (+2.02) ≈ TFT-730's
+encoder value (+2.00) — same-window, same signal.
+
+**TFT-730 ens-3** (median of 3 seeds, `preds_full_w730_ens3.parquet`):
+
+| model (same window) | MAE   | rMAE  | coverage 80% |
+|:--------------------|------:|------:|-------------:|
+| LGBM champion       | 17.66 | —     | (conformal, ~80%) |
+| **TFT-730 ens-3**   | 18.31 | 0.668 | **82.8%** |
+| TFT-730 single-seed | 19.12 | 0.699 | 79.6% |
+
+The gap to the champion is now **0.65 EUR/MWh (3.7%)** — down from
+~3 EUR/MWh in the original 365d-window verdict. Two changes did it:
+730-day training windows (+~1.5) and a 3-seed median ensemble (+0.8).
+LGBM stays champion (simpler, faster, still ahead), but the "deep
+models lose badly here" conclusion is now window-qualified.
+
+## Config sweep at 730d windows (`sweep730.csv`)
+
+Was the 365d-tuned HPO config wrong for 730d windows? 8 configs around
+the winner, same 1-year walk-forward, seed 42:
+
+| config | MAE | note |
+|:---|---:|:---|
+| dr030 (dropout 0.30) | 17.97 | best on seed 42 |
+| d192 | 18.34 | |
+| dr010 | 18.35 | |
+| hpo365_base | 18.47 | |
+| lstm1 | 18.71 | |
+| lr30 | 18.98 | |
+| lr08 | 19.10 | |
+| d64 | 19.22 | |
+
+Confirmation of dr030 on seeds 7/2026: 20.17 / 19.43 — the seed-42 win
+did NOT replicate (third time in this project a 1-seed screen picked a
+mirage). dr030 ens-3: 18.36 ≈ baseline ens-3 18.31.
+
+**Verdict: hyperparameters are not the remaining gap.** TFT-730
+plateaus at ens-3 ≈ 18.3 vs champion 17.66. The two real levers were
+the training window (+~1.5) and seed-ensembling (+0.8); config moves
+are noise at this scale. PatchTST-730 ens-3 for completeness: 19.94,
+coverage 75.8% (`../patchtst/preds_full_w730_ens3.parquet`).
+
+Generated by `src/models/deep/run_tft_ablation.py`,
+`src/models/deep/run_tft730_sweep.py`, and
+`src/evaluation/run_price_ablation.py --days 730` / `--days 365`.
