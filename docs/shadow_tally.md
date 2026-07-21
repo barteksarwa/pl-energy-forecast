@@ -22,7 +22,7 @@ reliability; MAPE informs but does not gate.
 | 2026-07-15 | FAILED | n/a | 3.98% | 2.12% | No weather forecast data (backfilled after) |
 | 2026-07-16 | FAILED | n/a | 5.78% | 1.20% | TSO NaN — ffill fix deployed same day |
 | 2026-07-17 | FAILED | n/a | 5.06% | 1.83% | CI runner had no data store — root cause of all failures; fixed same day (PR #3/#4). Also scored 07-16: challenger 1.72%, TSO 1.88% |
-| 2026-07-18 | unscored | – | – | – | Forecast committed ✓; cron died before scoring. Retro-scoring pending |
+| 2026-07-18 | valid (retro) | 2.47% | 2.80% | 2.66% | Retro-scored 2026-07-21 (`score_stored_forecasts`). Challenger beat TSO and incumbent. Band cover 79.2% |
 | 2026-07-19 → 21 | FAILED | n/a | n/a | n/a | Outage (see log above) |
 
 **Consecutive valid days: 0.**
@@ -35,7 +35,7 @@ in the README.
 | Date (target day) | Status | LEAR MAE | naive-1d MAE | Note |
 |---|---|---|---|---|
 | 2026-07-17 | INVALID | – | – | Local run only; official track counts cron runs |
-| 2026-07-18 | unscored | – | – | LEAR + LGBM forecasts committed ✓; cron died before scoring. Retro-scoring pending |
+| 2026-07-18 | valid (retro) | 19.26 | 41.44 | Retro-scored 2026-07-21. Band cover 79.2% |
 | 2026-07-19 → 21 | FAILED | – | – | Outage (see log above) |
 
 **Consecutive valid days: 0.**
@@ -48,6 +48,6 @@ band coverage is not worse by more than 5 pp; ties → incumbent stays.
 
 | Date (target day) | LGBM MAE | LEAR MAE | LGBM wins? |
 |---|---|---|---|
-| 2026-07-18 | pending retro-score | pending | pending |
+| 2026-07-18 | 22.62 (cover 62.5%) | 19.26 (cover 79.2%) | NO — LEAR day |
 
 **Valid shadow days: 0.**
