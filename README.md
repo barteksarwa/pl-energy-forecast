@@ -117,7 +117,8 @@ DuckDB · GitHub Actions · ENTSO-E API · Open-Meteo
 ## Quickstart
 
 ```bash
-make setup            # install deps (needs uv)
+curl -LsSf https://astral.sh/uv/install.sh | sh  # install uv (skip if you have it)
+make setup            # install deps, exact locked versions
 cp .env.example .env  # add your ENTSO-E token (free)
 make test             # unit tests, no network
 make dry-run          # one full daily cycle: fetch, score, forecast, report
