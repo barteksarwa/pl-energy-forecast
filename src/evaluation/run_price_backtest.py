@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import sys
 
+import numpy as np
 import pandas as pd
 
 import src.models.gbm  # noqa: F401  (populates REGISTRY)
@@ -102,7 +103,7 @@ def summarize_by_period(
     years = pd.Index(idx.tz_convert(tz).year)
     out: dict[str, pd.DataFrame] = {}
     for yr in sorted(set(years)):
-        mask = (years == yr).to_numpy()
+        mask = np.asarray(years == yr)
         sliced = [
             BacktestResult(r.model_name, r.predictions[mask]) for r in results
         ]
@@ -127,6 +128,8 @@ def main() -> int:
                              "from X (e.g. load_) — ablation-confirm runs")
     parser.add_argument("--by-period", action="store_true",
                         help="append per-calendar-year breakdown tables")
+    parser.add_argument("--train-days", type=int, default=365,
+                        help="trailing training window in days (default 365)")
     args = parser.parse_args()
 
     proc = cfg.paths["data_processed"]
@@ -157,6 +160,9 @@ def main() -> int:
         if args.test_start
         else shift_local_day(last, -365, tz)
     )
+    # Only assemble what the train window can reach (data now starts 2015;
+    # building 9 unused years of daily feature frames costs hours).
+    first = max(first, test_start - pd.Timedelta(days=args.train_days + 40))
 
     print(f"Assembling price features {first.date()} → {last.date()} ...")
     x = assemble_price_features(
@@ -175,7 +181,10 @@ def main() -> int:
     for name in args.models.split(","):
         print(f"Backtesting {name} ...")
         results.append(
-            walk_forward_backtest(REGISTRY[name], x, y, test_start.tz_convert("UTC"))
+            walk_forward_backtest(
+                REGISTRY[name], x, y, test_start.tz_convert("UTC"),
+                train_window_days=args.train_days,
+            )
         )
 
     tag = "price" + (f"_{args.tag}" if args.tag else "")
