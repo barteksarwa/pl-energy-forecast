@@ -222,6 +222,32 @@ on the RES forecast. TFT at 730 d windows reaches MAE 19.12 with
 coverage 79.6\% --- at the 80\% target without conformal wrapping; the
 whole deep campaign ran on 365 d windows and was handicapped by it.
 
+\subsection{Final loss decomposition}
+
+Every root-cause candidate was tested in isolation (1-year test window
+2025-07-16$\to$, walk-forward, 3 seeds where it mattered). Versus the
+champion LGBM at 17.66 EUR/MWh:
+
+\begin{center}
+\begin{tabular}{lc}
+\toprule
+lever & MAE gained \\
+\midrule
+training window 365 d $\to$ 730 d & $+1.2$ \\
+seed ensemble (median of 3) & $+0.3$ \\
+capacity d\_model 64 $\to$ 128 & $+0.2$ \\
+architecture (PatchTST $\to$ TFT, same window+ens) & $+1.5$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+PatchTST-730 d128 ens-3 plateaus at 19.78; TFT-730 ens-3 at 18.31; TFT
+hyperparameter re-tuning at 730 d gave nothing (the seed-42 ``winner''
+failed 2-seed confirmation --- third 1-seed mirage this project). The
+gap to the champion is architectural: the LSTM + variable-selection
+path through the covariates, not patch attention, is what a day-ahead
+price model needs. LGBM stays champion at 17.66.
+
 \subsection{Interview lines}
 
 PatchTST (Nie et al. 2023) reduces attention cost from $O(T^2)$ to

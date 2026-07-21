@@ -75,6 +75,19 @@ longer window: RES +5.8 > wind +4.3 > solar +2.9 > **encoder +2.5** >
 TSO +1.3 > calendar +0.4 > anchor +0.1 (anchor value migrates into the
 encoder once the model can use history).
 
+## Capacity sweep at 730d windows (`capacity730.csv`)
+
+Last root-cause claim tested: "197k params too small." d_model
+{64, 96, 128, 192} at 730d windows, 1-yr walk-forward:
+d64 20.53 | d96 20.63 | **d128 19.92** | d192 20.25 (seed 42).
+d128 confirmed on 3 seeds (20.46/20.87), ens-3 **19.78** vs d64 ens-3
+19.94. Capacity buys ~0.2 EUR/MWh — marginal.
+
+**Loss decomposition (1-yr test window, vs champion LGBM 17.66):**
+training window +1.2 | seed-ensemble +0.3 | capacity +0.2 |
+remainder ≈ 1.5 = architecture (TFT ens-3 18.31 at same window —
+LSTM + variable selection, not patch attention, is what closes it).
+
 ## Permutation importance (screening split, val 2026+, 10 shuffles)
 
 Shuffle one input across val days, keep the trained model fixed.

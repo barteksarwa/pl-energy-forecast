@@ -66,6 +66,17 @@ TFT-730 config sweep (8 configs, 1-yr walk-forward, then confirm):
 - Bug fixed: header-less CSV append with a different column set
   silently corrupts rows (ensemble row in sweep730.csv, repaired).
 
+## Addendum 3 (2026-07-21) — capacity sweep, campaign closed
+
+PatchTST-730 capacity sweep (d_model 64/96/128/192, confirm, ens):
+d128 best but marginal — ens-3 19.78 vs d64's 19.94 (+0.16).
+
+**Final loss decomposition vs champion 17.66** (1-yr window):
+window +1.2 | ensemble +0.3 | capacity +0.2 | architecture +1.5
+(PatchTST→TFT at same window+ens). Campaign closed: every root-cause
+candidate isolated and measured. LGBM champion stands at 17.66;
+TFT-730 ens-3 18.31 is the best deep result.
+
 ## Possible next steps
 
 1. **Deep re-benchmark at 730d windows** on the full 2-year test is NOT
