@@ -1,7 +1,20 @@
 # PLAN.md — Roadmap
 
-Status: **v2 approved by owner 2026-07-14.** Current milestone: M0 (walking skeleton).
-Last update: 2026-07-14. v2 after owner feedback on v1.
+Status: **v3, updated 2026-07-21.** Phases 1–3 complete except the track
+record (M10) — cron outage 07-18→21, see DECISIONS 2026-07-21.
+Current milestone: **Phase 4 / M11-M13** (proposed below, needs owner approval).
+Canonical numbers: `docs/RESULTS.md`. History: v2 approved 2026-07-14.
+
+## Where we stand (2026-07-21)
+
+- Phase 1 (load): DONE. Champion ridge_tso 2.08% MAPE, beats TSO (2.23%).
+- Phase 2 + 2.5 (price): DONE. Champion LGBM quantile + CQR, rMAE 0.640.
+- Phase 3 M9 (ops): DONE. Shadow/promotion discipline built and documented.
+- Attention campaign (backlog item): DONE, closed 2026-07-21. TFT and
+  PatchTST tested, decomposed, archived. See RESULTS.md.
+- M10 track record: BROKEN — 4 reports, then cron died with the old
+  remote. Restart is Phase 4 work.
+- Open owner actions: blog post, learning notes reading, publication call.
 
 ## What the job market wants (researched 2026-07-14)
 
@@ -186,14 +199,14 @@ models; convert the head start into hire-signal. All items below DONE
 - [x] Living daily figures: every forecast chart re-rendered with the
   realized line the next morning.
 - **Owner actions (not code):** merge PR #2; write the blog post from
-  `docs/notes/blog_post_outline.md`; read learning notes 01–12.
+  `docs/archive/blog_post_outline.md`; read learning notes 01–12.
 
 ### M8 — Market-context docs + portfolio polish
 
 - [x] Learning notes: balancing market (RB 2024 reform), rynek mocy,
   intraday/SIDC — done in Phase 2.5. DAM mechanics already in note 02/08.
 - [ ] CO2/ETS note — with the fuel/CO2 feature work (post-Phase 3).
-- **Blog post draft:** outline done (`docs/notes/blog_post_outline.md`);
+- **Blog post draft:** outline done (`docs/archive/blog_post_outline.md`);
   owner writes the text.
 - [x] README final: results tables up top, 3-minute recruiter read.
 - Apply at 30+ daily reports (accumulating since 2026-07-16).
@@ -237,6 +250,63 @@ check (owner decision with evidence).
 - "How a forecast is made" doc. Model cards complete.
 - Publication check: is the PL benchmark table novel enough to write up
   (blog post minimum, workshop paper stretch)? Owner decides with evidence.
+
+## Phase 4 — Repo revival + RES geography (proposed 2026-07-21)
+
+### M11 — Repo reconciliation + track record restart (1 session + calendar time)
+
+The local repo and the new public repo (`barteksarwa/pl-energy-forecast`,
+created by owner 2026-07-21) have no common history. Owner picks one:
+
+- (a) Force-push local history to the public repo. Full 122-commit story,
+  overwrites the curated 7 commits.
+- (b) Keep the curated public repo. Push local work as squashed,
+  story-shaped commits on top. Working repo stays private or local.
+- (c) Two remotes: private working repo (full history) + public showcase
+  (curated). Cron runs on the private one; showcase updated manually.
+
+Then:
+- Re-enable the GitHub Actions cron (needs `ENTSOE_API_TOKEN` secret).
+- Score the stranded 2026-07-18 forecasts retroactively (they were
+  produced before the outage — no leakage).
+- Run the 14-day shadow window to the end. Promote or reject per the
+  pre-agreed criteria. 30+ daily reports accumulate.
+
+### M12 — RES geography (owner priority, 2026-07-21)
+
+Goal: stop treating renewables as a zone-level blob. Where wind and PV
+sit changes how weather moves the price.
+
+- **Data hunt first (1 session).** Candidate sources, verify before use:
+  - ENTSO-E installed capacity per production type + per unit (≥100 MW).
+  - URE / ARE reports: PV and wind capacity per voivodship.
+  - PSE published wind/PV capacity statistics.
+  - OpenStreetMap wind turbine locations (`power=generator`) as a
+    free spatial fallback.
+  Document findings + license terms in DATA_CATALOG. Decide granularity
+  (voivodship is likely enough; unit-level is a bonus).
+- **Capacity-weighted weather (1-2 sessions).** New weights in config:
+  wind-capacity-weighted wind speed, PV-capacity-weighted irradiance.
+  Reuses the existing city-grid machinery — new weight vectors, new
+  grid points if needed. Zero model-code changes (rule 10).
+- **Test honestly.** Add to the price feature matrix as a group.
+  Group ablation vs the TSO RES forecast: does our geography add skill
+  the TSO forecast doesn't already carry? Expected outcome is "small or
+  none" — the TSO forecast already embeds site locations. Negative
+  result is fine and gets documented.
+- **Stretch: own RES generation forecast.** Predict wind_on / solar MW
+  from capacity-weighted weather; benchmark vs the TSO RES forecast.
+  RES generation forecasting is its own job category in PL/EU — strong
+  interview surface even if we lose to the TSO.
+
+### M13 — Portfolio close-out
+
+- README refresh with track-record section once 30+ reports exist.
+- Blog post (owner writes; draft exists for load, needs a price/deep
+  chapter — see `docs/notes/blog_post_draft.md`).
+- CO2/ETS learning note (pending from M8).
+- Publication check: PL benchmark table (load + price + deep verdicts)
+  as blog minimum, workshop paper stretch. Owner decides.
 
 ## Backlog — owner ideas, scoped but not scheduled (2026-07-17)
 

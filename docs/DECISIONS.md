@@ -4,6 +4,23 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-07-21 — Cron outage 07-18→07-21: local repo lost its git remote**
+Context: no daily reports since 2026-07-17. Diagnosis: local repo had no `origin`; CI cron ran on the old remote, which is gone. Owner created a fresh public repo (`barteksarwa/pl-energy-forecast`) on 2026-07-21 with a curated 7-commit history; no common ancestor with local main (122 commits).
+Decision: days 07-19→21 logged as FAILED in both shadow tallies (no forecasts exist). 07-18 forecasts exist and will be scored retroactively. Local work continues; nothing pushed until owner picks a reconciliation path (see PLAN.md Phase 4).
+Why: forecasts cannot be produced after the fact — an honest track record shows the hole. Pushing 122 unrelated commits over a hand-curated public repo is destructive; owner's call.
+
+**2026-07-21 — City weather weights updated to official GUS 2025 data**
+Context: config weights were "approximate metro population, rounded" with no source. Owner asked for latest GUS.
+Decision: weights = city population in millions from GUS "Powierzchnia i ludność w przekroju terytorialnym w 2025 r." (Tabl. 22, as of 2024-12-31), 3 decimals. Lublin (328k) now ranks above Bydgoszcz (324k).
+Why: traceable source beats a rounded guess. Effect on the load model is tiny (weather group ablation +0.08 pp) — no re-benchmark needed. Population weighting stays a demand proxy; it is the wrong weighting for RES weather, which is a Phase 4 topic.
+
+**2026-07-21 — Docs consolidated; canonical results page added**
+Context: numbers were scattered across README, model cards, handovers, and reports; several docs went stale (PLAN header, README status table, TFT card).
+Decision: `docs/RESULTS.md` is the single source for headline numbers; other docs link to it. Superseded backtest summaries and dead specs moved to `docs/archive/` and `reports/backtests/archive/`.
+Why: one page to update means numbers stop drifting. Git history keeps everything anyway.
+
+---
+
 **2026-07-20 — Deep models were window-handicapped; encoder redundancy was an artifact**
 Context: overnight robustness runs — PatchTST/TFT ablations at 730d training windows + LGBM 730d ablation + cross-model table.
 Decision: quote ablation verdicts WITH their training window. At 730d: PatchTST encoder +2.5 (was −0.4), TFT 19.12 MAE at 79.6% coverage. Deep-model re-benchmark at 730d windows is a candidate future milestone; champion unchanged (LGBM 17.87, extracts most from history +3.95).

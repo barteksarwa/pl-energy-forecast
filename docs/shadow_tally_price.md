@@ -13,9 +13,10 @@ Valid day = forecast produced + committed + scored the next morning.
 | Date (target day) | Status | LEAR MAE | naive-1d MAE | Note |
 |---|---|---|---|---|
 | 2026-07-17 | INVALID | – | – | forecast produced locally, but the CRON price step failed (no data store on runner); official track counts cron runs only |
-| 2026-07-18 | pending (scored 2026-07-19) | – | – | LEAR + LGBM forecasts produced by 2026-07-17 cron ✓ (price_2026-07-18.csv + price_2026-07-18_challenger.csv committed) |
+| 2026-07-18 | unscored | – | – | LEAR + LGBM forecasts produced by 2026-07-17 cron ✓ (price_2026-07-18.csv + price_2026-07-18_challenger.csv committed). Cron died before scoring; retroactive scoring pending |
+| 2026-07-19 → 2026-07-21 | FAILED | – | – | Cron outage: local repo lost its git remote, CI stopped. No forecasts exist for these days. Restart plan: PLAN.md Phase 4 |
 
-**Consecutive valid days: 0 (scoring starts 2026-07-19)**
+**Consecutive valid days: 0. Track record restarts after repo reconciliation (see PLAN.md Phase 4).**
 
 ## Track 2: LightGBM+conformal (challenger) — beats incumbent?
 
