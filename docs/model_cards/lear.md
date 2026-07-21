@@ -85,7 +85,7 @@ is 0.75–0.85 — fundamentals push us past it.
   conformal calibration (CQR, 90d trailing window): **79.5%**. The daily
   loop publishes the conformal band (offset +3.6 EUR/MWh each side,
   config/price_conformal.json). Table:
-  reports/backtests/2026-07-16_price_conformal_summary.md.
+  reports/backtests/2026-07-17_price_conformal_summary.md.
 - Spike MAE 71 vs LGBM 60.6 — both models miss spikes badly; tails are
   the weak spot of the whole table.
 - **Fuel features (TTF/EUA proxy) adopted 2026-07-17**: MAE 18.5 → 18.24.
