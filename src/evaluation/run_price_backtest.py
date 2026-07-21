@@ -99,6 +99,9 @@ def main() -> int:
                         help="add the unavailable-capacity feature")
     parser.add_argument("--with-fuel", action="store_true",
                         help="add TTF gas + EUA-proxy settlement features")
+    parser.add_argument("--drop-prefix", default=None,
+                        help="comma-separated column prefixes to exclude "
+                             "from X (e.g. load_) — ablation-confirm runs")
     args = parser.parse_args()
 
     proc = cfg.paths["data_processed"]
@@ -137,6 +140,11 @@ def main() -> int:
         res=res, outages=outages, fuel=fuel,
     )
     y = price.reindex(x.index)
+    if args.drop_prefix:
+        prefixes = tuple(p for p in args.drop_prefix.split(",") if p)
+        dropped = [c for c in x.columns if c.startswith(prefixes)]
+        x = x.drop(columns=dropped)
+        print(f"Dropped {len(dropped)} columns by prefix {prefixes}: {dropped}")
 
     results: list[BacktestResult] = []
     for name in args.models.split(","):
