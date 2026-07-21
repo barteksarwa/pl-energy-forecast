@@ -89,6 +89,29 @@ def summarize_price(results: list[BacktestResult], y: pd.Series) -> pd.DataFrame
     return table.sort_values("mae")
 
 
+def summarize_by_period(
+    results: list[BacktestResult], y: pd.Series, tz: str = "Europe/Warsaw"
+) -> dict[str, pd.DataFrame]:
+    """summarize_price per calendar year of the test period.
+
+    Pooled numbers hide regime effects (crisis vs calm years). A model
+    that wins one regime while losing pooled is a finding, not noise.
+    Spike threshold and rMAE are computed within each slice.
+    """
+    idx = results[0].predictions.index
+    years = pd.Index(idx.tz_convert(tz).year)
+    out: dict[str, pd.DataFrame] = {}
+    for yr in sorted(set(years)):
+        mask = (years == yr).to_numpy()
+        sliced = [
+            BacktestResult(r.model_name, r.predictions[mask]) for r in results
+        ]
+        if sliced[0].predictions["p50"].notna().sum() < 24 * 28:
+            continue  # under a month of hours: too thin to rank models
+        out[str(yr)] = summarize_price(sliced, y)
+    return out
+
+
 def main() -> int:
     cfg: Config = load_config()
     parser = argparse.ArgumentParser(description=__doc__)
@@ -102,6 +125,8 @@ def main() -> int:
     parser.add_argument("--drop-prefix", default=None,
                         help="comma-separated column prefixes to exclude "
                              "from X (e.g. load_) — ablation-confirm runs")
+    parser.add_argument("--by-period", action="store_true",
+                        help="append per-calendar-year breakdown tables")
     args = parser.parse_args()
 
     proc = cfg.paths["data_processed"]
@@ -175,6 +200,11 @@ def main() -> int:
         table.round(3).to_markdown(),
         "",
     ]
+    if args.by_period:
+        for label, sub in summarize_by_period(results, y, tz).items():
+            md += [f"## {label}", "", sub.round(3).to_markdown(), ""]
+            print(f"\n=== {label} ===")
+            print(sub.round(3).to_string())
     (out_dir / f"{stamp}_summary.md").write_text("\n".join(md))
     print(table.round(3).to_string())
     print(f"\nWritten to {out_dir}/{stamp}_summary.(csv|md)")

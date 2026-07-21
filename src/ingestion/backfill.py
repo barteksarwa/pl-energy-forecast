@@ -36,6 +36,24 @@ def _resume_start(path: Path, default_start: pd.Timestamp) -> pd.Timestamp:
     return last + pd.Timedelta(hours=1)
 
 
+def _backward_range(
+    path: Path, requested: pd.Timestamp
+) -> tuple[pd.Timestamp, pd.Timestamp] | None:
+    """Range to PREPEND history before an existing file.
+
+    Returns (start, cap) where cap is the first stored hour, or None when
+    the file already covers the requested start. Missing file → caller
+    falls back to the normal forward loop from `requested`.
+    """
+    if not path.exists():
+        return None
+    first = pd.read_parquet(path).index.min()
+    if requested >= first:
+        print(f"{path.name}: history already starts {first} — nothing to prepend")
+        return None
+    return requested, first
+
+
 def _merge_save(path: Path, new: pd.DataFrame) -> pd.DataFrame:
     if path.exists():
         old = pd.read_parquet(path)
@@ -237,16 +255,22 @@ def backfill_pse_prices(cfg: Config) -> None:
             print(f"{stem}: total {len(combined)}, {len(gaps)} new gap(s)")
 
 
-def backfill_entsoe(cfg: Config) -> None:
+def backfill_entsoe(cfg: Config, start_override: pd.Timestamp | None = None) -> None:
     """ENTSO-E into its OWN store (data/processed/entsoe/).
 
     Role: deep history (2023+, PSE v2 only starts 2024-06-14) and an
     independent cross-check of the same series. PSE stays canonical for
     the overlap (DECISIONS 2026-07-14); merge happens in crosscheck.py.
+
+    `start_override`: prepend history before the stored series (deep
+    backfill, e.g. 2015). Chunks with no published data are skipped —
+    that is the series discovering its own start date, not a gap.
     """
     if not os.environ.get("ENTSOE_API_TOKEN"):
         print("entsoe: skipped — ENTSOE_API_TOKEN not set in .env")
         return
+    from entsoe.exceptions import NoMatchingDataError
+
     from src.clients.entsoe_client import fetch_load, fetch_tso_forecast
 
     gap_log = cfg.paths["data_processed"] / "gap_log.csv"
@@ -257,11 +281,29 @@ def backfill_entsoe(cfg: Config) -> None:
         "entsoe_tso_forecast": (fetch_tso_forecast, entsoe_dir / "tso_forecast.parquet"),
     }
     for name, (fetch, path) in targets.items():
-        start = _resume_start(path, pd.Timestamp(cfg.backfill_start, tz="UTC"))
+        backward = None
+        if start_override is not None:
+            backward = _backward_range(path, start_override)
+            if backward is None and path.exists():
+                continue
+        if backward is not None:
+            start, cap = backward
+        else:
+            start = _resume_start(
+                path, start_override or pd.Timestamp(cfg.backfill_start, tz="UTC")
+            )
+            cap = now
         chunk = pd.Timedelta(days=cfg.entsoe_chunk_days)
-        while start < now:
-            end = min(start + chunk, now)
-            series = fetch(cfg.zone, start=start, end=end)
+        while start < cap:
+            end = min(start + chunk, cap)
+            try:
+                series = fetch(cfg.zone, start=start, end=end)
+            except NoMatchingDataError:
+                if backward is None:
+                    raise
+                print(f"{name}: {start.date()} → {end.date()}, no data (pre-availability)")
+                start = end
+                continue
             combined = _merge_save(path, series.to_frame())
             print(f"{name}: {start.date()} → {end.date()}, total {len(combined)}")
             start = end
@@ -271,7 +313,7 @@ def backfill_entsoe(cfg: Config) -> None:
             print(f"{name}: {len(gaps)} new gap(s) logged")
 
 
-def backfill_entsoe_prices(cfg: Config) -> None:
+def backfill_entsoe_prices(cfg: Config, start_override: pd.Timestamp | None = None) -> None:
     """Day-ahead prices (EUR/MWh) from ENTSO-E, full config history.
 
     Stored in data/processed/price_da_eur.parquet. EUR is the raw unit of
@@ -297,13 +339,26 @@ def backfill_entsoe_prices(cfg: Config) -> None:
     horizon = pd.Timestamp.now(tz="Europe/Warsaw").normalize() + pd.Timedelta(days=2)
     horizon = horizon.tz_convert("UTC")
     path = cfg.paths["data_processed"] / "price_da_eur.parquet"
-    start = _resume_start(path, pd.Timestamp(cfg.backfill_start, tz="UTC"))
+    backward = _backward_range(path, start_override) if start_override else None
+    if start_override and backward is None and path.exists():
+        return
+    if backward is not None:
+        start, horizon = backward
+    else:
+        start = _resume_start(
+            path, start_override or pd.Timestamp(cfg.backfill_start, tz="UTC")
+        )
     chunk = pd.Timedelta(days=cfg.entsoe_chunk_days)
     while start < horizon:
         end = min(start + chunk, horizon)
         try:
             series = fetch_day_ahead_price(cfg.zone, start=start, end=end)
         except NoMatchingDataError:
+            if backward is not None:
+                # deep backfill: series discovering its own start date
+                print(f"entsoe_prices: {start.date()} → {end.date()}, no data")
+                start = end
+                continue
             # nothing published for this window yet (e.g. tomorrow before
             # the auction). Store nothing; resume retries the same window.
             print(f"entsoe_prices: {start.date()} → {end.date()}, not published yet")
@@ -317,12 +372,13 @@ def backfill_entsoe_prices(cfg: Config) -> None:
         print(f"entsoe_prices: {len(gaps)} new gap(s) logged")
 
 
-def backfill_entsoe_res(cfg: Config) -> None:
+def backfill_entsoe_res(cfg: Config, start_override: pd.Timestamp | None = None) -> None:
     """TSO day-ahead wind + solar forecast (MW). Price driver #1.
 
     Stored in data/processed/res_forecast.parquet, full config history.
     Same no-try/except rule as prices: a failed chunk aborts so resume
-    re-fetches it.
+    re-fetches it. `start_override` prepends deep history (skips
+    pre-availability chunks instead of aborting).
     """
     if not os.environ.get("ENTSOE_API_TOKEN"):
         print("entsoe_res: skipped — ENTSOE_API_TOKEN not set in .env")
@@ -337,13 +393,25 @@ def backfill_entsoe_res(cfg: Config) -> None:
     horizon = pd.Timestamp.now(tz="Europe/Warsaw").normalize() + pd.Timedelta(days=2)
     horizon = horizon.tz_convert("UTC")
     path = cfg.paths["data_processed"] / "res_forecast.parquet"
-    start = _resume_start(path, pd.Timestamp(cfg.backfill_start, tz="UTC"))
+    backward = _backward_range(path, start_override) if start_override else None
+    if start_override and backward is None and path.exists():
+        return
+    if backward is not None:
+        start, horizon = backward
+    else:
+        start = _resume_start(
+            path, start_override or pd.Timestamp(cfg.backfill_start, tz="UTC")
+        )
     chunk = pd.Timedelta(days=cfg.entsoe_chunk_days)
     while start < horizon:
         end = min(start + chunk, horizon)
         try:
             df = fetch_res_forecast(cfg.zone, start=start, end=end)
         except NoMatchingDataError:
+            if backward is not None:
+                print(f"entsoe_res: {start.date()} → {end.date()}, no data")
+                start = end
+                continue
             print(f"entsoe_res: {start.date()} → {end.date()}, not published yet")
             break
         combined = _merge_save(path, df)
@@ -421,7 +489,20 @@ def main() -> int:
         ],
         default=None,
     )
+    parser.add_argument(
+        "--start", default=None,
+        help="YYYY-MM-DD: prepend deep history before the stored series "
+             "(ENTSO-E sources only). Pre-availability chunks are skipped.",
+    )
     args = parser.parse_args()
+    start_override = (
+        pd.Timestamp(args.start, tz="UTC") if args.start else None
+    )
+    if start_override is not None and args.only not in (
+        "entsoe", "entsoe_prices", "entsoe_res"
+    ):
+        print("--start only applies to entsoe / entsoe_prices / entsoe_res")
+        return 1
     if args.only in (None, "weather"):
         backfill_weather(cfg)
     if args.only in (None, "weather_forecast"):
@@ -431,11 +512,11 @@ def main() -> int:
     if args.only in (None, "pse_prices"):
         backfill_pse_prices(cfg)
     if args.only in (None, "entsoe"):
-        backfill_entsoe(cfg)
+        backfill_entsoe(cfg, start_override)
     if args.only in (None, "entsoe_prices"):
-        backfill_entsoe_prices(cfg)
+        backfill_entsoe_prices(cfg, start_override)
     if args.only in (None, "entsoe_res"):
-        backfill_entsoe_res(cfg)
+        backfill_entsoe_res(cfg, start_override)
     if args.only == "entsoe_outages":
         # opt-in ONLY: heavy, throttle-prone endpoint (503s on CI), and the
         # outage feature is research-tier (backtest verdict: flat) — the
