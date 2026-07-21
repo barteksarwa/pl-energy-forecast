@@ -1,9 +1,4 @@
-"""Baseline forecasters. Every fancy model must beat these first.
-
-Quantile bands for the point models (ridge, LASSO) come from empirical
-train-residual quantiles: p10 = point + q10(residuals). Simple and honest;
-proper quantile regression arrives with LightGBM in M4.
-"""
+"""Baseline models. Every new model must beat these first."""
 
 from __future__ import annotations
 
@@ -19,10 +14,7 @@ WEEKLY_LAG_COLS = ["load_lag_168h", "load_lag_336h", "load_lag_504h", "load_lag_
 
 
 class SeasonalNaive:
-    """P50 = same hour last week. Band = spread of the last 4 weekly values.
-
-    Reads lag features, so it obeys the same cutoff as everyone else.
-    """
+    """P50 = same hour last week. Band = spread of the last 4 weeks."""
 
     name = "seasonal_naive"
 
@@ -32,8 +24,7 @@ class SeasonalNaive:
     def predict(self, x: pd.DataFrame) -> pd.DataFrame:
         weekly = x[WEEKLY_LAG_COLS]
         p50 = x["load_lag_168h"]
-        # p50 is one sample of the four; if it is the weekly min/max it can
-        # cross the interpolated band quantiles. Clip band to contain p50.
+        # keep the band around p50
         return pd.DataFrame(
             {
                 "p10": weekly.quantile(0.1, axis=1).clip(upper=p50),
@@ -45,10 +36,7 @@ class SeasonalNaive:
 
 
 class Climatology:
-    """Quantiles of the training target grouped by (hour, weekend/weekday).
-
-    The "long run average" model. Ignores weather and recent level entirely.
-    """
+    """Long-run average by hour and weekday/weekend."""
 
     name = "climatology"
 
@@ -70,7 +58,7 @@ class Climatology:
 
 
 class _ResidualBandModel:
-    """Shared plumbing: point model + residual-quantile band."""
+    """Point model + residual quantile band."""
 
     name = "residual_band_base"
 
@@ -93,7 +81,7 @@ class _ResidualBandModel:
 
 
 class RidgeForecaster(_ResidualBandModel):
-    """Linear control: is nonlinearity needed at all?"""
+    """Linear baseline."""
 
     name = "ridge"
 
@@ -102,11 +90,7 @@ class RidgeForecaster(_ResidualBandModel):
 
 
 class LassoAR(_ResidualBandModel):
-    """LEAR-style: LASSO picks its own features from lags + calendar + weather.
-
-    The industry baseline for day-ahead price; strong for load too.
-    Alpha chosen by 5-fold CV inside the training window only.
-    """
+    """LEAR-style LASSO. Picks its own features. Alpha from 5-fold CV."""
 
     name = "lasso_ar"
 

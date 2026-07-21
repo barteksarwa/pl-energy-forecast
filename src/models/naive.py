@@ -1,8 +1,5 @@
-"""Seasonal naive baseline with empirical quantiles.
-
-P50: load at the same hour one season (default: 7 days) earlier.
-P10/P90: empirical quantiles of the same hour over the last n seasons.
-Missing history gives NaN. We never invent values.
+"""Seasonal naive baseline. P50 = same hour 7 days ago.
+Band = quantiles of the last 4 weeks. Missing history gives NaN.
 """
 
 from __future__ import annotations
@@ -18,11 +15,7 @@ def seasonal_naive_forecast(
     season_days: int = 7,
     n_seasons: int = 4,
 ) -> pd.DataFrame:
-    """Forecast quantiles for each target hour from past same-hour values.
-
-    load: hourly series, UTC tz-aware index.
-    target_hours: UTC tz-aware hours to forecast.
-    """
+    """Forecast quantiles from past same-hour values. All times UTC."""
     if load.index.tz is None or target_hours.tz is None:
         raise ValueError("Both load index and target_hours must be tz-aware.")
 

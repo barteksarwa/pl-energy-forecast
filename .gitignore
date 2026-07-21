@@ -43,3 +43,4 @@ docs/**/*.pdf
 
 # Training outputs (checkpoints, logs, campaign results stay local)
 outputs/
+notes/
