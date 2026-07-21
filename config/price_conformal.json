@@ -1,0 +1,10 @@
+{
+  "lear": 3.453,
+  "lgbm_quantile": 10.061,
+  "_meta": {
+    "method": "rolling split-conformal (CQR), 90d trailing window, coverage 0.8",
+    "source": "backtest_preds_price_res, walk-forward out-of-sample errors",
+    "window_end": "2026-07-18",
+    "refresh": "rerun src.evaluation.run_price_calibration after each backtest / monthly"
+  }
+}
