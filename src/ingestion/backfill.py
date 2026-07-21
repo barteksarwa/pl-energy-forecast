@@ -94,22 +94,35 @@ def fetch_weather_archive(
     return pd.DataFrame({v: hourly[v] for v in hourly_vars}, index=index)
 
 
-def backfill_weather(cfg: Config) -> None:
+def backfill_weather(cfg: Config, start_override: pd.Timestamp | None = None) -> None:
+    """`start_override` prepends ERA5 history before the stored series
+    (deep backfill); default mode resumes after the last stored hour."""
     gap_log = cfg.paths["data_processed"] / "gap_log.csv"
     end_date = (
         pd.Timestamp.now(tz="UTC") - pd.Timedelta(days=cfg.archive_lag_days)
     ).date()
     for city in cfg.cities:
         path = cfg.paths["data_raw"] / "weather" / f"{city.name}.parquet"
-        start_ts = _resume_start(path, pd.Timestamp(cfg.backfill_start, tz="UTC"))
-        if start_ts.date() > end_date:
+        if start_override is not None:
+            backward = _backward_range(path, start_override)
+            if backward is None and path.exists():
+                continue
+            if backward is not None:
+                start_ts, cap = backward
+                end_date_city = (cap - pd.Timedelta(hours=1)).date()
+            else:
+                start_ts, end_date_city = start_override, end_date
+        else:
+            start_ts = _resume_start(path, pd.Timestamp(cfg.backfill_start, tz="UTC"))
+            end_date_city = end_date
+        if start_ts.date() > end_date_city:
             print(f"weather {city.name}: up to date")
             continue
         # Yearly chunks: one 3.5-year request is what timed out on CI.
         combined = None
         chunk_start = start_ts.date()
-        while chunk_start <= end_date:
-            chunk_end = min(chunk_start + pd.Timedelta(days=365), end_date)
+        while chunk_start <= end_date_city:
+            chunk_end = min(chunk_start + pd.Timedelta(days=365), end_date_city)
             df = fetch_weather_archive(
                 city.lat, city.lon, cfg.weather_vars,
                 str(chunk_start), str(chunk_end),
@@ -499,12 +512,12 @@ def main() -> int:
         pd.Timestamp(args.start, tz="UTC") if args.start else None
     )
     if start_override is not None and args.only not in (
-        "entsoe", "entsoe_prices", "entsoe_res"
+        "weather", "entsoe", "entsoe_prices", "entsoe_res"
     ):
-        print("--start only applies to entsoe / entsoe_prices / entsoe_res")
+        print("--start only applies to weather / entsoe / entsoe_prices / entsoe_res")
         return 1
     if args.only in (None, "weather"):
-        backfill_weather(cfg)
+        backfill_weather(cfg, start_override)
     if args.only in (None, "weather_forecast"):
         backfill_weather_forecasts(cfg)
     if args.only in (None, "pse"):
