@@ -55,8 +55,15 @@ push the plan to the next phase.
 2. QUEUED behind it: deep-history backfill 2015+ (entsoe load/tso, prices,
    RES) + crosscheck canonical extension. Logs: `data/logs/2026-07-21_deep_*.log`.
    Question: where do PL series actually start on ENTSO-E? Feeds Phase 5 S0.
-3. Follow-up next session: deep-history WEATHER backfill (ERA5 pre-2023) —
-   `--start` mode covers ENTSO-E only. Then per-period breakdown re-runs.
+3. **Deep-history campaign launched 2026-07-22 00:15** (~24 h, pid in
+   `data/logs/campaign_deep_history.log`): weather 2015+ backfill →
+   LGBM window sweep 365/730/1095/1460 → crisis 5-yr backtest →
+   TFT-730 full-2yr (3 seeds) → PatchTST-730 same → collector writes
+   `reports/backtests/<date>_deep_history_campaign.md`. All jobs
+   resume-safe; rerun the script to continue after any failure.
+4. Public repo: parts 5-7 + README rewrite pushed 2026-07-21/22. CI
+   validated (first cron report committed). Parts 8-10 held (Phase 3).
+   Commit map: `~/Documents/repo-reset/COMMIT_MAP.md`.
 
 Phases 5-7 approved (PLAN v4). Phase 5 S0 prep committed: `--start` prepend
 mode in backfill, `--by-period` in run_price_backtest.
