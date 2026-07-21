@@ -1,0 +1,56 @@
+# Single source of truth. No constants hardcoded elsewhere.
+
+zone: PL
+timezone_local: Europe/Warsaw
+
+# Load + TSO forecast source: pse (keyless, 2024-06+) or entsoe (token, 2015+).
+data_source: pse
+
+# Cities for population-weighted weather.
+# Coordinates: city centers. Weights: approximate metro population, millions (GUS, rounded).
+# M0 uses only the first city. M1 uses all with weights.
+cities:
+  - { name: Warszawa,  lat: 52.23, lon: 21.01, weight: 1.79 }
+  - { name: Krakow,    lat: 50.06, lon: 19.94, weight: 0.80 }
+  - { name: Wroclaw,   lat: 51.11, lon: 17.03, weight: 0.67 }
+  - { name: Lodz,      lat: 51.75, lon: 19.45, weight: 0.66 }
+  - { name: Poznan,    lat: 52.41, lon: 16.93, weight: 0.54 }
+  - { name: Gdansk,    lat: 54.35, lon: 18.65, weight: 0.49 }
+  - { name: Szczecin,  lat: 53.43, lon: 14.55, weight: 0.39 }
+  - { name: Bydgoszcz, lat: 53.12, lon: 18.00, weight: 0.33 }
+  - { name: Lublin,    lat: 51.25, lon: 22.57, weight: 0.33 }
+  - { name: Katowice,  lat: 50.26, lon: 19.02, weight: 0.28 }
+
+weather_vars:
+  - temperature_2m
+  - wind_speed_10m
+  - cloud_cover
+  - shortwave_radiation
+  - relative_humidity_2m
+
+paths:
+  data_raw: data/raw
+  data_processed: data/processed
+  forecasts: data/forecasts
+  reports_daily: reports/daily
+
+# Seasonal naive: P50 = same hour one season back.
+# P10/P90 = empirical quantiles over the last N seasons.
+naive:
+  season_days: 7
+  n_seasons: 4
+
+# History window the daily run keeps warm (days).
+daily_run:
+  history_days: 35
+
+backfill:
+  start_date: "2023-01-01"   # ~3.5 years of history
+  entsoe_chunk_days: 90      # request window per ENTSO-E call
+  archive_lag_days: 6        # ERA5 publishes with ~5 day delay
+  request_sleep_s: 1.0       # politeness between API calls
+  # Archived weather forecasts (Open-Meteo Previous Runs). Data exists from ~2024.
+  # lead 2 (48h) is the honest "known at the 09:00 D-1 cutoff" input;
+  # lead 1 kept for forecast-error analysis.
+  forecast_start_date: "2024-01-01"
+  forecast_leads_days: [1, 2]

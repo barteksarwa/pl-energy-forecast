@@ -1,0 +1,45 @@
+# Secrets
+.env
+
+# Data stays out of git (dirs re-included so .gitkeep can be tracked).
+# Exception: data/forecasts/*.csv — our own daily product, tiny, and the
+# CI runner needs yesterday's file to score the shadow challenger.
+data/**
+!data/**/
+!data/**/.gitkeep
+!data/forecasts/*.csv
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Notebooks / IDE
+.ipynb_checkpoints/
+.vscode/
+.idea/
+
+# Models and artifacts
+models_store/
+*.pkl
+*.pt
+.DS_Store
+
+# LaTeX build artifacts
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+docs/notes/**/main.pdf
+
+# Research PDFs (reference papers; not part of the codebase)
+docs/**/*.pdf
+
+# Training outputs (checkpoints, logs, campaign results stay local)
+outputs/
