@@ -9,9 +9,9 @@ Context: no daily reports since 2026-07-17. Diagnosis: local repo had no `origin
 Decision: days 07-19→21 logged as FAILED in both shadow tallies (no forecasts exist). 07-18 forecasts exist and will be scored retroactively. Local work continues; nothing pushed until owner picks a reconciliation path (see PLAN.md Phase 4).
 Why: forecasts cannot be produced after the fact — an honest track record shows the hole. Pushing 122 unrelated commits over a hand-curated public repo is destructive; owner's call.
 
-**2026-07-21 — City weather weights updated to official GUS 2025 data**
-Context: config weights were "approximate metro population, rounded" with no source. Owner asked for latest GUS.
-Decision: weights = city population in millions from GUS "Powierzchnia i ludność w przekroju terytorialnym w 2025 r." (Tabl. 22, as of 2024-12-31), 3 decimals. Lublin (328k) now ranks above Bydgoszcz (324k).
+**2026-07-21 — City weather weights updated to official GUS 2026 data**
+Context: config weights were "approximate metro population, rounded" with no source. Owner asked for latest GUS. The 2026 edition was published the same day (2026-07-21).
+Decision: weights = city population in millions from GUS "Powierzchnia i ludność w przekroju terytorialnym w 2026 r." (Tabl. 20, as of 2025-12-31), 3 decimals. Lublin (327k) now ranks above Bydgoszcz (321k).
 Why: traceable source beats a rounded guess. Effect on the load model is tiny (weather group ablation +0.08 pp) — no re-benchmark needed. Population weighting stays a demand proxy; it is the wrong weighting for RES weather, which is a Phase 4 topic.
 
 **2026-07-21 — Docs consolidated; canonical results page added**

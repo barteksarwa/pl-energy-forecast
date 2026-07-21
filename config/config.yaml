@@ -8,20 +8,20 @@ data_source: pse
 
 # Cities for population-weighted weather.
 # Coordinates: city centers. Weights: city population in millions.
-# Source: GUS, "Powierzchnia i ludnosc w przekroju terytorialnym w 2025 r.",
-# Tabl. 22, as of 2024-12-31. Weights are normalized in code, so only
-# ratios matter.
+# Source: GUS, "Powierzchnia i ludnosc w przekroju terytorialnym w 2026 r."
+# (published 2026-07-21), Tabl. 20, as of 2025-12-31. Weights are
+# normalized in code, so only ratios matter.
 cities:
-  - { name: Warszawa,  lat: 52.23, lon: 21.01, weight: 1.864 }
-  - { name: Krakow,    lat: 50.06, lon: 19.94, weight: 0.809 }
+  - { name: Warszawa,  lat: 52.23, lon: 21.01, weight: 1.867 }
+  - { name: Krakow,    lat: 50.06, lon: 19.94, weight: 0.817 }
   - { name: Wroclaw,   lat: 51.11, lon: 17.03, weight: 0.673 }
-  - { name: Lodz,      lat: 51.75, lon: 19.45, weight: 0.646 }
-  - { name: Poznan,    lat: 52.41, lon: 16.93, weight: 0.536 }
+  - { name: Lodz,      lat: 51.75, lon: 19.45, weight: 0.640 }
+  - { name: Poznan,    lat: 52.41, lon: 16.93, weight: 0.534 }
   - { name: Gdansk,    lat: 54.35, lon: 18.65, weight: 0.489 }
-  - { name: Szczecin,  lat: 53.43, lon: 14.55, weight: 0.387 }
-  - { name: Lublin,    lat: 51.25, lon: 22.57, weight: 0.328 }
-  - { name: Bydgoszcz, lat: 53.12, lon: 18.00, weight: 0.324 }
-  - { name: Katowice,  lat: 50.26, lon: 19.02, weight: 0.279 }
+  - { name: Szczecin,  lat: 53.43, lon: 14.55, weight: 0.384 }
+  - { name: Lublin,    lat: 51.25, lon: 22.57, weight: 0.327 }
+  - { name: Bydgoszcz, lat: 53.12, lon: 18.00, weight: 0.321 }
+  - { name: Katowice,  lat: 50.26, lon: 19.02, weight: 0.277 }
 
 weather_vars:
   - temperature_2m
