@@ -56,7 +56,7 @@ above). LightGBM leaks both tails symmetrically (23% below P10, 26%
 above P90 — nominal is 10/10). **Verdict (updated): raw bands failed here, so Phase 2.5 added rolling
 conformal calibration — LGBM 51→79%, LEAR 72→79.5% coverage. The chart
 shows the RAW bands; the calibrated table is
-`reports/backtests/2026-07-16_price_conformal_summary.md`.**
+`reports/backtests/2026-07-17_price_conformal_summary.md`.**
 
 ## How example days are selected (worst / median / best)
 
