@@ -167,8 +167,10 @@ session, then scratch-venv isolation (outputs are just parquets).
   tested FLAT.
 - Deep re-benchmark at 730d on full 2-yr test — possible 2027+ (needs
   730d history before 2024-07; data starts 2023-01).
-- Drop load_lags from LGBM price champion (−0.12 dead weight) — config
-  change + confirm backtest.
+- Drop load_lags from LGBM price champion — CONFIRMED 2026-07-21:
+  2-yr MAE 17.755 without vs 17.87 with (matches ablation −0.12).
+  `reports/backtests/2026-07-21_price_noloadlags2yr_summary.md`.
+  Flip to champion default + conformal refresh happens in Phase 5 S1.
 
 ## Learning thread (runs through everything)
 
