@@ -1,55 +1,91 @@
 # Data Catalog
 
 What a real forecasting desk watches, where we get it, what it costs.
-Status: verified = we checked the API docs or called it. [TBC] = not yet verified.
-Updated: 2026-07-14 (M1).
+Every dataset the repo fetches has one row here. All timestamps are UTC.
+Updated: 2026-07-21 (Phase 2).
 
-## Phase 1 — load forecasting
+Fetch code: `src/ingestion/backfill.py`. One function per dataset.
+Cadence "daily" = refreshed by the daily dry run. All backfills are
+idempotent: they resume from the last stored timestamp.
 
-| Data | Source | Access | Cost | Resolution | Status |
-|---|---|---|---|---|---|
-| Actual load PL | **PSE API v2** `kse-load` | keyless HTTP | free | 15 min → hourly, from 2024-06-14 | **verified, backfilled, 0 gaps** |
-| TSO day-ahead load forecast | **PSE API v2** `kse-load.load_fcst` | keyless | free | publishes ~09:00 D-1 (= our cutoff) | **verified, backfilled** |
-| Actual load PL (deeper history) | ENTSO-E Transparency | `entsoe-py` `query_load` | free, token | 15 min → hourly, 2015+ | **backfilled 2023+, cross-checked vs PSE (0.03% mean diff)** |
-| TSO day-ahead load forecast | ENTSO-E | `query_load_forecast` | free | hourly | backfilled 2023+, cross-checked |
-| Weather history (actuals, ERA5) | Open-Meteo Archive API | `archive-api.open-meteo.com/v1/archive` | free non-commercial | hourly, ~5 day delay | verified, called live |
-| Weather forecasts (operational) | Open-Meteo Forecast API | `api.open-meteo.com/v1/forecast` | free | hourly, 16 days ahead | verified, called live |
-| Historical weather *forecasts* | Open-Meteo Historical Forecast API | `historical-forecast-api.open-meteo.com/v1/forecast` | free | hourly, from ~2022 | verified (docs) |
-| Forecasts at fixed lead time | Open-Meteo Previous Runs API | offsets 1–7 days ahead | free | hourly, from ~2022 | verified (docs) — the honest backtest input |
-| Polish holidays | `holidays` package | offline | free | daily | verified |
+## Datasets on disk
 
-### The weather leakage trap (important)
+| Dataset | File(s) | Source | Unit | Range | Cadence | Used by |
+|---|---|---|---|---|---|---|
+| Actual load PL (canonical) | `data/processed/load.parquet` | PSE v2 `kse-load` + ENTSO-E for pre-2024-06 | MW | 2023-01 → now | daily | both |
+| TSO day-ahead load forecast | `data/processed/tso_forecast.parquet` | PSE v2 + ENTSO-E history | MW | 2023-01 → D+1 | daily | both (benchmark) |
+| Load, ENTSO-E store | `data/processed/entsoe/load.parquet` | ENTSO-E `query_load` | MW | 2023-01 → now | daily | cross-check |
+| TSO forecast, ENTSO-E store | `data/processed/entsoe/tso_forecast.parquet` | ENTSO-E | MW | 2023-01 → now | cross-check | cross-check |
+| Weather actuals (ERA5) | `data/raw/weather/<city>.parquet`, 10 cities | Open-Meteo Archive API | °C, m/s, %, W/m² | 2023-01 → now (−5 days) | daily | both (training) |
+| Archived weather forecasts | `data/raw/weather_forecast/<city>.parquet` | Open-Meteo Previous Runs API | same, at lead 1d and 2d | 2024-01 → now | daily | both (honest backtest input) |
+| Day-ahead price (canonical) | `data/processed/price_da_eur.parquet` | ENTSO-E `query_day_ahead_prices` | EUR/MWh | 2023-01 → D+1 | daily | price model |
+| Day-ahead price, PLN | `data/processed/price_da.parquet` | PSE v2 `csdac-pln` | PLN/MWh | 2024-06-14 → now | daily | display, cross-check |
+| Balancing price | `data/processed/price_balancing.parquet` | PSE v2 `crb-rozl` | PLN/MWh | 2024-06-14 → now | daily | analysis |
+| Generation mix (actuals) | `data/processed/generation_mix.parquet` | PSE v2 `his-wlk-cal` | MW (pv, wind, thermal) | 2024-06-14 → now | daily | analysis |
+| RES day-ahead forecasts | `data/processed/res_forecast.parquet` | ENTSO-E `fetch_res_forecast` | MW (solar, wind on/offshore) | 2023-01 → D+1 | daily | price model (driver #1) |
+| Fuel proxies | `data/processed/fuel_daily.parquet` | yfinance: TTF future + EUA-tracking ETC | EUR/MWh, EUR/t (proxy) | 2023-01 → now | daily close | price model |
+| Unit outages | `data/processed/outages.parquet` | ENTSO-E UMM | event-level, MW | ~21k events, 2023 → D+60 | opt-in, manual | research (backtest: flat) |
+| Polish holidays | `holidays` package, computed on the fly | offline | flags | any | — | both |
+
+Notes on specific rows:
+
+- **Load merge.** PSE v2 is canonical from 2024-06-14 (DECISIONS 2026-07-14).
+  ENTSO-E extends history to 2023 and cross-checks the overlap
+  (0.03% mean diff). Merge lives in `crosscheck.py`.
+  `*_pse_only.parquet` files are the pre-merge PSE-only backups.
+- **Price units.** EUR/MWh is the raw unit of the ENTSO-E feed. It is
+  canonical. PLN is display-only; the PSE PLN series doubles as a
+  cross-check.
+- **Wind offshore.** `wind_off_fcst_mw` is ~0 before 2026. First real
+  values: 2026-07-01. PL offshore (Baltic Power) came online 2026-07.
+  Models trained on earlier windows never saw it — watch this feature.
+- **Fuel proxies.** Free yfinance closes, not ICE/EEX settlement ticks.
+  The EUA series is an ETC that tracks EUA futures, not EUA itself.
+  Daily resolution only. Good enough for a level signal, stated honestly.
+- **Outages.** Deduped on (mrid, revision). Publication time
+  (`created_doc_time`) is kept — it is the leakage boundary. Endpoint is
+  heavy and throttle-prone, so it is opt-in (`--only entsoe_outages`).
+- **Cross-border flows/capacity.** Not fetched yet. Listed as a Phase 2
+  candidate; skipped so far. Would come from ENTSO-E if added.
+- **Coal (API2).** Paid only. Skipped. We document the impact instead.
+
+## Zone-level vs point data
+
+- RES forecasts, load, prices: aggregated at bidding-zone level (PL).
+- Weather: point data at 10 city centers, population-weighted
+  (weights in `config/config.yaml`, GUS 2024 population).
+- City weather is a load proxy. It is a poor proxy for wind/solar farms,
+  which sit far from cities.
+- Site-level RES locations (farm coordinates, capacities) are NOT in the
+  repo yet. Planned Phase 4 work.
+
+## The weather leakage trap (important)
 
 At 09:00 on D-1 the desk knows the weather *forecast* for D, not the weather.
 A backtest that feeds the model ERA5 actuals overstates accuracy —
 it silently removes weather-forecast error.
 
-Rule: train on archive actuals is fine; **evaluate with historical forecasts**
-as inputs. Verified: the Previous Runs API serves each variable at fixed
-lead-time offsets (1–7 days ahead), from ~2022. Our backtest uses the
-1–2 day offsets to mimic what was known at 09:00 on D-1.
+Rule: training on archive actuals is fine; **evaluate with archived
+forecasts as inputs**. The Previous Runs API serves each variable at
+fixed lead-time offsets. We store lead 1d and 2d. Lead 2d mimics what
+was known at the 09:00 D-1 cutoff; lead 1d is for forecast-error analysis.
 
-## Phase 2 — price forecasting (day-ahead PL)
+## Other files in data/ (not source data)
 
-| Data | Source | Access | Cost | Status |
-|---|---|---|---|---|
-| Day-ahead price PL | ENTSO-E (`query_day_ahead_prices`) [TBC method name] | `entsoe-py` | free | [TBC] |
-| Wind + solar generation forecast | ENTSO-E | `entsoe-py` | free | [TBC method] |
-| Generation per fuel type | ENTSO-E | `entsoe-py` | free | [TBC] |
-| Cross-border flows + capacity | ENTSO-E | `entsoe-py` | free | [TBC] |
-| Unit/grid outages | ENTSO-E UMM | `entsoe-py` | free | [TBC] |
-| PL balancing prices, KSE demand | PSE API v2 | `api.raporty.pse.pl` | free | verified, called live |
-| Gas price (TTF) | public proxies (e.g. energy-charts, EIA daily) | HTTP | free proxies | [TBC — desks pay for ICE/EEX feeds] |
-| CO2 (EUA) | public settlement data | HTTP | free proxies | [TBC] |
-| Coal (API2) | mostly paid | — | paid | likely skip; document impact |
+- `data/raw/*_latest.parquet` — daily-run scratch, overwritten each run.
+- `data/processed/backtest_preds_*` — stored backtest predictions.
+- `data/processed/*_ckpts/`, `tft_hpo.db` — model checkpoints and HPO
+  state. See model cards, not this catalog.
+- `data/processed/gap_log.csv` — every missing interval, never filled
+  silently.
 
 ## What real desks have that we will not
 
 Named honestly, for interviews:
 
 - Paid market data: ICE/EEX gas and CO2 ticks, Bloomberg/Refinitiv terminals.
-- Commercial weather: Meteomatics, DTN — higher resolution, ensembles, asset-tuned.
-  (Axpo uses Meteomatics EURO1k for day-ahead/intraday trading.)
+- Commercial weather: Meteomatics, DTN — higher resolution, ensembles,
+  asset-tuned. (Axpo uses Meteomatics EURO1k for day-ahead/intraday trading.)
 - Intraday order books, proprietary outage intel, customer portfolio data.
 
 Free proxies keep the *methodology* identical. We state the data gap, not hide it.
@@ -57,10 +93,12 @@ Free proxies keep the *methodology* identical. We state the data gap, not hide i
 ## Known quality issues (from literature and docs)
 
 - ENTSO-E: missing values and inconsistencies are common; no public flagging
-  process. Hence our gap log: every missing interval recorded, never filled
-  silently. (Hirth et al. 2018 review, Applied Energy.)
+  process. Hence our gap log. (Hirth et al. 2018 review, Applied Energy.)
 - ENTSO-E PL load: resolution switched to 15 min (EU MTU change). We resample
   to hourly mean in the client.
-- ERA5 archive: ~5 day publication delay. Daily ops therefore use the Forecast
-  API `past_days` for recent actual-ish weather; archive is for backfills only.
+- ERA5 archive: ~5 day publication delay. Daily ops use the Forecast API
+  `past_days` for recent actual-ish weather; archive is for backfills only.
 - PSE: old API v1 disabled end of 2025. Use `api.raporty.pse.pl` (v2) only.
+- Day-ahead price and RES forecast exist through end of tomorrow only after
+  publication (~13:00 / ~18:00 CET on D-1). The backfill retries the same
+  window until published — no silent holes.
