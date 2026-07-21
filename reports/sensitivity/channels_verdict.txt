@@ -1,0 +1,2 @@
+k80=4/7, strong_pairs=1/21
+WEAKLY COUPLED at hourly resolution: channel independence is a defensible bet — cross-channel signal is thin outside load-vs-TSO, so per-channel patching loses little.
