@@ -1,8 +1,9 @@
 # PLAN.md — Roadmap
 
-Status: **v3, updated 2026-07-21.** Phases 1–3 complete except the track
+Status: **v4, updated 2026-07-21.** Phases 1–3 complete except the track
 record (M10) — cron outage 07-18→21, see DECISIONS 2026-07-21.
-Current milestone: **Phase 4 / M11–M13** (needs owner approval).
+Current milestone: **Phase 4 / M11–M13**, then Phases 5–7 (owner-approved
+2026-07-21).
 Canonical numbers: `docs/RESULTS.md`. Job market research: `docs/notes/career.md`.
 History: v1/v2 details in git (this file was compressed 2026-07-21).
 
@@ -86,6 +87,77 @@ treating renewables as a zone-level blob.
 - CO2/ETS learning note.
 - Publication check: PL benchmark table as blog minimum, workshop
   paper stretch. Owner decides with evidence.
+
+## Phases 5–7 — approved 2026-07-21 (after Phase 4)
+
+Standing rules for these phases:
+
+- **Daily commits.** GitHub gets commits every day next week. Work sliced
+  into small realistic chunks, one concern per commit, pushed same day.
+- **Benchmarks.** The shared 2-yr window stays canonical — every model gets
+  that row. On top: per-period breakdowns (per-year, crisis vs calm,
+  winter vs summer, spike vs normal hours). A model that wins one regime
+  while losing pooled is a finding to report and exploit.
+- **Deeper history.** Backfill ENTSO-E load/price/RES to ~2015-2016
+  (verify earliest clean dates). Unblocks the 730d deep re-benchmark on
+  the full 2-yr test (was "impossible before 2027"). Pre-2021 regime
+  documented as evaluation richness, not blindly added to training.
+
+### Phase 5 — Spike tails + Chronos zero-shot (week 1)
+
+Deps: scipy (GPD); `chronos-forecasting` in an optional `fm` group.
+
+- S0: deep-history backfill (overnight) + per-period `summarize_price`.
+- S1: close load_lags item (confirm backtest); pyproject rename;
+  GPD upper tail in `conformal.py` — POT fit on `y − p90` exceedances,
+  rolling 90d past-only, guards (≥30 exceedances, ξ < 1, empirical fallback).
+  Lower tail keeps symmetric CQR (asymmetric already tested and rejected).
+- S2: `--compare-gpd` in `run_price_calibration.py`, stored preds only.
+  Adopt iff spike coverage +3 pts vs both CQR variants AND pooled coverage
+  78–82% AND Winkler ≤ +2%. Note ms-13.
+- S3: spike classifier screen (`src/models/spike.py`, LGBM binary, top-5%
+  label from trailing train window only). AUC ≥ 0.80 → report feature
+  (3-seed confirm); else honest negative.
+- S4: Chronos-Bolt zero-shot wrapper (`src/models/chronos_zs.py`) through
+  the QuantileForecaster Protocol; `--refit-days` flag; MPS with FORCE_CPU
+  escape. Deterministic → single run valid.
+- S5: Chronos 2-yr backtest + CQR. Fairness footnote: univariate vs
+  champion's covariates. Phase 6 fine-tune gate: best FM MAE < 24.
+- S6: RESULTS rows; notes learning 21–22, model_selection 14.
+
+### Phase 6 — Foundation-model campaign + ensemble (week 2)
+
+Deps (`fm` group): `timesfm`, `uni2ts` (Moirai). Conflict budget: half a
+session, then scratch-venv isolation (outputs are just parquets).
+
+- S1: `fm_common.py` refactor + TimesFM wrapper.
+- S2: TimesFM 2-yr backtest (overnight).
+- S3: Moirai wrappers — `moirai_zs` (univariate) AND `moirai_cov`
+  (RES + TSO as known-future covariates). Their delta = covariate lift
+  for FMs, measured cleanly.
+- S4: Moirai backtests (overnight).
+- S5: CRPS-weighted cross-model ensemble from stored preds
+  (`crps3` = mean pinball over 3 quantiles; inverse-score weights from
+  trailing 60d, past-only; 60d equal-weight warm-up). Two-window
+  discipline: 2-yr without TFT, 1-yr with.
+- S6: verdict (beat 17.87 by ≥0.15 AND win both years AND coverage holds);
+  notes learning 23–24, model_selection 15–16.
+- S6b: deep re-benchmark at 730d on FULL 2-yr test (unblocked by S0).
+  3 seeds, per-regime breakdown.
+- S7 (only if gate open): Chronos fine-tune, 3 seeds, own loop.
+
+### Phase 7 — Forecast-to-money + publication (week 3)
+
+- S1: battery-arbitrage P&L engine (`src/evaluation/pnl.py` + runner).
+  1 MW / 2 MWh / 0.85 round-trip / 1 cycle, schedule from P50 at D−1,
+  settle at actual DA prices. Metrics: EUR/day, capture rate vs
+  perfect-foresight bound, vs naive strategy. DA-only scope stated.
+  Unit tests for the accounting.
+- S2: P&L table for all stored models + ensemble; cumulative plot;
+  notes learning 25, model_selection 17. Watch for MAE rank ≠ capture rank.
+- S3–S5: benchmark writeup (blog minimum, arXiv stretch): protocol,
+  master table incl. P&L capture, findings, honest negatives,
+  reproducibility appendix. Cards + README + DECISIONS refreshed.
 
 ## Backlog (scoped, not scheduled)
 
