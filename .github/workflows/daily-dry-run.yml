@@ -53,6 +53,11 @@ jobs:
           ENTSOE_API_TOKEN: ${{ secrets.ENTSOE_API_TOKEN }}
         run: uv run python -m src.pipeline.daily_run
 
+      - name: Run the daily price cycle
+        env:
+          ENTSOE_API_TOKEN: ${{ secrets.ENTSOE_API_TOKEN }}
+        run: uv run python -m src.pipeline.price_daily
+
       - name: Refresh figures
         run: uv run python -m src.viz.make_all
 
