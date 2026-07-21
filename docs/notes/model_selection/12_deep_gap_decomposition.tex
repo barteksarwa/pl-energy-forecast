@@ -1,0 +1,73 @@
+\section{Deep-model gap decomposition: how much was our fault?}
+
+The attention campaign ended with a question. Deep models lost to
+LightGBM on PL day-ahead price. Was the architecture wrong? Or was our
+own evaluation setup handicapping them?
+
+We answered it by decomposition. Fix one suspect at a time. Measure the
+MAE gain. Everything below runs on one common setup: 1-year test window
+(2025-07-16$\to$, 8,760~h), walk-forward, monthly refits. Champion:
+LGBM at 17.66 EUR/MWh.
+
+\subsection{The ledger}
+
+Worked example: walk the PatchTST chain step by step.
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+step & MAE (EUR/MWh) & gained \\
+\midrule
+start: 365 d window, 1 seed, d\_model 64 & 21.50 & --- \\
+training window $\to$ 730 d & 20.27 & $+1.2$ \\
+median ensemble of 3 seeds & 19.94 & $+0.3$ \\
+capacity d\_model $\to$ 128 & 19.78 & $+0.2$ \\
+swap architecture $\to$ TFT-730 ens-3 & 18.31 & $+1.5$ \\
+champion LGBM & 17.66 & 0.65 left \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Read it in two halves. Window, ensemble, capacity are \emph{fixable
+handicaps} --- our setup, not the model. Together: $+1.7$. The
+architecture swap is \emph{structural}: $+1.5$. TFT's LSTM +
+variable-selection path beats patch attention on this task. The final
+0.65 (3.7\%) is the honest remaining gap. TFT-730 ens-3 also hits
+82.8\% coverage --- above the 80\% target, no conformal wrap.
+PatchTST-730 ens-3 stalls at 19.94 (19.78 with the d128 capacity fix).
+
+Headline framing, same-window numbers only: the PatchTST-365 gap was
+3.84 EUR/MWh. Setup levers recovered 1.7. The architecture swap
+recovered 1.5. Nearly half the ``deep learning loses'' verdict was our
+evaluation setup, not the models.
+
+\subsection{What did not help}
+
+Hyperparameter re-tuning at 730 d gave nothing. The seed-42
+``winner'' (dropout 0.30, MAE 17.97) failed confirmation on seeds
+7 and 2026: 20.17 and 19.43. Its ensemble matched the baseline. This
+is the \emph{third} time this project that a 1-seed screen picked a
+mirage. Rule: never promote a config from one seed.
+
+\subsection{Ablation verdicts are conditional}
+
+At 365 d windows, removing PatchTST's price-history encoder
+\emph{helped} ($-0.4$ EUR/MWh). At 730 d it \emph{hurt} ($+2.5$,
+all 3 seeds). Same model, same input, opposite verdict. An ablation
+answers ``is this input useful \emph{under this training config}?'' ---
+not ``is it useful, full stop''. Stress-test the verdict against the
+config knob it depends on most.
+
+\subsection{Interview lines}
+
+``Before blaming the architecture, I priced every handicap in my own
+evaluation setup. On a common test window the decomposition was:
+training window $+1.2$, seed ensemble $+0.3$, capacity $+0.2$ ---
+all self-inflicted --- versus $+1.5$ for the architecture choice
+itself. That cut the deep-model gap to 0.65 EUR/MWh and told me the
+rest was structural, so I stopped tuning and kept LightGBM.''
+
+``A single-seed hyperparameter winner beat the champion by 0.3 ---
+then lost by 2 on the confirmation seeds. Third mirage like that in
+one project. I now confirm every screen on multiple seeds before
+believing it.''
