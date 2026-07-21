@@ -51,11 +51,17 @@ Honest findings the table forces:
 
 PL day-ahead auction price (SDAC), EUR/MWh, forecast before gate closure.
 
+2-year walk-forward (`reports/figures/backtest_price/metrics_summary.csv`):
+
 | Model | MAE (EUR/MWh) | rMAE | Band coverage (nominal 80%) |
 |---|---|---|---|
-| **LightGBM quantile + conformal** | **17.8** | **0.638** | 78.7% |
-| LEAR + conformal (published daily) | 18.5 | 0.660 | 79.5% |
-| Naive (same hour yesterday) | 28.0 | 1.000 | 53.1% |
+| **LightGBM quantile + conformal** | **17.9** | **0.640** | 78.9% |
+| LEAR + conformal (published daily) | 18.2 | 0.653 | 79.6% |
+| TFT (3-seed ensemble) | 19.7 | 0.706 | 79.6% |
+| PatchTST | 23.0 | 0.823 | 69.5% |
+| Naive (same hour yesterday) | 28.0 | 1.001 | 53.1% |
+
+![Model comparison](reports/figures/backtest_price/01_metrics_comparison.png)
 
 - LEAR = the industry-standard LASSO price baseline (Ziel & Weron 2018),
   implemented properly: 24 per-hour models, full D-1 price vector,
@@ -65,6 +71,13 @@ PL day-ahead auction price (SDAC), EUR/MWh, forecast before gate closure.
   independent methods, same answer: the merit order, measured.
 - Spikes are the open front: all models run ~3x pooled MAE on the top-5%
   priciest hours. Documented, not hidden.
+- **Attention models: tested hard, archived honestly.** A full campaign
+  (HPO, ablations, window/capacity/seed sweeps) decomposed the deep-model
+  gap: nearly half was our evaluation setup (short training windows,
+  single seeds), the rest is architectural. Best deep result: TFT with
+  730-day windows + 3-seed ensemble, MAE 18.31 vs champion 17.66 on the
+  same 1-year window. Full story: `docs/RESULTS.md` and
+  `docs/model_cards/tft_price.md`.
 
 ## The daily loop (the actual product)
 
@@ -107,12 +120,13 @@ DuckDB · GitHub Actions · ENTSO-E API · Open-Meteo
 
 | Thing | Status |
 |---|---|
-| Cron (05:30 UTC) | live since 2026-07-17 |
-| Load challenger (ridge+TSO) | shadow run — day 1 of 14 |
-| Price incumbent (LEAR) | shadow run — day 1 of 14 |
-| Price challenger (LightGBM) | shadow run — day 1 of 14 |
-| Daily reports | 4 committed, accumulating (target: 30) |
-| TFT HPO (attention models) | 60-trial search running; walk-forward confirms |
+| Cron (05:30 UTC) | DOWN since 2026-07-18 (CI outage) — restart is Phase 4, M11 |
+| Shadow runs (load + price) | paused by the outage; tallies keep the honest gap |
+| Daily reports | 4 committed (target: 30) — restart with the cron |
+| Attention campaign (TFT, PatchTST) | complete 2026-07-21, archived — see `docs/RESULTS.md` |
+
+Updated 2026-07-21. An outage is part of ops reality; the tallies and
+DECISIONS.md record it instead of hiding it.
 
 ## Quickstart
 
@@ -130,9 +144,12 @@ SQL analysis of all datasets: `notebooks/01_sql_analysis.ipynb` (DuckDB).
 
 ## Map
 
+- `docs/RESULTS.md` — every headline number, one page, canonical
+- `docs/HOW_A_FORECAST_IS_MADE.md` — the daily run, step by step
 - `docs/PLAN.md` — roadmap and current phase
 - `docs/DECISIONS.md` — every non-obvious call, three lines each
 - `docs/model_cards/` — one honest card per model
 - `docs/notes/learning/` — the concepts, one page each (LaTeX)
+- `docs/notes/model_selection/` — which model when, honest verdicts (LaTeX)
 - `reports/daily/` — the live track record
 - `reports/backtests/` — every results table cited above
