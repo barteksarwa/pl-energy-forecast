@@ -78,6 +78,44 @@ Loss decomposition, TFT gap to champion:
 - Tables: `reports/sensitivity/group_ablation.md` (load),
   `reports/sensitivity/tft/README.md`, `reports/backtests/2026-07-20_price_group_ablation.md`.
 
+## Deep-history campaign (2026-07-22, data extended to 2015+)
+
+Full report: `reports/backtests/2026-07-22_deep_history_campaign.md`.
+
+**Training-window sweep** (LGBM, same 2-yr test, only window changes):
+
+| Train window | MAE | rMAE |
+|---|---|---|
+| 365d (shipped champion) | 17.87 | 0.640 |
+| 730d | 17.48 | 0.626 |
+| **1095d (best)** | **17.38** | **0.623** |
+| 1460d | 17.52 | 0.628 |
+
+- 1095d + CQR: coverage 78.7% (same as 365d). −0.49 MAE for free.
+- RECOMMENDATION: promote 1095d as the champion training window.
+  Owner decision pending; daily loop still trains on 365d.
+- More history helps up to 3 years, then the 2021-22 crisis regime
+  starts hurting (1460d worse than 1095d).
+
+**Crisis-regime test** (5-yr walk-forward incl. 2022 crisis, raw bands):
+
+- LGBM rMAE 0.644 over 43,832 hours — the edge holds across regimes.
+- LEAR 0.707. Naive-yesterday MAE 27.2 (crisis years inflate it).
+- Per-year: `reports/backtests/2026-07-22_price_crisis5yr_summary.md`.
+
+**Deep re-benchmark, FULL 2-yr test** (730d windows, 3 seeds, was
+blocked before the backfill):
+
+| Model | MAE (ens-3) | Gap to champion 17.87 |
+|---|---|---|
+| TFT-730 | 19.52 | +1.65 |
+| PatchTST-730 | 22.25 | +4.38 |
+
+- The 1-yr result (18.31) was flattered by the calm 2025 test year:
+  the 2025 slice of this run reproduces it (17.96); 2024 costs 21.26.
+- Deep gap WIDENS in harder years. LGBM champion confirmed on the
+  full window; the "deep almost caught up" story is window-dependent.
+
 ## Band calibration (tail methods, 2-yr stored preds)
 
 Symmetric CQR is the shipped method. Two challengers tested and rejected:
