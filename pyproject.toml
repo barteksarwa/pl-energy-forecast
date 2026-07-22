@@ -1,7 +1,7 @@
 [project]
-name = "pl-load-forecast"
+name = "pl-energy-forecast"
 version = "0.1.0"
-description = "Day-ahead electricity load forecast for Poland. Daily-ops job simulation."
+description = "Day-ahead electricity load and price forecasting for the Polish power market."
 requires-python = ">=3.11"
 dependencies = [
     "entsoe-py>=0.8.0",

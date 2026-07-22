@@ -1627,7 +1627,7 @@ wheels = [
 ]
 
 [[package]]
-name = "pl-load-forecast"
+name = "pl-energy-forecast"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
