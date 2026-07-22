@@ -1,0 +1,61 @@
+\section{GPD tail on the conformal band --- tested, rejected}
+
+\subsection{The idea}
+
+Price spikes live in the upper tail. Our band is calibrated with
+symmetric CQR. The empirical tail quantile uses 90 days of scores.
+Few extreme points support it. Extreme value theory offers a fix:
+fit a generalized Pareto distribution (GPD) to the exceedances.
+Read the tail quantile from the fitted curve, not one order statistic.
+This is the peaks-over-threshold (POT) method.
+
+\subsection{The setup}
+
+Hybrid band. Lower tail keeps the symmetric CQR offset. Upper tail:
+threshold at the 80th percentile of $y - P90$ scores. GPD fitted on
+exceedances. Guards: at least 30 exceedances, shape $\xi < 1$,
+fallback to the empirical quantile.
+
+Gate, declared before the run: spike coverage must beat both CQR
+variants by 3 points. Pooled coverage must stay in 78--82\%.
+Winkler score within +2\%.
+
+\subsection{The result}
+
+\begin{tabular}{lccc}
+\hline
+Method & LGBM spike cover & LEAR spike cover & Verdict \\
+\hline
+Symmetric CQR & 51.3\% & 55.6\% & shipped \\
+Asymmetric CQR & 51.3\% & 56.3\% & rejected \\
+GPD upper tail & 51.3\% & 56.2\% & rejected \\
+\hline
+\end{tabular}
+
+\vspace{0.5em}
+GPD moved spike coverage by half a point at best. Gate failed.
+
+\subsection{Why it failed}
+
+The empirical quantile was not the problem. With 2{,}160 hourly
+scores per window, the 90th percentile is stable. The real problem:
+spike errors are \emph{conditional}. The model does not see the
+spike coming. Its P50 sits low, its P90 sits low, and no constant
+band width fixes a miss that is specific to one afternoon.
+
+Worked example. A calm week gives scores near $-5$ (inside the band).
+One scarcity evening gives $+120$. A wider band that covers the $+120$
+hour also wastes width on 160 calm hours. Coverage barely moves.
+The information must enter \emph{before} the band: a spike
+probability per hour, from features (tight reserve margin, low wind,
+high load). That is the spike classifier.
+
+\subsection{Interview lines}
+
+``I tested an EVT tail on the conformal band. It failed a
+pre-declared gate. The lesson: our spike errors are conditional,
+not a calibration problem --- so I built a spike classifier instead
+of a wider band.''
+
+``Three tail methods, one survivor: plain symmetric CQR. Simple
+methods win when the failure mode is elsewhere.''
