@@ -152,6 +152,137 @@ def rolling_conformal_asymmetric(
     return out
 
 
+def gpd_upper_quantile(
+    scores: np.ndarray,
+    level: float,
+    threshold_pct: float = 0.8,
+    min_exceedances: int = 30,
+) -> float | None:
+    """Peaks-over-threshold GPD estimate of the `level` quantile.
+
+    Why: with a 90-day window, the empirical 90th-percentile of tail
+    scores rests on ~200 points and the extreme ones on a handful.
+    A GPD (generalized Pareto) fitted to exceedances over a threshold
+    uses the whole tail shape instead of one order statistic.
+
+    Guards (any failure -> None, caller falls back to empirical):
+    - fewer than `min_exceedances` points above the threshold,
+    - shape parameter xi >= 1 (infinite mean — fit blew up),
+    - non-finite or non-positive scale.
+    """
+    from scipy.stats import genpareto
+
+    if level <= threshold_pct or len(scores) == 0:
+        return None
+    u = float(np.quantile(scores, threshold_pct))
+    excess = scores[scores > u] - u
+    if len(excess) < min_exceedances:
+        return None
+    try:
+        xi, _, beta = genpareto.fit(excess, floc=0.0)
+    except Exception:
+        return None
+    if not (np.isfinite(xi) and np.isfinite(beta)) or xi >= 1.0 or beta <= 0:
+        return None
+    # conditional level within the tail: P(X <= q | X > u)
+    p = (level - threshold_pct) / (1.0 - threshold_pct)
+    return float(u + genpareto.ppf(p, xi, loc=0.0, scale=beta))
+
+
+def rolling_conformal_gpd_upper(
+    preds: pd.DataFrame,
+    y: pd.Series,
+    window_days: int = 90,
+    min_days: int = 30,
+    coverage: float = 0.8,
+    tz: str = LOCAL_TZ,
+    threshold_pct: float = 0.8,
+    min_exceedances: int = 30,
+) -> pd.DataFrame:
+    """Hybrid band: symmetric CQR lower tail, GPD (EVT) upper tail.
+
+    Price spikes live in the upper tail; the empirical quantile there
+    is noisy with 90 days of scores. The upper correction targets the
+    per-tail level 1 - (1-coverage)/2 (0.9 for coverage 0.8) via a
+    GPD fitted on exceedances of `y - p90`. The lower tail keeps the
+    symmetric-CQR offset (asymmetric CQR was tested and rejected —
+    see model_selection note 10).
+
+    Same rolling discipline as `rolling_conformal`: day D uses only
+    scores from days before D. GPD fit failures fall back to the
+    empirical quantile — the band never breaks.
+    """
+    sym_scores = conformity_scores(preds, y).dropna()
+    y_al = y.reindex(preds.index)
+    hi_scores = (y_al - preds["p90"]).dropna()
+
+    out = preds.copy()
+    days = pd.Index(preds.index.tz_convert(tz).date)
+    sym_days = pd.Index(sym_scores.index.tz_convert(tz).date)
+    hi_days = pd.Index(hi_scores.index.tz_convert(tz).date)
+    tail_level = 1.0 - (1.0 - coverage) / 2.0
+
+    for day in sorted(set(days)):
+        lo_window = (sym_days < day) & (
+            sym_days >= day - pd.Timedelta(days=window_days))
+        past_sym = sym_scores[lo_window]
+        if len(past_sym) < min_days * 24:
+            continue
+        n = len(past_sym)
+        q_sym = float(np.quantile(
+            past_sym.to_numpy(), min(coverage * (n + 1) / n, 1.0)))
+
+        past_hi = hi_scores[
+            (hi_days < day) & (hi_days >= day - pd.Timedelta(days=window_days))
+        ].to_numpy()
+        m = len(past_hi)
+        level_hi = min(tail_level * (m + 1) / m, 1.0) if m else tail_level
+        q_hi = gpd_upper_quantile(
+            past_hi, level_hi, threshold_pct, min_exceedances)
+        if q_hi is None:  # guard tripped -> honest empirical fallback
+            q_hi = float(np.quantile(past_hi, level_hi)) if m else 0.0
+
+        mask = days == day
+        out.loc[mask, "p10"] = preds.loc[mask, "p10"] - q_sym
+        out.loc[mask, "p90"] = preds.loc[mask, "p90"] + q_hi
+
+    out["p10"] = out[["p10", "p50"]].min(axis=1)
+    out["p90"] = out[["p90", "p50"]].max(axis=1)
+    return out
+
+
+def latest_offset_gpd(
+    preds: pd.DataFrame,
+    y: pd.Series,
+    window_days: int = 90,
+    coverage: float = 0.8,
+    threshold_pct: float = 0.8,
+    min_exceedances: int = 30,
+) -> tuple[float, float]:
+    """(q_sym_lower, q_gpd_upper) for the NEXT day's fresh band.
+
+    Apply as p10_new = p10 - q_lo, p90_new = p90 + q_hi.
+    """
+    sym_scores = conformity_scores(preds, y).dropna()
+    cutoff = sym_scores.index.max() - pd.Timedelta(days=window_days)
+    recent = sym_scores[sym_scores.index >= cutoff]
+    n = len(recent)
+    q_lo = float(np.quantile(
+        recent.to_numpy(), min(coverage * (n + 1) / n, 1.0)))
+
+    y_al = y.reindex(preds.index)
+    hi = (y_al - preds["p90"]).dropna()
+    recent_hi = hi[hi.index >= cutoff].to_numpy()
+    m = len(recent_hi)
+    tail_level = 1.0 - (1.0 - coverage) / 2.0
+    level_hi = min(tail_level * (m + 1) / m, 1.0) if m else tail_level
+    q_hi = gpd_upper_quantile(
+        recent_hi, level_hi, threshold_pct, min_exceedances)
+    if q_hi is None:
+        q_hi = float(np.quantile(recent_hi, level_hi)) if m else 0.0
+    return q_lo, float(q_hi)
+
+
 def latest_offset_asymmetric(
     preds: pd.DataFrame,
     y: pd.Series,

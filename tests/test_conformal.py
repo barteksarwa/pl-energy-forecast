@@ -115,3 +115,69 @@ def test_latest_offset_asymmetric_returns_pair() -> None:
     preds, y = _make_asymmetric()
     q_lo, q_hi = latest_offset_asymmetric(preds, y)
     assert q_lo > q_hi  # lower tail needs bigger fix in skewed data
+
+
+# --- GPD upper tail (hybrid band) ---------------------------------------
+
+from src.evaluation.conformal import (  # noqa: E402
+    gpd_upper_quantile,
+    latest_offset_gpd,
+    rolling_conformal_gpd_upper,
+)
+
+
+def _make_heavy_tail(n_days: int = 200) -> tuple:
+    """Truth with heavy-tailed upside spikes; band too narrow above."""
+    rng = np.random.default_rng(1)
+    idx = pd.date_range("2025-01-01", periods=n_days * 24, freq="1h", tz="UTC")
+    p50 = pd.Series(100.0, index=idx)
+    spikes = rng.pareto(2.5, len(idx)) * 20.0  # heavy upper tail
+    y = p50 + rng.normal(0, 5, len(idx)) + spikes
+    preds = pd.DataFrame({"p10": p50 - 10, "p50": p50, "p90": p50 + 10})
+    return preds, y
+
+
+def test_gpd_quantile_guards() -> None:
+    rng = np.random.default_rng(2)
+    # too few exceedances -> None
+    assert gpd_upper_quantile(rng.normal(size=50), 0.9) is None
+    # level below threshold percentile -> None
+    assert gpd_upper_quantile(rng.normal(size=5000), 0.5) is None
+    # healthy sample -> finite number above the threshold
+    q = gpd_upper_quantile(rng.pareto(3.0, 5000), 0.95)
+    assert q is not None and np.isfinite(q) and q > 0
+
+
+def test_gpd_band_contains_p50_and_orders() -> None:
+    preds, y = _make_heavy_tail()
+    adj = rolling_conformal_gpd_upper(preds, y)
+    assert (adj["p10"] <= adj["p50"]).all()
+    assert (adj["p90"] >= adj["p50"]).all()
+    assert np.isfinite(adj[["p10", "p90"]].to_numpy()).all()
+
+
+def test_gpd_no_future_leakage() -> None:
+    preds, y = _make_heavy_tail()
+    adj_clean = rolling_conformal_gpd_upper(preds, y)
+    cut = y.index[len(y) // 2]
+    y_dirty = y.copy()
+    y_dirty[y_dirty.index >= cut] += 1000.0
+    adj_dirty = rolling_conformal_gpd_upper(preds, y_dirty)
+    before = adj_clean.index < cut
+    pd.testing.assert_frame_equal(adj_clean[before], adj_dirty[before])
+
+
+def test_gpd_widens_undersized_upper_band() -> None:
+    preds, y = _make_heavy_tail()
+    adj = rolling_conformal_gpd_upper(preds, y)
+    changed = adj["p90"] != preds["p90"]
+    assert changed.any()
+    # upper band must move UP against heavy upside spikes
+    assert (adj.loc[changed, "p90"] > preds.loc[changed, "p90"]).mean() > 0.95
+
+
+def test_latest_offset_gpd_returns_pair() -> None:
+    preds, y = _make_heavy_tail()
+    q_lo, q_hi = latest_offset_gpd(preds, y)
+    assert np.isfinite(q_lo) and np.isfinite(q_hi)
+    assert q_hi > 0  # heavy upper tail demands a positive upper offset

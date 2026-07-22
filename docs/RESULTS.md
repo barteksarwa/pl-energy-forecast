@@ -78,6 +78,20 @@ Loss decomposition, TFT gap to champion:
 - Tables: `reports/sensitivity/group_ablation.md` (load),
   `reports/sensitivity/tft/README.md`, `reports/backtests/2026-07-20_price_group_ablation.md`.
 
+## Band calibration (tail methods, 2-yr stored preds)
+
+Symmetric CQR is the shipped method. Two challengers tested and rejected:
+
+| Method | LGBM spike cover | LEAR spike cover | Verdict |
+|---|---|---|---|
+| Symmetric CQR (shipped) | 51.3% | 55.6% | stays |
+| Asymmetric CQR | 51.3% | 56.3% | rejected (2026-07-17) |
+| GPD upper tail (EVT) | 51.3% | 56.2% | rejected (2026-07-22) |
+
+- Spike misses are conditional, not a band-width problem. No
+  unconditional calibration moved spike coverage meaningfully.
+- Source: `reports/backtests/2026-07-22_gpd_tail_*.csv`.
+
 ## Where the details live
 
 - Model cards: `docs/model_cards/`.

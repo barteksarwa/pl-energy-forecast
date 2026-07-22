@@ -21,6 +21,7 @@ dependencies = [
     "demandlib>=0.2.2",
     "yfinance>=1.5.1",
     "optuna>=4.9.0",
+    "scipy>=1.11",
 ]
 
 [build-system]

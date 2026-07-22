@@ -4,6 +4,18 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-07-22 — GPD (EVT) upper tail rejected; symmetric CQR stays**
+Context: Phase 5 S1-S2. Hybrid band (symmetric lower, GPD peaks-over-threshold upper tail) benchmarked against symmetric and asymmetric CQR on stored 2-yr preds. Pre-declared gate: spike coverage +3 pts, pooled coverage 78-82%, Winkler ≤ +2%.
+Decision: REJECTED. Spike coverage +0.57 pts (LEAR 56.16 vs 55.59) and +0.0 (LGBM). Third tail-calibration method to lose to plain symmetric CQR. Tables: `reports/backtests/2026-07-22_gpd_tail_*.csv`.
+Why: the 90d empirical tail quantile is already stable; spike misses are conditional (the model does not see the spike coming), so no unconditional band width fixes them. Conditional route = spike classifier (S3).
+
+**2026-07-22 — load_lags champion flip deferred to a config-driven feature refactor**
+Context: drop confirmed (2-yr MAE 17.755 vs 17.87). Tempting shortcut: drop `load_` columns inside the LGBM model class.
+Decision: NOT done at model level — `lgbm_quantile` is shared by the LOAD model, where load lags are core features. Flip waits for per-model feature lists in config (rule 10 refactor).
+Why: a price-side tweak must not silently gut the load product. The −0.12 gain keeps; the evidence is stored (`2026-07-21_price_noloadlags2yr`).
+
+---
+
 **2026-07-21 — Cron outage 07-18→07-21: local repo lost its git remote**
 Context: no daily reports since 2026-07-17. Diagnosis: local repo had no `origin`; CI cron ran on the old remote, which is gone. Owner created a fresh public repo (`barteksarwa/pl-energy-forecast`) on 2026-07-21 with a curated 7-commit history; no common ancestor with local main (122 commits).
 Decision: days 07-19→21 logged as FAILED in both shadow tallies (no forecasts exist). 07-18 forecasts exist and will be scored retroactively. Local work continues; nothing pushed until owner picks a reconciliation path (see PLAN.md Phase 4).

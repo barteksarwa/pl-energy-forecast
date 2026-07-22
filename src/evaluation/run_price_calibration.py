@@ -32,8 +32,10 @@ from src.evaluation.backtest import BacktestResult
 from src.evaluation.conformal import (
     latest_offset,
     latest_offset_asymmetric,
+    latest_offset_gpd,
     rolling_conformal,
     rolling_conformal_asymmetric,
+    rolling_conformal_gpd_upper,
 )
 from src.evaluation.run_price_backtest import summarize_price
 
@@ -49,6 +51,9 @@ def _coverage(preds: pd.DataFrame, y: pd.Series) -> float:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--compare-asymmetric", action="store_true")
+    parser.add_argument("--compare-gpd", action="store_true",
+                        help="benchmark the GPD upper-tail hybrid band "
+                             "against symmetric and asymmetric CQR")
     args = parser.parse_args()
 
     cfg = load_config()
@@ -122,6 +127,38 @@ def main() -> int:
         cmp_stamp = f"{pd.Timestamp.now(tz).date()}_asym_cqr_comparison"
         cmp.to_csv(out_dir / f"{cmp_stamp}.csv")
         print(f"\nSaved: reports/backtests/{cmp_stamp}.csv")
+
+    if args.compare_gpd:
+        # Three-way tail benchmark on stored preds. Verdict gates
+        # (pre-declared, PLAN Phase 5 S2): adopt GPD only if
+        # spike_cover_pct beats BOTH CQR variants by >= 3 pts AND pooled
+        # coverage stays in [78, 82] AND winkler <= +2% vs symmetric.
+        print("\n--- GPD upper-tail vs CQR comparison ---")
+        for name in CALIBRATED:
+            p = pd.read_parquet(preds_dir / f"{name}.parquet")
+            variants = [
+                BacktestResult(f"{name}_sym", rolling_conformal(p, y_full)),
+                BacktestResult(
+                    f"{name}_asym", rolling_conformal_asymmetric(p, y_full)),
+                BacktestResult(
+                    f"{name}_gpd", rolling_conformal_gpd_upper(p, y_full)),
+                BacktestResult(f"{name}_raw", p),
+            ]
+            # naive row so summarize_price can compute rMAE
+            naive = pd.read_parquet(preds_dir / "price_naive_yesterday.parquet")
+            variants.append(BacktestResult("price_naive_yesterday", naive))
+            tbl = summarize_price(
+                variants, y_full.reindex(p.index))[
+                ["mae", "coverage_80_pct", "winkler", "pinball_p90",
+                 "spike_mae", "spike_cover_pct"]]
+            tbl = tbl.drop(index="price_naive_yesterday")
+            print(f"\n{name}:")
+            print(tbl.round(3).to_string())
+            gpd_stamp = f"{pd.Timestamp.now(tz).date()}_gpd_tail_{name}"
+            tbl.to_csv(out_dir / f"{gpd_stamp}.csv")
+            q_lo, q_hi = latest_offset_gpd(p, y_full)
+            print(f"next-day offsets: q_lo {q_lo:.3f}, q_hi(gpd) {q_hi:.3f}")
+        print("\nSaved: reports/backtests/<date>_gpd_tail_<model>.csv")
     return 0
 
 
