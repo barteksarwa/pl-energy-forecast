@@ -116,6 +116,26 @@ blocked before the backfill):
 - Deep gap WIDENS in harder years. LGBM champion confirmed on the
   full window; the "deep almost caught up" story is window-dependent.
 
+## Statistical significance (Lago et al. 2021 protocol, added 2026-07-22)
+
+Diebold-Mariano on daily loss differentials; Kupiec + Christoffersen on
+bands. Source: `reports/backtests/2026-07-22_stats_tests.md`.
+
+| Claim | DM p (one-sided) | Verdict |
+|---|---|---|
+| 1095d window beats 365d | 0.0009 | significant — promotion evidence solid |
+| LGBM beats LEAR (2-yr) | 0.056 | **NOT significant at 5%** |
+| LGBM beats TFT-730 ens-3 | 8.7e-09 | significant |
+| LGBM beats naive | ~1e-70 | significant |
+
+- Honest correction: the champion's MAE edge over LEAR (17.87 vs 18.24)
+  does not clear the 5% significance bar on daily losses. Say "matches
+  or slightly beats LEAR", not "beats".
+- Bands: LEAR passes Kupiec (unconditional coverage), LGBM marginally
+  fails (21.1% violations vs nominal 20%). BOTH fail Christoffersen
+  hard — violations cluster on consecutive hours/days. Same lesson as
+  the GPD test: the tail problem is conditional, not average-width.
+
 ## Band calibration (tail methods, 2-yr stored preds)
 
 Symmetric CQR is the shipped method. Two challengers tested and rejected:
