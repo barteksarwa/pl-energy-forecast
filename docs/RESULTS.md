@@ -160,6 +160,30 @@ Reliability check (2026-07-23, `src/evaluation/spike_reliability.py`):
   is a possible refinement; not needed for a flag.
 Source: `reports/backtests/2026-07-22_spike_screen.md`.
 
+## CRPS-weighted ensemble (2026-07-24) — NEW BEST price forecast
+
+Members (pre-declared): champion LGBM+CQR, LEAR+CQR, Chronos+CQR.
+Weights: inverse trailing-60d crps3, past-only, equal-weight warm-up.
+
+| Model | MAE (2-yr) | rMAE | Winkler |
+|---|---|---|---|
+| **ens_crps** | **17.34** | **0.620** | **85.2** |
+| ens_equal | 17.46 | 0.624 | 85.9 |
+| LGBM champion (365d) | 17.87 | 0.639 | 89.5 |
+| LGBM (1095d window) | 17.38 | 0.623 | — |
+
+- ALL pre-declared gates pass: −0.53 MAE (gate 0.15), DM p=2.5e-04,
+  wins every test year (2024/25/26), Winkler improves.
+- The diversity does the work: a zero-shot univariate FM adds skill to
+  two structural models even though it is 4 MAE worse alone.
+- Caveat: the blend over-covers (84.2% vs nominal 80) — conformalizing
+  the blend is the refinement before any production promotion.
+- Moirai (both variants) excluded by the pre-declared member rule
+  (best FM only). See FM section: covariates HURT zero-shot Moirai
+  (24.86 vs 23.69, DM-significant) — covariate skill needs training.
+- Sources: `reports/backtests/2026-07-24_price_ensemble_summary.md`,
+  `2026-07-24_price_moirai2yr_summary.csv`.
+
 ## Statistical significance (Lago et al. 2021 protocol, added 2026-07-22)
 
 Diebold-Mariano on daily loss differentials; Kupiec + Christoffersen on

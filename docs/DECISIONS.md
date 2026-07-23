@@ -4,6 +4,11 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-07-24 — CRPS ensemble beats the champion on every gate; Moirai covariates hurt**
+Context: Phase 6 close. Ensemble members pre-declared (champion + LEAR + best FM). Moirai zs/cov both ran the full 2-yr window.
+Decision: ens_crps 17.34 (champion 17.87): DM p=2.5e-04, wins all three test years, Winkler better. New backtest best. NOT promoted to the daily loop yet — blend over-covers (84%), needs conformal-on-blend + owner call on running FM inference daily. Moirai: covariates degrade zero-shot accuracy (24.86 vs 23.69) — any-variate attention cannot exploit unseen covariates without training.
+Why: ensemble gains come from error diversity, not member strength — the weakest member (Chronos, univariate) still adds skill. The Moirai negative closes the "just feed FMs covariates" shortcut honestly.
+
 **2026-07-23 — Chronos-Bolt zero-shot: rMAE 0.787, fine-tune gate closed**
 Context: Phase 5 S4-S5. Univariate foundation model, no training, standard 2-yr backtest, daily context refresh. With CQR: coverage 79.9%.
 Decision: MAE 21.98 — beats naive (DM p 1e-44) AND our trained PatchTST-730 (22.25); loses to TFT-730 (19.52) and champion (DM p 1e-23). Gate for Phase 6 fine-tuning was rMAE < 0.75: closed at 0.787. Zero-shot row goes in the benchmark table with the univariate fairness footnote.

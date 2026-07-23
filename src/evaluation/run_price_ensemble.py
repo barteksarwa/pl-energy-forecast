@@ -32,11 +32,18 @@ CALIBRATE = ("chronos", "timesfm", "moirai_cov")  # raw FM bands get CQR
 
 
 def main() -> int:
+    import argparse
+    parser = argparse.ArgumentParser()
+    # pre-declared default (PLAN Phase 6 S5): champion + LEAR + best FM
+    parser.add_argument("--members", default="lgbm,lear,chronos")
+    args = parser.parse_args()
+
     cfg = load_config()
     y = pd.read_parquet(PROC / "price_da_eur.parquet").iloc[:, 0]
 
     members = {}
-    for name, path in MEMBERS.items():
+    for name in args.members.split(","):
+        path = MEMBERS[name]
         if not path.exists():
             print(f"skip {name} (no preds)")
             continue
