@@ -20,8 +20,7 @@ import sys
 import numpy as np
 import pandas as pd
 
-import src.models.gbm  # noqa: F401  (populates REGISTRY)
-import src.models.price  # noqa: F401
+import src.models.price  # noqa: F401  (populates REGISTRY: naives, LEAR)
 from src.config import Config, load_config
 from src.evaluation.backtest import BacktestResult, walk_forward_backtest
 from src.evaluation.metrics import mae, pinball_loss, rmse, winkler_score
@@ -134,8 +133,15 @@ def main() -> int:
                         help="refit cadence in days (1 for zero-shot "
                              "foundation models — refits are free)")
     args = parser.parse_args()
+    # Model imports are conditional: lightgbm and timesfm-torch crash
+    # when loaded into one process on macOS (duplicate OpenMP runtimes),
+    # and the FM stacks are heavy. Only load what the run asks for.
+    if "lgbm" in args.models:
+        import src.models.gbm  # noqa: F401
     if "chronos" in args.models:
-        import src.models.chronos_zs  # noqa: F401  (lazy: pulls transformers)
+        import src.models.chronos_zs  # noqa: F401
+    if "timesfm" in args.models:
+        import src.models.timesfm_zs  # noqa: F401
 
     proc = cfg.paths["data_processed"]
     price_path = proc / "price_da_eur.parquet"

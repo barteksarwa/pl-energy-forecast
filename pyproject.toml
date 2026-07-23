@@ -27,6 +27,7 @@ dependencies = [
 [project.optional-dependencies]
 fm = [
     "chronos-forecasting>=1.4",
+    "timesfm>=2.0.2",
 ]
 
 [build-system]

@@ -22,6 +22,7 @@ import numpy as np
 import pandas as pd
 
 from src.models.base import register
+from src.models.fm_common import HistoryContext
 
 CONTEXT_HOURS = 2048  # Bolt's maximum context
 MODEL_ID = "amazon/chronos-bolt-base"
@@ -32,7 +33,7 @@ class ChronosBoltZS:
 
     def __init__(self) -> None:
         self._pipeline = None
-        self._history: pd.Series | None = None
+        self._ctx = HistoryContext(CONTEXT_HOURS)
 
     def _load(self):
         if self._pipeline is None:
@@ -46,19 +47,16 @@ class ChronosBoltZS:
 
     def fit(self, x: pd.DataFrame, y: pd.Series) -> None:
         """Ignores X entirely (univariate). Stores the trailing history."""
-        self._history = y.dropna().sort_index().tail(CONTEXT_HOURS * 2)
+        self._ctx.fit(y)
 
     def predict(self, x: pd.DataFrame) -> pd.DataFrame:
         import torch
 
-        assert self._history is not None, "fit first"
         pipe = self._load()
         idx = x.index.sort_values()
         out = pd.DataFrame(index=idx, columns=["p10", "p50", "p90"],
                            dtype=float)
-        # one call per contiguous local day (the engine passes one day)
-        first = idx[0]
-        context = self._history[self._history.index < first].tail(CONTEXT_HOURS)
+        context = self._ctx.context_before(idx[0])
         if len(context) < 168:
             return out  # not enough history — NaN row, engine skips
         quantiles, _ = pipe.predict_quantiles(
