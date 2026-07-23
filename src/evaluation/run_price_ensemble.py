@@ -1,0 +1,89 @@
+"""CRPS-weighted ensemble over stored predictions.
+
+Members are conformally calibrated variants where they exist. TFT is
+excluded from the 2-yr table (its stored preds cover other windows);
+the two-window discipline from RESULTS.md applies.
+
+Run: python -m src.evaluation.run_price_ensemble
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+import pandas as pd
+
+from src.config import load_config
+from src.evaluation.backtest import BacktestResult
+from src.evaluation.conformal import rolling_conformal
+from src.evaluation.ensemble import LOCAL_TZ, blend, crps3, rolling_weights
+from src.evaluation.run_price_backtest import summarize_price
+
+PROC = Path("data/processed")
+MEMBERS = {
+    "lgbm": PROC / "backtest_preds_price_res/lgbm_quantile_conformal.parquet",
+    "lear": PROC / "backtest_preds_price_res/lear_conformal.parquet",
+    "chronos": PROC / "backtest_preds_price_chronos2yr/chronos_bolt_zs.parquet",
+    "timesfm": PROC / "backtest_preds_price_timesfm2yr/timesfm_zs.parquet",
+    "moirai_cov": PROC / "backtest_preds_price_moirai2yr/moirai_cov.parquet",
+}
+CALIBRATE = ("chronos", "timesfm", "moirai_cov")  # raw FM bands get CQR
+
+
+def main() -> int:
+    cfg = load_config()
+    y = pd.read_parquet(PROC / "price_da_eur.parquet").iloc[:, 0]
+
+    members = {}
+    for name, path in MEMBERS.items():
+        if not path.exists():
+            print(f"skip {name} (no preds)")
+            continue
+        p = pd.read_parquet(path)
+        if name in CALIBRATE:
+            p = rolling_conformal(p, y)
+        members[name] = p
+
+    scores = {n: crps3(p, y) for n, p in members.items()}
+    idx = None
+    for p in members.values():
+        idx = p.index if idx is None else idx.intersection(p.index)
+    days = sorted(set(idx.tz_convert(LOCAL_TZ).date))
+
+    w = rolling_weights(scores, days)
+    ens = blend(members, w)
+    equal = blend(members, w * 0 + 1.0 / len(members))
+
+    results = [BacktestResult("ens_crps", ens),
+               BacktestResult("ens_equal", equal)]
+    for n, p in members.items():
+        results.append(BacktestResult(n, p.reindex(ens.index)))
+    naive = pd.read_parquet(
+        PROC / "backtest_preds_price_res/price_naive_yesterday.parquet")
+    results.append(BacktestResult("price_naive_yesterday",
+                                  naive.reindex(ens.index)))
+
+    table = summarize_price(results, y.reindex(ens.index))
+    tz = cfg.timezone_local
+    stamp = f"{pd.Timestamp.now(tz).date()}_price_ensemble"
+    out_dir = Path("reports/backtests")
+    table.to_csv(out_dir / f"{stamp}_summary.csv")
+    ens.to_parquet(PROC / "backtest_preds_price_res/ens_crps.parquet")
+    w.to_csv(out_dir / f"{stamp}_weights.csv")
+
+    md = [
+        f"# CRPS-weighted ensemble — {stamp}", "",
+        f"Members: {', '.join(members)}. Weights: inverse trailing-60d",
+        "crps3 (mean pinball over the 3 quantiles), equal during warm-up.",
+        "FM members conformalized before blending.", "",
+        table.round(3).to_markdown(), "",
+    ]
+    (out_dir / f"{stamp}_summary.md").write_text("\n".join(md))
+    print(table.round(3).to_string())
+    print(f"\nWritten {out_dir}/{stamp}_summary.(csv|md)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
