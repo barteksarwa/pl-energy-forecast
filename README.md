@@ -47,6 +47,11 @@ regression per delivery hour. *80% interval coverage*: each forecast
 comes with a P10–P90 band that should contain the realized price 80% of
 the time; conformal calibration keeps that promise on rolling data.
 
+A note on honesty: the LightGBM–LEAR difference is not statistically
+significant (Diebold–Mariano test on daily losses, p = 0.06). The fair
+claim is parity with the standard baseline at a slightly lower point
+error — not a win.
+
 ## How it works
 
 ```
@@ -73,8 +78,17 @@ daily report    (scores vs actuals, forecast chart, top drivers)
 
 ## Getting started
 
-Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
-A free [ENTSO-E API token](https://transparency.entsoe.eu/) is the only
+Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/), a fast
+Python package manager. If you don't have uv yet:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh   # macOS / Linux
+# or: pipx install uv, or: brew install uv
+```
+
+Dependencies are declared in `pyproject.toml` and locked in `uv.lock`,
+so `make setup` reproduces the exact tested environment. A free
+[ENTSO-E API token](https://transparency.entsoe.eu/) is the only
 credential needed.
 
 ```bash
