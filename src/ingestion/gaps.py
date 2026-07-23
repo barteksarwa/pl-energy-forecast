@@ -50,9 +50,12 @@ def log_gaps(series: pd.Series, name: str, log_path: Path, freq: str = "1h") -> 
     log_path.parent.mkdir(parents=True, exist_ok=True)
     if log_path.exists():
         old = pd.read_csv(log_path, parse_dates=["gap_start_utc", "gap_end_utc"])
-        merged = pd.concat([old, gaps], ignore_index=True)
-        merged = merged.drop_duplicates(subset=["series", "gap_start_utc", "gap_end_utc"])
+        known = set(zip(old["series"], old["gap_start_utc"], old["gap_end_utc"]))
+        new = gaps[~gaps.apply(
+            lambda r: (r["series"], r["gap_start_utc"], r["gap_end_utc"]) in known,
+            axis=1)]
+        merged = pd.concat([old, new], ignore_index=True)
     else:
-        merged = gaps
+        merged = new = gaps
     merged.to_csv(log_path, index=False)
-    return gaps
+    return new

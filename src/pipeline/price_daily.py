@@ -211,6 +211,32 @@ def price_daily_step(
     except Exception as exc:  # noqa: BLE001 — shadow must never kill the price step
         oddities.append(f"Price challenger (lgbm) failed: {exc}")
 
+    # 3c. Spike risk, p(hour in top 5% of prices). Promoted 2026-07-23
+    # (walk-forward AUC 0.966 — DECISIONS). Report feature only; it
+    # never moves the published band.
+    spike_line = None
+    try:
+        from src.models.spike import SpikeClassifier
+
+        sc = SpikeClassifier()
+        sc.fit(x_tr, y_tr)
+        p_spike = sc.predict_proba(x.reindex(thours).dropna())
+        p_spike.to_frame().rename_axis("time_utc").to_csv(
+            cfg.paths["forecasts"] / f"price_{tomorrow.date()}_spike.csv",
+            float_format="%.3f",
+        )
+        risky = p_spike[p_spike >= 0.5].tz_convert(tz)
+        top = p_spike.idxmax().tz_convert(tz)
+        if len(risky):
+            hrs = ", ".join(h.strftime("%H:%M") for h in risky.index)
+            spike_line = (f"- **Spike risk**: {len(risky)} hour(s) with "
+                          f"p(top-5% price) ≥ 50%: {hrs} local.")
+        else:
+            spike_line = (f"- Spike risk low: highest p(top-5% price) "
+                          f"{p_spike.max():.0%} at {top.strftime('%H:%M')} local.")
+    except Exception as exc:  # noqa: BLE001
+        oddities.append(f"Price spike classifier failed: {exc}")
+
     # 4. Living figures, one per TARGET day:
     # tomorrow's chart = band only (published forecast);
     # yesterday's chart = re-rendered WITH the realized price.
@@ -251,6 +277,10 @@ def price_daily_step(
         f"around {peak.strftime('%H:%M')} local.",
         f"- P50 range: {local['p50'].min():,.0f} – {local['p50'].max():,.0f} EUR/MWh; "
         f"band at peak {local.loc[peak, 'p10']:,.0f} – {local.loc[peak, 'p90']:,.0f}.",
+    ]
+    if spike_line:
+        lines.append(spike_line)
+    lines += [
         "",
         f"![Price forecast tomorrow](../figures/daily/price_{tomorrow.date()}.png)",
     ]
