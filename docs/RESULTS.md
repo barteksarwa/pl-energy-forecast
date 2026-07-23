@@ -92,10 +92,16 @@ Full report: `reports/backtests/2026-07-22_deep_history_campaign.md`.
 | 1460d | 17.52 | 0.628 |
 
 - 1095d + CQR: coverage 78.7% (same as 365d). −0.49 MAE for free.
-- RECOMMENDATION: promote 1095d as the champion training window.
-  Owner decision pending; daily loop still trains on 365d.
 - More history helps up to 3 years, then the 2021-22 crisis regime
   starts hurting (1460d worse than 1095d).
+- Robustness (2026-07-23): on the 5-yr crisis test 1095d does not
+  degrade (17.37 vs 17.49, DM p=0.17 — direction still favorable;
+  2022 slice rMAE 0.678). LEAR also improves at 1095d (18.04 vs
+  18.24) — the gain is a data property, not an LGBM quirk.
+- Caveat: spike MAE slightly worse at 1095d (63.6 vs 60.7); spike
+  handling is the classifier's job, not the point model's.
+- RECOMMENDATION (evidence complete): promote 1095d as the champion
+  training window. Owner decision pending; daily loop still on 365d.
 
 **Crisis-regime test** (5-yr walk-forward incl. 2022 crisis, raw bands):
 
