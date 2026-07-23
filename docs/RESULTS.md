@@ -137,8 +137,17 @@ champion also sees RES/TSO/calendar. The gap measures what covariates
 
 **Spike classifier** (2-yr walk-forward, top-5% hours, train-window
 labels): AUC 0.966, Brier 0.034, precision@2 0.736. Gate 0.80 passed —
-promoted to a daily-report column. Deterministic model; seed sweep
+promoted to a daily-report line. Deterministic model; seed sweep
 vacuous (42 and 7 bit-identical).
+
+Reliability check (2026-07-23, `src/evaluation/spike_reliability.py`):
+- Stable across regimes: ROC-AUC 0.964-0.969 in each of 2024/25/26.
+- PR-AUC 0.63 vs 0.05 base rate (12.6x lift over random flagging).
+- Probabilities are OVER-confident at the top: predicted >90% -> only
+  70% observed. Flag at p>=0.5 hits 63% precision, 53% recall.
+- The daily report therefore speaks in historical precision ("about
+  6 in 10 flagged hours"), not raw probability. Calibration (isotonic)
+  is a possible refinement; not needed for a flag.
 Source: `reports/backtests/2026-07-22_spike_screen.md`.
 
 ## Statistical significance (Lago et al. 2021 protocol, added 2026-07-22)

@@ -229,10 +229,13 @@ def price_daily_step(
         top = p_spike.idxmax().tz_convert(tz)
         if len(risky):
             hrs = ", ".join(h.strftime("%H:%M") for h in risky.index)
-            spike_line = (f"- **Spike risk**: {len(risky)} hour(s) with "
-                          f"p(top-5% price) ≥ 50%: {hrs} local.")
+            # flag threshold 0.5: ~63% of flagged hours were real spikes
+            # in the 2-yr backtest (reliability table, RESULTS.md)
+            spike_line = (f"- **Spike-risk flag** on {len(risky)} hour(s): "
+                          f"{hrs} local. Historically about 6 in 10 flagged "
+                          f"hours became top-5% price hours.")
         else:
-            spike_line = (f"- Spike risk low: highest p(top-5% price) "
+            spike_line = (f"- Spike risk low. Highest flag score "
                           f"{p_spike.max():.0%} at {top.strftime('%H:%M')} local.")
     except Exception as exc:  # noqa: BLE001
         oddities.append(f"Price spike classifier failed: {exc}")
