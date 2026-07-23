@@ -1,0 +1,67 @@
+\section{Phase 5 verdicts --- Chronos zero-shot and the spike classifier}
+
+\subsection{Verdict 1: Chronos-Bolt zero-shot --- strong baseline, gate closed}
+
+Setup: standard 2-year backtest, daily context refresh, CQR on top
+for bands. No training on our data. Univariate: price history only.
+
+\begin{tabular}{lccl}
+\hline
+Model & MAE & rMAE & Verdict \\
+\hline
+Champion LGBM (365d) & 17.87 & 0.640 & champion \\
+TFT-730 ens-3 & 19.52 & 0.699 & best deep \\
+Chronos-Bolt zero-shot & 21.98 & 0.787 & benchmark row \\
+PatchTST-730 ens-3 (trained) & 22.25 & 0.797 & beaten \\
+Naive & 27.91 & 1.000 & floor \\
+\hline
+\end{tabular}
+
+\vspace{0.5em}
+Fairness footnote, always attached: Chronos is covariate-blind.
+The champion sees RES, TSO forecast, and calendar. The gap measures
+what covariates plus training buy, not raw model quality.
+
+The story that matters: zero training beats our trained PatchTST
+(22.25, DM-significant). Months of patch-attention work, matched by
+a downloaded checkpoint. Humbling and useful.
+
+The gate: Phase 6 fine-tuning required rMAE $< 0.75$. Result: 0.787.
+Gate closed. Fine-tuning judgment is deferred, with this number in
+hand. Coverage with CQR: 79.9\% --- the bands were honest for free.
+
+\subsection{Verdict 2: spike classifier --- promoted}
+
+Three strikes led here. Asymmetric CQR: no gain. GPD tail: no gain.
+Christoffersen test: band violations cluster on consecutive hours.
+All three said the same thing: spike misses are \emph{conditional}.
+The model lacks information, not band width. So stop widening bands.
+Predict the spike directly, from features that see it coming
+(tight reserve margin, low wind, high load).
+
+Setup: 2-year walk-forward, spike $=$ top-5\% price hours,
+labels from the training window only. Gate: AUC $\geq 0.80$.
+
+Result: AUC 0.966, Brier 0.034, precision@2 0.736. Gate passed.
+Promoted: the daily report now carries a $p_\text{spike}$ column
+per hour.
+
+The seed lesson. Plan said: confirm with 3 seeds. But the classifier
+is deterministic --- no subsampling in its parameters. Seeds 42 and 7
+produced bit-identical results. The sweep was vacuous, so we stopped
+it. Know when a robustness check checks nothing.
+
+\subsection{Interview lines}
+
+``Chronos-Bolt zero-shot hit rMAE 0.787 on PL prices --- beating our
+trained PatchTST with zero training. It still lost 4 EUR/MWh to the
+covariate-aware champion, so I closed the fine-tuning gate and kept
+it as the benchmark row.''
+
+``Three tail methods failed the same way, so I stopped treating
+spikes as a calibration problem. A conditional classifier hit
+AUC 0.966 and now ships a spike probability in the daily report.''
+
+``I cancelled my own seed sweep --- the model was deterministic and
+two seeds came back bit-identical. A robustness check that cannot
+fail is not a check.''

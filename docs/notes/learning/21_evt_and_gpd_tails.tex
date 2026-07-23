@@ -1,0 +1,59 @@
+\section{Extreme value theory --- reading the tail without enough data}
+
+\subsection{The problem}
+
+Our conformal band widens by a tail quantile of past errors.
+The 90th percentile of a 90-point sample rests on about 9 points.
+Nine points is noise. One odd week moves the estimate a lot.
+Extreme values are exactly where data is scarcest.
+Extreme value theory (EVT) is statistics built for this corner.
+
+\subsection{Peaks over threshold (POT)}
+
+Do not model the whole error distribution. Only the tail.
+
+\begin{enumerate}
+  \item Pick a threshold $u$, e.g.\ the 80th percentile of scores.
+  \item Keep only the \emph{exceedances}: values above $u$, minus $u$.
+  \item Fit a generalized Pareto distribution (GPD) to them.
+  \item Read any extreme quantile from the fitted curve.
+\end{enumerate}
+
+The GPD has two parameters. Scale $\sigma$ sets the tail's width.
+Shape $\xi$ sets how heavy it is. $\xi > 0$ means a heavy tail:
+spikes far beyond anything seen are still possible. Theory
+(Pickands, 1975) says exceedances converge to a GPD for almost any
+parent distribution. That is why the trick is general.
+
+\subsection{Worked example}
+
+Say 100 daily scores, threshold at the 80th percentile: 20 exceedances.
+The empirical 99th percentile would rest on 1 point --- useless.
+The GPD fitted on all 20 exceedances gives a smooth curve.
+Read the 99th percentile from the curve. All 20 points support it,
+not one. That is the whole gain: borrow strength from the mid-tail
+to estimate the far tail.
+
+\subsection{The guards we used}
+
+A fitted tail can explode. So we added three guards:
+at least 30 exceedances, else no fit.
+Shape $\xi < 1$, else the fitted quantiles blow up.
+Any failure $\to$ fall back to the plain empirical quantile.
+
+\subsection{The punchline: it did not help here}
+
+Tested 2026-07-22 against a pre-declared gate. Rejected.
+Spike coverage moved +0.57 points (LEAR) and +0.0 (LGBM).
+Why: our calibration window holds 2{,}160 hourly scores, not 90.
+The empirical 90th percentile was already stable.
+The real issue is that spike errors are \emph{conditional}:
+the model does not see the spike coming on that specific afternoon.
+No unconditional band width fixes that. EVT solves data scarcity.
+Our problem was missing information, not scarce data.
+
+\subsection{Interview line}
+
+``I know when EVT helps: scarce tail data, unconditional errors.
+We had neither, so the GPD tail failed its gate --- and that failure
+pointed us to a conditional spike classifier instead.''

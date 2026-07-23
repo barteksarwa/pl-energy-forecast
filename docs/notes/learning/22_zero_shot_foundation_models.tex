@@ -1,0 +1,61 @@
+\section{Zero-shot foundation models --- forecasting without training}
+
+\subsection{The idea}
+
+A foundation model is a large model pretrained on huge, varied data.
+For text: GPT. For time series: Chronos (Amazon, 2024).
+Chronos treats a time series like a sentence. Values are scaled and
+binned into a fixed vocabulary of tokens. A transformer then learns
+``next token prediction'' --- exactly like a language model.
+Pretraining data: billions of observations from many domains
+(energy, traffic, retail, weather, synthetic series).
+
+\subsection{Zero-shot means zero training on our data}
+
+We never fit the model. We hand it a window of recent PL prices.
+It returns sample paths for the next day. Quantiles come from the
+samples, so probabilistic output is free. No GPU training runs,
+no hyperparameter search, no seeds. One forward pass per forecast.
+
+The bet: patterns learned from millions of other series transfer
+to ours. Daily cycles, weekly cycles, spikes, mean reversion ---
+Chronos has seen them all somewhere.
+
+\subsection{The catch: univariate}
+
+Chronos sees only the price history. Nothing else.
+Our champion also sees wind and solar forecasts (RES), the TSO load
+forecast, and calendar features. For PL prices these covariates
+matter a lot: tomorrow's wind forecast moves tomorrow's price.
+So the comparison is deliberately unfair to Chronos.
+The gap measures what covariates plus training buy.
+
+\subsection{Worked example: our numbers}
+
+Standard 2-year backtest, daily context refresh. rMAE is MAE
+relative to seasonal naive (lower is better, naive $=$ 1.000).
+
+\begin{tabular}{lcc}
+\hline
+Model & MAE (EUR/MWh) & rMAE \\
+\hline
+Champion LGBM (covariates, trained) & 17.87 & 0.640 \\
+TFT-730 ens-3 (covariates, trained) & 19.52 & 0.699 \\
+Chronos-Bolt zero-shot (univariate) & 21.98 & 0.787 \\
+PatchTST-730 ens-3 (covariates, trained) & 22.25 & 0.797 \\
+Seasonal naive & 27.91 & 1.000 \\
+\hline
+\end{tabular}
+
+\vspace{0.5em}
+Read the table twice. Chronos, with no training and no covariates,
+beats our trained PatchTST. But it loses clearly to TFT and to the
+champion. Foundation models are a strong free baseline here,
+not a champion.
+
+\subsection{Interview line}
+
+``I benchmarked Chronos-Bolt zero-shot on PL prices: rMAE 0.787.
+It beat our trained PatchTST without a single gradient step ---
+but covariates plus training were still worth 4 EUR/MWh of MAE.
+That gap is why energy desks still train their own models.''
