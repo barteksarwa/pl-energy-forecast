@@ -43,7 +43,7 @@ def main() -> int:
     n_cov = len(COV_COLS) if args.covariates else 0
     model = MoiraiForecast(
         module=MoiraiModule.from_pretrained(MODEL_ID),
-        prediction_length=24,
+        prediction_length=25,  # DST: the October switch day has 25 local hours
         context_length=CONTEXT,
         patch_size="auto",
         num_samples=100,
@@ -77,7 +77,12 @@ def main() -> int:
                  "start": pd.Period(ctx.index[0], freq="h")}
         if n_cov:
             span = cov.reindex(ctx.index.append(hours)).ffill().fillna(0.0)
-            entry["feat_dynamic_real"] = span.to_numpy(np.float32).T
+            arr = span.to_numpy(np.float32).T
+            need = len(ctx) + 25  # match prediction_length on short days
+            if arr.shape[1] < need:
+                pad = np.repeat(arr[:, -1:], need - arr.shape[1], axis=1)
+                arr = np.concatenate([arr, pad], axis=1)
+            entry["feat_dynamic_real"] = arr
         fcst = next(iter(predictor.predict([entry])))
         samples = fcst.samples[:, :len(hours)]
         q = np.quantile(samples, [0.1, 0.5, 0.9], axis=0).T
