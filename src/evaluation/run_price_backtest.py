@@ -130,7 +130,12 @@ def main() -> int:
                         help="append per-calendar-year breakdown tables")
     parser.add_argument("--train-days", type=int, default=365,
                         help="trailing training window in days (default 365)")
+    parser.add_argument("--refit-days", type=int, default=7,
+                        help="refit cadence in days (1 for zero-shot "
+                             "foundation models — refits are free)")
     args = parser.parse_args()
+    if "chronos" in args.models:
+        import src.models.chronos_zs  # noqa: F401  (lazy: pulls transformers)
 
     proc = cfg.paths["data_processed"]
     price_path = proc / "price_da_eur.parquet"
@@ -184,6 +189,7 @@ def main() -> int:
             walk_forward_backtest(
                 REGISTRY[name], x, y, test_start.tz_convert("UTC"),
                 train_window_days=args.train_days,
+                refit_every_days=args.refit_days,
             )
         )
 

@@ -24,6 +24,11 @@ dependencies = [
     "scipy>=1.11",
 ]
 
+[project.optional-dependencies]
+fm = [
+    "chronos-forecasting>=1.4",
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
