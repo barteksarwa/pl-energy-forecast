@@ -4,6 +4,16 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-07-23 — Chronos-Bolt zero-shot: rMAE 0.787, fine-tune gate closed**
+Context: Phase 5 S4-S5. Univariate foundation model, no training, standard 2-yr backtest, daily context refresh. With CQR: coverage 79.9%.
+Decision: MAE 21.98 — beats naive (DM p 1e-44) AND our trained PatchTST-730 (22.25); loses to TFT-730 (19.52) and champion (DM p 1e-23). Gate for Phase 6 fine-tuning was rMAE < 0.75: closed at 0.787. Zero-shot row goes in the benchmark table with the univariate fairness footnote.
+Why: measures what a covariate-blind foundation model buys on PL prices — a strong baseline for free, not a champion. Fine-tuning judgment deferred to Phase 6 planning with this number in hand.
+
+**2026-07-23 — Spike classifier: gate passed, seed confirm redundant**
+Context: Phase 5 S3. Walk-forward 2-yr screen: AUC 0.966, Brier 0.034, precision@2 0.736 (gate was AUC 0.80).
+Decision: PROMOTED to a daily-report column (p_spike per hour). Note: the classifier is deterministic (no subsampling in params) — seeds 42/7 produced identical results, so the planned 3-seed confirm is vacuous and was stopped.
+Why: three independent tests (asym CQR, GPD, Christoffersen) show tail misses are conditional; this is the conditional signal. Deterministic model → single run IS the result.
+
 **2026-07-22 — GPD (EVT) upper tail rejected; symmetric CQR stays**
 Context: Phase 5 S1-S2. Hybrid band (symmetric lower, GPD peaks-over-threshold upper tail) benchmarked against symmetric and asymmetric CQR on stored 2-yr preds. Pre-declared gate: spike coverage +3 pts, pooled coverage 78-82%, Winkler ≤ +2%.
 Decision: REJECTED. Spike coverage +0.57 pts (LEAR 56.16 vs 55.59) and +0.0 (LGBM). Third tail-calibration method to lose to plain symmetric CQR. Tables: `reports/backtests/2026-07-22_gpd_tail_*.csv`.

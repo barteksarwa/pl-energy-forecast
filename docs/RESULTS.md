@@ -116,6 +116,31 @@ blocked before the backfill):
 - Deep gap WIDENS in harder years. LGBM champion confirmed on the
   full window; the "deep almost caught up" story is window-dependent.
 
+## Foundation models + spike classifier (Phase 5, 2026-07-23)
+
+**Chronos-Bolt zero-shot** (univariate — sees only price history; the
+champion also sees RES/TSO/calendar. The gap measures what covariates
++ training buy):
+
+| Model | MAE (2-yr) | rMAE | Coverage (+CQR) |
+|---|---|---|---|
+| Champion LGBM (365d) | 17.87 | 0.640 | 78.9% |
+| TFT-730 ens-3 | 19.52 | 0.699 | 80.9% raw |
+| **Chronos-Bolt zero-shot** | **21.98** | **0.787** | 79.9% |
+| PatchTST-730 ens-3 (trained!) | 22.25 | 0.797 | 77.1% raw |
+| Naive | 27.91 | 1.000 | — |
+
+- A pretrained model with NO training on our data and NO covariates
+  beats our trained PatchTST. Sic transit patch attention.
+- All gaps DM-significant. Phase 6 fine-tune gate (rMAE < 0.75): closed.
+- Source: `reports/backtests/2026-07-23_price_chronos2yr_summary.md`.
+
+**Spike classifier** (2-yr walk-forward, top-5% hours, train-window
+labels): AUC 0.966, Brier 0.034, precision@2 0.736. Gate 0.80 passed —
+promoted to a daily-report column. Deterministic model; seed sweep
+vacuous (42 and 7 bit-identical).
+Source: `reports/backtests/2026-07-22_spike_screen.md`.
+
 ## Statistical significance (Lago et al. 2021 protocol, added 2026-07-22)
 
 Diebold-Mariano on daily loss differentials; Kupiec + Christoffersen on
