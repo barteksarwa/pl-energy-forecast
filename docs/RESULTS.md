@@ -134,12 +134,16 @@ champion also sees RES/TSO/calendar. The gap measures what covariates
 | TFT-730 ens-3 | 19.52 | 0.699 | 80.9% raw |
 | **Chronos-Bolt zero-shot** | **21.98** | **0.787** | 79.9% |
 | PatchTST-730 ens-3 (trained!) | 22.25 | 0.797 | 77.1% raw |
+| TimesFM 2.5 zero-shot | 22.52 | 0.807 | 80.7% raw |
 | Naive | 27.91 | 1.000 | — |
 
 - A pretrained model with NO training on our data and NO covariates
   beats our trained PatchTST. Sic transit patch attention.
+- Chronos beats TimesFM (DM p=0.011). TimesFM's raw band is the best
+  calibrated of any model out of the box (80.7% vs nominal 80%).
 - All gaps DM-significant. Phase 6 fine-tune gate (rMAE < 0.75): closed.
-- Source: `reports/backtests/2026-07-23_price_chronos2yr_summary.md`.
+- Sources: `reports/backtests/2026-07-23_price_chronos2yr_summary.md`,
+  `2026-07-23_price_timesfm2yr_summary.md`.
 
 **Spike classifier** (2-yr walk-forward, top-5% hours, train-window
 labels): AUC 0.966, Brier 0.034, precision@2 0.736. Gate 0.80 passed —
