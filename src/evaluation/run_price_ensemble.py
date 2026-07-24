@@ -61,8 +61,12 @@ def main() -> int:
     w = rolling_weights(scores, days)
     ens = blend(members, w)
     equal = blend(members, w * 0 + 1.0 / len(members))
+    # the raw blend over-covers (84.2% vs nominal 80): a second CQR pass
+    # on the blended band tightens it (Q goes negative when over-covered)
+    ens_cqr = rolling_conformal(ens, y)
 
     results = [BacktestResult("ens_crps", ens),
+               BacktestResult("ens_crps_cqr", ens_cqr),
                BacktestResult("ens_equal", equal)]
     for n, p in members.items():
         results.append(BacktestResult(n, p.reindex(ens.index)))
@@ -77,6 +81,7 @@ def main() -> int:
     out_dir = Path("reports/backtests")
     table.to_csv(out_dir / f"{stamp}_summary.csv")
     ens.to_parquet(PROC / "backtest_preds_price_res/ens_crps.parquet")
+    ens_cqr.to_parquet(PROC / "backtest_preds_price_res/ens_crps_cqr.parquet")
     w.to_csv(out_dir / f"{stamp}_weights.csv")
 
     md = [
