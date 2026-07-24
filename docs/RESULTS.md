@@ -188,6 +188,28 @@ Weights: inverse trailing-60d crps3, past-only, equal-weight warm-up.
 - Sources: `reports/backtests/2026-07-24_price_ensemble_summary.md`,
   `2026-07-24_price_moirai2yr_summary.csv`.
 
+**Blend on 1095d members (2026-07-24) — tested, NOT adopted.**
+Pre-declared gates: beat ens-365 (17.34) with DM p<0.05, coverage
+78-82%, Winkler not worse.
+
+| Blend | MAE | rMAE | Coverage | P&L capture |
+|---|---|---|---|---|
+| ens_crps_cqr (365d members, shipped) | 17.34 | 0.622 | 79.9% | 0.926 |
+| ens_crps_cqr_1095 | 17.18 | 0.616 | 79.9% | 0.925 |
+
+- MAE gate passes (−0.155) but **DM p=0.0596 — not significant**, and
+  the 1095d blend LOSES the 2026 slice (18.36 vs 18.05). P&L identical.
+- Finding: window gain and ensemble diversity are partial substitutes.
+  Solo, 1095d is worth −0.49 MAE (significant); inside the blend the
+  same information is mostly already recovered by diversity — the
+  blend's edge over its best member shrinks from −0.50 to −0.17.
+- Verdict (same standard as LGBM-vs-LEAR): "matches or slightly
+  beats" — no member switch on this evidence. The 1095d promotion for
+  the SOLO champion is a separate, still-solid case (DM p=0.0009).
+- Spike MAE worse on 1095d blend (63.9 vs 61.5) — the known 1095d
+  spike caveat carries through.
+- Source: `reports/backtests/2026-07-24_price_ensemble_1095_summary.md`.
+
 ## Battery-arbitrage P&L (2026-07-24) — forecasts in EUR
 
 1 MW / 2 MWh / 0.85 round-trip / 1 cycle/day. Schedule from P50 at

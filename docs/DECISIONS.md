@@ -4,6 +4,11 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-07-24 — Blend on 1095d members: tested, NOT adopted (DM p=0.06)**
+Context: natural follow-up to the two pending promotions — rebuild the CRPS blend on 1095d-window LGBM/LEAR. Pre-declared gates: beat ens-365 with DM p<0.05, coverage holds, Winkler not worse.
+Decision: MAE improves 17.34→17.18 but NOT significantly (p=0.0596), loses the 2026 slice, P&L capture identical (0.925 vs 0.926). Blend stays on 365d members. Solo-champion 1095d promotion case (p=0.0009) unaffected.
+Why: window gain and ensemble diversity are partial substitutes — the blend already recovers most of what the longer window adds. Same honesty standard as LGBM-vs-LEAR: no switch on a non-significant edge.
+
 **2026-07-24 — Benchmark writeup shipped as docs/BENCHMARK.md (Phase 7 S3-S5, blog minimum)**
 Context: PLAN Phase 7 asks for a publication-grade summary: protocol, master tables incl. P&L capture, findings, honest negatives, reproducibility appendix.
 Decision: one markdown page in docs/, story layer over RESULTS.md (numbers stay canonical there). New ensemble model card added; README refreshed (ensemble headline, P&L column, FM findings, live status). arXiv-style expansion stays a stretch goal.
