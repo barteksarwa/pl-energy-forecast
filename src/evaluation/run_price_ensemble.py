@@ -27,8 +27,13 @@ MEMBERS = {
     "chronos": PROC / "backtest_preds_price_chronos2yr/chronos_bolt_zs.parquet",
     "timesfm": PROC / "backtest_preds_price_timesfm2yr/timesfm_zs.parquet",
     "moirai_cov": PROC / "backtest_preds_price_moirai2yr/moirai_cov.parquet",
+    # 1095d-window variants (deep-history campaign follow-up)
+    "lgbm_1095": PROC / "backtest_preds_price_res1095/lgbm_quantile.parquet",
+    "lear_1095": PROC / "backtest_preds_price_res1095/lear.parquet",
 }
-CALIBRATE = ("chronos", "timesfm", "moirai_cov")  # raw FM bands get CQR
+# raw bands get CQR before blending (FMs ship raw; the 1095d runs are
+# stored raw so the shared calibration script never sees their offsets)
+CALIBRATE = ("chronos", "timesfm", "moirai_cov", "lgbm_1095", "lear_1095")
 
 
 def main() -> int:
@@ -36,7 +41,11 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     # pre-declared default (PLAN Phase 6 S5): champion + LEAR + best FM
     parser.add_argument("--members", default="lgbm,lear,chronos")
+    parser.add_argument("--suffix", default="",
+                        help="suffix for output names, e.g. '1095' — keeps "
+                             "variant runs from clobbering the shipped blend")
     args = parser.parse_args()
+    sfx = f"_{args.suffix}" if args.suffix else ""
 
     cfg = load_config()
     y = pd.read_parquet(PROC / "price_da_eur.parquet").iloc[:, 0]
@@ -77,11 +86,12 @@ def main() -> int:
 
     table = summarize_price(results, y.reindex(ens.index))
     tz = cfg.timezone_local
-    stamp = f"{pd.Timestamp.now(tz).date()}_price_ensemble"
+    stamp = f"{pd.Timestamp.now(tz).date()}_price_ensemble{sfx}"
     out_dir = Path("reports/backtests")
     table.to_csv(out_dir / f"{stamp}_summary.csv")
-    ens.to_parquet(PROC / "backtest_preds_price_res/ens_crps.parquet")
-    ens_cqr.to_parquet(PROC / "backtest_preds_price_res/ens_crps_cqr.parquet")
+    ens.to_parquet(PROC / f"backtest_preds_price_res/ens_crps{sfx}.parquet")
+    ens_cqr.to_parquet(
+        PROC / f"backtest_preds_price_res/ens_crps_cqr{sfx}.parquet")
     w.to_csv(out_dir / f"{stamp}_weights.csv")
 
     md = [
