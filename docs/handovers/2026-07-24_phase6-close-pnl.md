@@ -33,13 +33,46 @@
   incl. P&L capture, honest negatives, reproducibility appendix.
   Cards + README + DECISIONS refresh.
 
+## INCIDENT — data/ wiped by a committed symlink (2026-07-24)
+
+What happened, in order:
+1. Session ran in a worktree; `data/` was symlinked to the main
+   checkout to reach the parquets.
+2. `git add -A` committed that symlink. `.gitignore` had `data/**`,
+   which matches CONTENTS, not the `data` path itself.
+3. Merging into local main made git replace the real `data/`
+   directory with the symlink (now self-referencing). Git treats
+   gitignored files as disposable — it deleted the parquets.
+
+Damage: all of `data/raw` + `data/processed` (base series AND stored
+hourly backtest predictions). NOT lost: reports/, RESULTS.md numbers,
+docs, outputs/ (checkpoints, campaign CSVs), tracked forecast CSVs,
+git history, the public repo.
+
+Repair done this session:
+- History rewritten BEFORE any push: rebuilt the 4 commits without
+  data paths; main reset and fast-forwarded to the clean branch.
+- `.gitignore` now also ignores the `data` path itself.
+- Base-data refetch launched (`make backfill`, idempotent,
+  log: `logs/backfill_recovery_2026-07-24.log`).
+
+Still to regenerate (owner call on scheduling — compute-days):
+- Deep history prepend: `--start 2015-01-01` for weather / entsoe /
+  entsoe_prices / entsoe_res after base backfill finishes.
+- Stored backtest preds: re-run price 2-yr backtests (LGBM, LEAR ~
+  hours; Chronos/TimesFM/Moirai overnight; TFT overnight), then
+  re-run `run_price_ensemble` and `run_pnl`. Campaign scripts are
+  resume-safe. All numbers should reproduce (deterministic seeds);
+  any drift = red flag to investigate.
+
+Lesson (added to CLAUDE.md candidates): never symlink into a git
+checkout; mount data via config paths instead.
+
 ## Gotchas
 
-- Worktree note: this session ran in `.claude/worktrees/phase6-close-pnl`
-  with `data/` symlinked to the main checkout. Branch
-  `worktree-phase6-close-pnl` is LOCAL ONLY — origin is the public
-  curated repo; never push local history there (standing owner rule).
-  Merge to local main, then republish curated via `~/Documents/repo-reset/`.
+- Branch `worktree-phase6-close-pnl` is LOCAL ONLY — origin is the
+  public curated repo; never push local history there (standing owner
+  rule). Republish curated via `~/Documents/repo-reset/`.
 - P&L LP has a 1e-6 activity penalty — breaks lossless charge/discharge
   ties toward no-trade. Don't remove it.
 - `daily_pnl` skips any local day with missing hours (expected count

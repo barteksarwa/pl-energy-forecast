@@ -4,6 +4,11 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-07-24 — INCIDENT: data/ wiped by a committed worktree symlink; history repaired, refetch running**
+Context: a worktree session symlinked `data/` to the main checkout; `git add -A` committed the symlink (`data/**` in .gitignore matches contents, not the path). The merge into main replaced the real directory and git deleted the ignored parquets.
+Decision: history rewritten before any push (4 commits rebuilt without data paths), `.gitignore` now ignores the `data` path itself, base-data refetch launched via idempotent `make backfill`. Stored backtest preds regenerate from resume-safe scripts; numbers must reproduce against RESULTS.md.
+Why: an honest repo documents its operational failures like a real desk would. Full incident: handover 2026-07-24.
+
 **2026-07-24 — Blend conformalized; ens_crps_cqr is the promotion candidate**
 Context: raw CRPS blend over-covered (84.2% vs nominal 80) — the declared blocker before production promotion.
 Decision: run rolling CQR a second time on the blended band. Coverage 79.9%, Winkler 85.2→84.7, MAE unchanged. `ens_crps_cqr` replaces `ens_crps` as the candidate. Promotion still awaits owner (interacts with the pending 1095d-window call; adds FM inference to the daily loop).
