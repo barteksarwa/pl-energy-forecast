@@ -56,14 +56,21 @@ Repair done this session:
 - Base-data refetch launched (`make backfill`, idempotent,
   log: `logs/backfill_recovery_2026-07-24.log`).
 
-Still to regenerate (owner call on scheduling — compute-days):
-- Deep history prepend: `--start 2015-01-01` for weather / entsoe /
-  entsoe_prices / entsoe_res after base backfill finishes.
-- Stored backtest preds: re-run price 2-yr backtests (LGBM, LEAR ~
-  hours; Chronos/TimesFM/Moirai overnight; TFT overnight), then
-  re-run `run_price_ensemble` and `run_pnl`. Campaign scripts are
-  resume-safe. All numbers should reproduce (deterministic seeds);
-  any drift = red flag to investigate.
+Regeneration status (END OF SESSION — mostly DONE):
+- Base data: RESTORED, incl. deep history. price_da_eur 100,960 h,
+  res_forecast 101,279 h, canonical load 2015→2026 (PSE + ENTSO-E via
+  crosscheck), weather 10 cities 2015→now, fuel. PSE 500 on one
+  csdac chunk was transient; retry passed.
+- Backtest preds RESTORED and VERIFIED against RESULTS.md (test
+  window now ends 8 days later, so tiny drifts are expected and
+  explained): LGBM 17.84 (was 17.87), LEAR 18.46 (18.24),
+  Chronos 21.93 (21.98), TimesFM 22.52 (22.52),
+  ens_crps_cqr 17.34 / coverage 79.9% (identical),
+  P&L ensemble capture 92.6% (was 92.4). All claims hold.
+- STILL MISSING (owner call): Moirai preds (scratch venv also gone —
+  rebuild venv + overnight; negative result already documented) and
+  TFT/deep stored preds (`tft_hpo_ens` etc. — overnight MPS runs;
+  only needed for the 1-yr two-window table).
 
 Lesson (added to CLAUDE.md candidates): never symlink into a git
 checkout; mount data via config paths instead.
