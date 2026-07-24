@@ -47,8 +47,12 @@ def main() -> int:
                 )
             )
 
-    # Newest saved forecast.
-    forecasts = sorted(cfg.paths["forecasts"].glob("*.csv"))
+    # Newest saved forecast. Spike files hold probabilities, not a
+    # p10/p50/p90 band — they cannot feed the band plot.
+    forecasts = sorted(
+        p for p in cfg.paths["forecasts"].glob("*.csv")
+        if not p.stem.endswith("_spike")
+    )
     if forecasts:
         newest = forecasts[-1]
         fc = pd.read_csv(newest, index_col="time_utc", parse_dates=True)
