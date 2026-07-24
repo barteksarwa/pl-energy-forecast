@@ -8,6 +8,10 @@ data/**
 !data/**/
 !data/**/.gitkeep
 !data/forecasts/*.csv
+# a stray `data` symlink (worktree setups) must never be committable:
+# `data/**` only matches contents, not the path itself
+data
+!data/
 
 # Python
 __pycache__/
