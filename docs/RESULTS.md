@@ -188,6 +188,31 @@ Weights: inverse trailing-60d crps3, past-only, equal-weight warm-up.
 - Sources: `reports/backtests/2026-07-24_price_ensemble_summary.md`,
   `2026-07-24_price_moirai2yr_summary.csv`.
 
+## Battery-arbitrage P&L (2026-07-24) — forecasts in EUR
+
+1 MW / 2 MWh / 0.85 round-trip / 1 cycle/day. Schedule from P50 at
+D-1 (per-day LP), settle at actual DA prices. Day-ahead only.
+Same 713 days for every model. Capture = P&L / perfect-foresight P&L.
+
+| Model | EUR/day | Capture | Loss days |
+|---|---|---|---|
+| Perfect foresight | 221 | 1.000 | 0% |
+| **ens_crps_cqr** | **205** | **0.924** | 1.7% |
+| LGBM champion | 202 | 0.914 | 2.1% |
+| LEAR | 201 | 0.908 | 1.5% |
+| Chronos zero-shot | 197 | 0.890 | 2.7% |
+| TimesFM zero-shot | 195 | 0.880 | 2.7% |
+| Naive (yesterday) | 180 | 0.813 | 4.5% |
+
+- MAE rank == capture rank, no flips (PLAN watch item closed).
+- Value compresses: naive is 10.6 MAE worse yet captures 81% —
+  storage needs hour ORDERING, not price level.
+- Ensemble edge over champion: +2.3 EUR/day/MW (~850 EUR/yr/MW).
+  Pays for its complexity at portfolio scale, not on one battery.
+- Sources: `reports/backtests/2026-07-24_pnl_summary.md`,
+  `reports/figures/pnl/cumulative_pnl.png`. Engine:
+  `src/evaluation/pnl.py` (9 accounting tests, DST-aware).
+
 ## Statistical significance (Lago et al. 2021 protocol, added 2026-07-22)
 
 Diebold-Mariano on daily loss differentials; Kupiec + Christoffersen on

@@ -1,0 +1,65 @@
+\section{P\&L verdict --- does MAE rank survive contact with money?}
+
+\subsection{The question}
+
+PLAN Phase 7 flagged the risk: MAE rank and capture rank can
+diverge. A model with better average error but worse peak/trough
+timing would earn less. Did that happen?
+
+\subsection{Result: ranks match, gaps compress}
+
+2-year battery backtest (1 MW / 2 MWh / 0.85 RTE / 1 cycle,
+same 713 days for every model):
+
+\begin{tabular}{lcccc}
+\hline
+Model & MAE & MAE rank & Capture & EUR/day \\
+\hline
+Ensemble (CRPS+CQR) & 17.34 & 1 & 0.924 & 205 \\
+LGBM champion & 17.87 & 2 & 0.914 & 202 \\
+LEAR & 18.24 & 3 & 0.908 & 201 \\
+Chronos & 21.99 & 4 & 0.890 & 197 \\
+TimesFM & 22.52 & 5 & 0.880 & 195 \\
+Naive & 27.96 & 6 & 0.813 & 180 \\
+\hline
+\end{tabular}
+
+\vspace{0.5em}
+No rank flip anywhere. MAE was a faithful proxy for storage value
+on this market and period. The honest caveat: gaps compress hard
+(learning note 25) --- 10.6 MAE between naive and ensemble is worth
+only 11 capture points.
+
+\subsection{What the ensemble is worth in money}
+
+Ensemble over champion: $+2.3$ EUR/day on a 1 MW battery,
+$\approx 850$ EUR/year. Real but small. Scale it: a 100 MW
+portfolio makes that 85k EUR/year --- the ensemble pays for its
+operational complexity at portfolio scale, not on one battery.
+This framing is the right answer to ``why bother with 0.5 MAE?''
+
+\subsection{Loss days}
+
+Perfect foresight never loses money (it can sit idle).
+Forecast schedules can: the ensemble lost money on 1.7\% of days,
+naive on 4.5\%. Loss days cluster on spike days the schedule
+mistimed --- consistent with every spike finding in this repo.
+
+\subsection{Verdict}
+
+\begin{itemize}
+\item The ensemble is the best earner. Its promotion case now has
+      a EUR number attached.
+\item No MAE-vs-capture rank divergence to report. Watch item
+      closed.
+\item Storage P\&L is a compressed lens. Keep both: MAE for model
+      development, EUR for stakeholder communication.
+\end{itemize}
+
+\subsection{Interview line}
+
+``I checked whether error rank survives translation into battery
+P\&L. It did --- no rank flips --- but the spread compressed from
+10.6 MAE to 11 points of capture. My ensemble's 0.5 MAE edge is
+about 850 EUR/year per MW of storage. That is how I would justify
+a model upgrade to a desk: in EUR per megawatt, not in MAE.''

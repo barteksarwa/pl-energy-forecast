@@ -4,6 +4,16 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-07-24 — Blend conformalized; ens_crps_cqr is the promotion candidate**
+Context: raw CRPS blend over-covered (84.2% vs nominal 80) — the declared blocker before production promotion.
+Decision: run rolling CQR a second time on the blended band. Coverage 79.9%, Winkler 85.2→84.7, MAE unchanged. `ens_crps_cqr` replaces `ens_crps` as the candidate. Promotion still awaits owner (interacts with the pending 1095d-window call; adds FM inference to the daily loop).
+Why: averaging three calibrated bands over-widens because member errors are imperfectly correlated; CQR's negative offset is the cheapest honest fix.
+
+**2026-07-24 — Battery P&L: MAE rank survives, value compresses**
+Context: PLAN Phase 7 asked what forecasts are worth in EUR and flagged possible MAE-vs-capture rank flips.
+Decision: per-day LP battery backtest (1 MW/2 MWh/0.85 RTE/1 cycle, DA-only). No rank flips; ensemble captures 92.4%, naive 81.3%. Keep MAE for development, EUR for stakeholder framing.
+Why: storage rewards hour ordering, not price level — 10.6 MAE of skill buys 11 capture points. The EUR lens is honest scope: no intraday, no fees, comparator not business case.
+
 **2026-07-24 — CRPS ensemble beats the champion on every gate; Moirai covariates hurt**
 Context: Phase 6 close. Ensemble members pre-declared (champion + LEAR + best FM). Moirai zs/cov both ran the full 2-yr window.
 Decision: ens_crps 17.34 (champion 17.87): DM p=2.5e-04, wins all three test years, Winkler better. New backtest best. NOT promoted to the daily loop yet — blend over-covers (84%), needs conformal-on-blend + owner call on running FM inference daily. Moirai: covariates degrade zero-shot accuracy (24.86 vs 23.69) — any-variate attention cannot exploit unseen covariates without training.

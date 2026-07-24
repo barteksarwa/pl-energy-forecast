@@ -1,0 +1,76 @@
+\section{Forecast value in EUR --- battery arbitrage and capture rate}
+
+\subsection{Why translate MAE into money}
+
+MAE says how wrong a forecast is. It does not say what the error
+costs. A trading desk asks the second question. The cleanest bridge
+is a storage asset: a battery that buys cheap hours and sells
+expensive ones. Its profit depends directly on forecast quality.
+
+\subsection{The setup}
+
+A small battery: 1 MW power, 2 MWh capacity, 85\% round-trip
+efficiency, one cycle per day. Day-ahead market only.
+
+The daily routine mirrors the forecast product:
+\begin{enumerate}
+\item At D$-$1, take the model's P50 price forecast for day D.
+\item Solve for the best charge/discharge schedule (a small linear
+      program: maximize revenue subject to power, capacity and
+      cycle limits).
+\item Day D arrives. Settle the committed schedule at ACTUAL prices.
+\end{enumerate}
+The schedule is decided on the forecast. The money is made or lost
+on the actuals. Exactly the leakage discipline of the backtests.
+
+\subsection{Capture rate}
+
+Run the same optimizer on the actual prices: that is perfect
+foresight, the ceiling nobody beats.
+\[
+\text{capture rate} = \frac{\text{P\&L from forecast schedule}}
+                           {\text{P\&L with perfect foresight}}
+\]
+1.0 means the forecast lost nothing. Our 2-year numbers:
+
+\begin{tabular}{lccc}
+\hline
+Schedule source & EUR/day & Capture & MAE \\
+\hline
+Perfect foresight & 221 & 1.000 & 0 \\
+Ensemble (CRPS+CQR) & 205 & 0.924 & 17.34 \\
+Champion LGBM & 202 & 0.914 & 17.87 \\
+LEAR & 201 & 0.908 & 18.24 \\
+Chronos zero-shot & 197 & 0.890 & 21.99 \\
+TimesFM zero-shot & 195 & 0.880 & 22.52 \\
+Naive (yesterday) & 180 & 0.813 & 27.96 \\
+\hline
+\end{tabular}
+
+\subsection{The surprising compression}
+
+Look at the naive row. A forecast that is 10.6 EUR/MWh worse in MAE
+still captures 81\% of the value. Why: the battery only needs the
+\emph{ordering} of hours --- when is it cheap, when is it expensive.
+Yesterday's prices already rank today's hours quite well.
+Level errors cancel; a schedule survives them.
+
+So 10.6 MAE of skill buys 11 points of capture. The marginal value
+of accuracy is real but compressed. This is a general lesson:
+\textbf{the value of a forecast depends on the decision it feeds,
+not on the error metric.} A storage trader needs shape. A retailer
+hedging volume needs level. Same forecast, different worth.
+
+\subsection{Honest scope}
+
+Day-ahead only. A real desk re-trades intraday and captures more.
+No grid fees, no degradation cost, no market impact. The number is
+a clean comparator between models, not a business case.
+
+\subsection{Interview line}
+
+``I valued my forecasts with a battery-arbitrage backtest: schedule
+on the P50 at D$-$1, settle at actuals. My ensemble captures 92\% of
+perfect-foresight value. The instructive part: naive captures 81\% ---
+storage only needs hour ordering, so accuracy value is compressed.
+Metric improvements must be priced in the decision, not the MAE.''
