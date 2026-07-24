@@ -10,11 +10,16 @@ The git history is the live track record.
 
 - **Load: beats the Polish TSO.** Ridge combiner 2.08% MAPE vs PSE's own
   day-ahead forecast at 2.23%.
-- **Price: beats the standard.** LightGBM rMAE 0.638 and LEAR 0.660 vs
-  naive (literature range for LEAR: 0.75–0.85). Wins every one of 25
-  test months.
+- **Price: a three-model ensemble is the new best.** CRPS-weighted blend
+  of LightGBM + LEAR + a zero-shot foundation model: MAE 17.34 EUR/MWh,
+  rMAE 0.622 (DM p=2.5e-04 vs the single champion). LightGBM alone
+  matches the LEAR standard (its MAE edge is not significant, p=0.056 —
+  we say so).
 - **Calibrated uncertainty.** P10/P90 bands conformally calibrated to
-  ~79% empirical coverage (nominal 80%).
+  ~80% empirical coverage — including the blend (double-conformal).
+- **Forecasts priced in EUR.** A battery-arbitrage backtest converts
+  MAE into money: the ensemble captures 92.6% of perfect-foresight
+  value. Full writeup: `docs/BENCHMARK.md`.
 
 ## The two products
 
@@ -53,13 +58,20 @@ PL day-ahead auction price (SDAC), EUR/MWh, forecast before gate closure.
 
 2-year walk-forward (`reports/figures/backtest_price/metrics_summary.csv`):
 
-| Model | MAE (EUR/MWh) | rMAE | Band coverage (nominal 80%) |
-|---|---|---|---|
-| **LightGBM quantile + conformal** | **17.9** | **0.640** | 78.9% |
-| LEAR + conformal (published daily) | 18.2 | 0.653 | 79.6% |
-| TFT (3-seed ensemble) | 19.7 | 0.706 | 79.6% |
-| PatchTST | 23.0 | 0.823 | 69.5% |
-| Naive (same hour yesterday) | 28.0 | 1.001 | 53.1% |
+| Model | MAE (EUR/MWh) | rMAE | Band coverage (nominal 80%) | P&L capture |
+|---|---|---|---|---|
+| **Ensemble (CRPS + CQR)** | **17.3** | **0.622** | **79.9%** | **0.926** |
+| LightGBM quantile + conformal | 17.8 | 0.640 | 78.6% | 0.915 |
+| LEAR + conformal (published daily) | 18.5 | 0.662 | 79.5% | 0.911 |
+| TFT-730 (3-seed ensemble) | 19.5 | 0.699 | 80.9% raw | — |
+| Chronos-Bolt zero-shot + CQR | 21.9 | 0.787 | 79.9% | 0.891 |
+| PatchTST-730 (3-seed, trained) | 22.3 | 0.797 | 77.1% raw | — |
+| TimesFM 2.5 zero-shot | 22.5 | 0.807 | 80.7% raw | 0.881 |
+| Naive (same hour yesterday) | 27.9 | 1.000 | 53.1% | 0.814 |
+
+P&L capture = share of perfect-foresight battery-arbitrage profit
+(1 MW / 2 MWh battery scheduled on each model's P50). Master tables,
+findings, and honest negatives: `docs/BENCHMARK.md`.
 
 ![Model comparison](reports/figures/backtest_price/01_metrics_comparison.png)
 
@@ -70,7 +82,13 @@ PL day-ahead auction price (SDAC), EUR/MWh, forecast before gate closure.
   largest retrain-ablation cost (+3.5 EUR/MWh MAE when dropped). Two
   independent methods, same answer: the merit order, measured.
 - Spikes are the open front: all models run ~3x pooled MAE on the top-5%
-  priciest hours. Documented, not hidden.
+  priciest hours. Documented, not hidden. Three unconditional band fixes
+  failed honestly; the shipped answer is a conditional spike classifier
+  (AUC 0.966) that flags risky hours in the daily report.
+- **Foundation models, measured.** Chronos-Bolt zero-shot beats our
+  trained PatchTST with zero training — and still joins the product
+  only as an ensemble member. Moirai's covariate mode is significantly
+  WORSE than its own univariate mode: covariate skill needs training.
 - **Attention models: tested hard, archived honestly.** A full campaign
   (HPO, ablations, window/capacity/seed sweeps) decomposed the deep-model
   gap: nearly half was our evaluation setup (short training windows,
@@ -120,13 +138,13 @@ DuckDB · GitHub Actions · ENTSO-E API · Open-Meteo
 
 | Thing | Status |
 |---|---|
-| Cron (05:30 UTC) | DOWN since 2026-07-18 (CI outage) — restart is Phase 4, M11 |
-| Shadow runs (load + price) | paused by the outage; tallies keep the honest gap |
-| Daily reports | 4 committed (target: 30) — restart with the cron |
-| Attention campaign (TFT, PatchTST) | complete 2026-07-21, archived — see `docs/RESULTS.md` |
+| Cron (05:30 UTC) | LIVE on the public repo since 2026-07-23, committing daily reports |
+| Shadow runs (load + price) | running; the 07-19→21 outage hole stays in the tallies |
+| Ensemble + 1095d window | promotion candidates, owner decision pending |
+| Data store | wiped by a git accident 2026-07-24, fully rebuilt same day from APIs; all numbers reproduced (DECISIONS) |
 
-Updated 2026-07-21. An outage is part of ops reality; the tallies and
-DECISIONS.md record it instead of hiding it.
+Updated 2026-07-24. Outages and accidents are part of ops reality;
+the tallies and DECISIONS.md record them instead of hiding them.
 
 ## Quickstart
 

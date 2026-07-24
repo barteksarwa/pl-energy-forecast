@@ -249,6 +249,7 @@ Symmetric CQR is the shipped method. Two challengers tested and rejected:
 
 ## Where the details live
 
+- Benchmark writeup (story + master tables): `docs/BENCHMARK.md`.
 - Model cards: `docs/model_cards/`.
 - Campaign handovers: `docs/handovers/`.
 - Comparison figures: `reports/figures/backtest_price/` (15 plots).

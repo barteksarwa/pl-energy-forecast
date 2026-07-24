@@ -4,6 +4,11 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-07-24 — Benchmark writeup shipped as docs/BENCHMARK.md (Phase 7 S3-S5, blog minimum)**
+Context: PLAN Phase 7 asks for a publication-grade summary: protocol, master tables incl. P&L capture, findings, honest negatives, reproducibility appendix.
+Decision: one markdown page in docs/, story layer over RESULTS.md (numbers stay canonical there). New ensemble model card added; README refreshed (ensemble headline, P&L column, FM findings, live status). arXiv-style expansion stays a stretch goal.
+Why: recruiters and reviewers need one entry point that survives a 3-minute read; the honest-negatives table is the differentiator.
+
 **2026-07-24 — INCIDENT: data/ wiped by a committed worktree symlink; history repaired, refetch running**
 Context: a worktree session symlinked `data/` to the main checkout; `git add -A` committed the symlink (`data/**` in .gitignore matches contents, not the path). The merge into main replaced the real directory and git deleted the ignored parquets.
 Decision: history rewritten before any push (4 commits rebuilt without data paths), `.gitignore` now ignores the `data` path itself, base-data refetch launched via idempotent `make backfill`. Stored backtest preds regenerate from resume-safe scripts; numbers must reproduce against RESULTS.md.
