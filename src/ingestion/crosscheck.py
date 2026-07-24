@@ -35,6 +35,11 @@ def compare(a: pd.Series, b: pd.Series, name: str) -> dict:
     return out
 
 
+def merge_canonical(pse: pd.Series, ent: pd.Series) -> pd.Series:
+    """PSE wins wherever both exist; ENTSO-E fills the rest. Sorted."""
+    return pse.combine_first(ent).sort_index()
+
+
 def main() -> int:
     cfg = load_config()
     proc = cfg.paths["data_processed"]
@@ -61,7 +66,7 @@ def main() -> int:
         backup = proc / f"{stem}_pse_only.parquet"
         if not backup.exists():
             pse_s.to_frame().to_parquet(backup)
-        merged = pse_s.combine_first(ent_s).sort_index()
+        merged = merge_canonical(pse_s, ent_s)
         added = len(merged) - len(pse_s)
         merged.to_frame().to_parquet(path)
         log_gaps(merged, f"merged_{stem}", proc / "gap_log.csv")
