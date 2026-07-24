@@ -1,0 +1,56 @@
+\section{Foundation-model campaign verdict --- Chronos, TimesFM, Moirai}
+
+\subsection{Setup}
+
+Three zero-shot foundation models through the identical 2-year
+backtest. No training on our data. CQR on top where bands needed
+calibration. Fairness footnote as always: zero-shot models are
+covariate-blind (except \texttt{moirai\_cov}); the champion sees
+RES, TSO load and calendar.
+
+\subsection{The full FM table}
+
+\begin{tabular}{lcccl}
+\hline
+Model & MAE & rMAE & Raw coverage & Verdict \\
+\hline
+Champion LGBM (365d) & 17.87 & 0.640 & 78.9\% & champion \\
+Chronos-Bolt & 21.98 & 0.787 & --- & best FM \\
+TimesFM 2.5 & 22.52 & 0.807 & 80.7\% & best raw bands \\
+Moirai univariate & 23.69 & 0.849 & 77.0\% & mid \\
+Moirai + covariates & 24.86 & 0.890 & 75.5\% & negative result \\
+Naive & 27.91 & 1.000 & 52.5\% & floor \\
+\hline
+\end{tabular}
+
+\subsection{Verdicts}
+
+\begin{itemize}
+\item \textbf{Chronos-Bolt wins the FM race} (rMAE 0.787). It is the
+      pre-declared ``best FM'' ensemble member.
+\item \textbf{TimesFM's raw bands are remarkably calibrated}: 80.7\%
+      coverage without any conformal step. Chronos and Moirai need
+      CQR. If you need honest bands with zero infrastructure,
+      TimesFM is the pick.
+\item \textbf{Moirai's covariate mode is a clean negative}: 1.2 MAE
+      worse than its own univariate variant, DM-significant.
+      Covariate skill needs training (learning note 24).
+\item \textbf{All FMs beat naive by a wide margin, none touches the
+      champion.} The 4--7 MAE gap is what covariates plus local
+      training buy.
+\item Fine-tune gate (rMAE $< 0.75$) stays closed. No FM cleared it.
+\end{itemize}
+
+\subsection{What survives into the product}
+
+Chronos joins the CRPS ensemble as the diversity member
+(model-selection note 16). TimesFM and Moirai are benchmark rows
+and interview material, not product components.
+
+\subsection{Interview line}
+
+``I benchmarked three foundation-model families on identical
+walk-forwards. Chronos won, TimesFM had the best-calibrated raw
+bands, and Moirai's covariate mode was significantly worse than
+its own univariate mode. One sentence: zero-shot is a strong free
+baseline, a diversity donor for ensembles, and no champion.''

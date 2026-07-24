@@ -1,0 +1,65 @@
+\section{Ensemble verdict --- the new best price forecast}
+
+\subsection{What was tested}
+
+CRPS-weighted blend of the pre-declared members: champion LGBM+CQR,
+LEAR+CQR, Chronos+CQR (best FM). Weights: inverse trailing-60-day
+crps3, past-only, equal-weight warm-up. Mechanics in learning
+note 23.
+
+\subsection{Pre-declared gates --- all passed}
+
+\begin{tabular}{lll}
+\hline
+Gate & Required & Result \\
+\hline
+MAE vs champion & $-0.15$ or better & $-0.53$ (17.34 vs 17.87) \\
+Significance & DM $p < 0.05$ & $p = 2.5\times10^{-4}$ \\
+Consistency & wins every test year & won 2024, 2025, 2026 \\
+Bands & Winkler not worse & 84.7 vs 89.5 \\
+\hline
+\end{tabular}
+
+\subsection{The over-coverage fix}
+
+The raw blend covered 84.2\% (nominal 80\%): averaging three
+calibrated bands over-widens because member errors are not
+perfectly correlated. A second rolling-CQR pass on the blended band
+fixed it: 79.9\% coverage, Winkler 85.2 $\rightarrow$ 84.7, MAE
+untouched. Cost: spike coverage 57.4\% $\rightarrow$ 55.3\%
+(still above the champion's 51.3\%).
+
+\subsection{Verdict}
+
+\textbf{\texttt{ens\_crps\_cqr} is the promotion candidate for the
+price product.} MAE 17.34, rMAE 0.620, coverage 79.9\%,
+Winkler 84.7. Every number beats or matches the standing champion.
+
+Open questions before promotion (owner call):
+\begin{itemize}
+\item Interacts with the pending 1095d-window promotion: the 1095d
+      LGBM alone hits 17.38. Rebuilding the ensemble on top of
+      1095d members is the natural follow-up.
+\item Operational cost: three models in the daily loop instead of
+      one. Chronos adds a transformers dependency
+      (\texttt{--extra fm}).
+\end{itemize}
+
+\subsection{Honest caveats}
+
+\begin{itemize}
+\item Skill weighting adds only 0.12 MAE over equal weights.
+      The diversity does the work, not the weighting cleverness.
+\item Spike MAE 61.1 --- marginally worse than the champion's 60.3.
+      The blend smooths; spikes resist smoothing.
+\item TFT excluded from this table (its stored preds cover a
+      different window --- two-window discipline).
+\end{itemize}
+
+\subsection{Interview line}
+
+``My best price forecast is a three-model ensemble: gradient
+boosting, regularized linear, and a zero-shot foundation model,
+blended with trailing inverse-CRPS weights and re-conformalized.
+It beats the best single model by 0.53 EUR/MWh MAE at
+$p = 2.5\times10^{-4}$ and holds 79.9\% coverage on an 80\% band.''

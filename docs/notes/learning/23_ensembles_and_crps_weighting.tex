@@ -1,0 +1,79 @@
+\section{Ensembles and CRPS weighting --- why averaging models wins}
+
+\subsection{The idea}
+
+An ensemble averages the forecasts of several models.
+It wins when the members make \emph{different} mistakes.
+If model A is 2 EUR too high and model B is 2 EUR too low,
+their average is perfect. Correlated errors average to nothing.
+So the recipe is: combine models that are individually good
+AND structurally different.
+
+Our members: LGBM (trained, covariates), LEAR (linear, covariates),
+Chronos (zero-shot, univariate). Three different failure modes.
+
+\subsection{CRPS and our crps3 proxy}
+
+CRPS (continuous ranked probability score) measures a whole
+predictive distribution against one observed value.
+Lower is better. It generalizes MAE to distributions.
+
+We store only three quantiles (P10/P50/P90), not a full distribution.
+So we use the mean pinball loss over those three quantiles.
+We call it \texttt{crps3} --- the name admits it is a proxy.
+
+\subsection{Inverse-score weights, past-only}
+
+Weight for model $m$ on day $D$:
+\[
+w_m(D) \propto \frac{1}{\overline{\text{crps3}}_m(D-60 \dots D-1)}
+\]
+Better recent skill $\rightarrow$ bigger weight. The window sees only
+days before $D$ --- no leakage. The first 60 days use equal weights
+(no history yet). Weights adapt when a model degrades.
+
+\subsection{Quantile-wise blending}
+
+We average each quantile separately: blended P10 is the weighted
+mean of member P10s, and so on. Then we re-sort the three numbers
+per hour so P10 $\le$ P50 $\le$ P90 always holds.
+Caveat: averaging quantiles is not the same as averaging
+distributions (that would be Vincentization vs mixture). For three
+quantiles the practical difference is small.
+
+\subsection{The double conformal trick}
+
+Averaging bands from three calibrated models produced an
+over-covering band: 84.2\% instead of the nominal 80\%.
+Why: member errors are positively but not perfectly correlated,
+so the blended band is wider than needed.
+Fix: run rolling CQR \emph{again} on the blended band.
+The conformal offset $Q$ goes negative and tightens the band.
+Result: coverage 79.9\%, Winkler improved, MAE untouched.
+
+\subsection{Worked example: our numbers}
+
+\begin{tabular}{lccc}
+\hline
+Model & MAE & Coverage & Winkler \\
+\hline
+Ensemble + CQR & 17.34 & 79.9\% & 84.7 \\
+Ensemble raw & 17.34 & 84.2\% & 85.2 \\
+Equal weights & 17.46 & 84.3\% & 85.9 \\
+Champion LGBM & 17.87 & 78.9\% & 89.5 \\
+\hline
+\end{tabular}
+
+\vspace{0.5em}
+Note the equal-weight row. Skill weighting adds only 0.12 MAE over
+equal weights. Most of the gain is the diversity itself.
+This is a standard finding in the combination literature.
+
+\subsection{Interview line}
+
+``I blended LGBM, LEAR and a zero-shot Chronos with inverse-CRPS
+weights from a trailing 60-day window. The blend beat the best
+single model by 0.53 MAE, DM $p < 0.001$. The surprise: Chronos is
+4 MAE worse alone, but it still helps --- its errors are
+uncorrelated with the structural models. Diversity, not weighting,
+does the work.''

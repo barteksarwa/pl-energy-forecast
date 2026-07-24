@@ -1,0 +1,65 @@
+\section{Covariates in foundation models --- why zero-shot cannot use them}
+
+\subsection{The question}
+
+Our champion's skill comes almost entirely from covariates:
+tomorrow's wind, solar and load forecasts. Zero-shot foundation
+models are univariate --- they see only price history.
+Moirai (Salesforce) claims native covariate support.
+So we tested: does handing a zero-shot model our covariates help?
+
+\subsection{The experiment}
+
+Two Moirai variants, identical everywhere else:
+\begin{itemize}
+\item \texttt{moirai\_zs} --- univariate, price history only.
+\item \texttt{moirai\_cov} --- price history + RES forecast + TSO
+      load forecast as known-future covariates.
+\end{itemize}
+Their delta is the covariate lift, measured cleanly.
+Same 2-year backtest as every other model.
+
+\subsection{The result: covariates HURT}
+
+\begin{tabular}{lccc}
+\hline
+Model & MAE & rMAE & Coverage \\
+\hline
+Moirai univariate & 23.69 & 0.849 & 77.0\% \\
+Moirai + covariates & 24.86 & 0.890 & 75.5\% \\
+\hline
+\end{tabular}
+
+\vspace{0.5em}
+Adding the covariates made it 1.2 EUR/MWh WORSE.
+The difference is DM-significant. Not noise.
+
+\subsection{Why}
+
+A trained model learns the mapping from OUR covariates to OUR
+prices: 1 GW more wind $\approx$ X EUR less. Moirai learned
+covariate handling on other domains during pretraining.
+At inference it has no way to learn what a megawatt of Polish wind
+is worth. The covariate channel adds inputs without adding the
+mapping --- extra dimensions, zero domain knowledge. Noise in,
+noise out.
+
+Contrast with the champion: the SAME covariates carry 96\% of its
+skill. The information is fine. Using it needs training.
+
+\subsection{The general lesson}
+
+Zero-shot transfers \emph{patterns} (cycles, spikes, mean
+reversion). It cannot transfer \emph{relationships} between your
+specific inputs and your target. Whenever covariates matter ---
+and in energy prices they dominate --- some form of fitting on
+local data is mandatory. This is the strongest argument in the
+repo for why energy desks still train their own models.
+
+\subsection{Interview line}
+
+``I tested Moirai's covariate mode zero-shot: it was DM-significantly
+worse than univariate Moirai. Covariate skill is a learned mapping,
+not an architectural feature. Same covariates carry 96\% of my
+trained champion's skill --- the information is there, but a
+zero-shot model can't price it.''
