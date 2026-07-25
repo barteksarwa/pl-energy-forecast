@@ -4,6 +4,11 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-07-25 — LGBM price HPO: defaults survive; honest negative**
+Context: champion ran "conservative untuned defaults" since M4; owner authorized a tuning campaign. 14 configs at 1095d windows, screen on test year 1, confirm top-3+control on year 2 (never used for selection). Pre-declared gate: beat control by >=0.10 MAE on BOTH years.
+Decision: NO config passes. Best (slow-learn lr 0.02-0.03, 1000-1500 trees) gains 0.02-0.08/yr. Defaults stay; the card now says "tuned 2026-07-25 — defaults survived". Side finding: noloadlags is +0.09 WORSE at 1095d (was -0.12 better at 365d) — the load-lags-drop flip is window-conditional, cancel it for the 1095d config.
+Why: flat HPO surface on well-engineered features is the expected LGBM behavior; chasing 0.05 MAE with tuned configs buys fragility, not skill. Evidence: `reports/backtests/2026-07-25_lgbm_price_hpo.csv`.
+
 **2026-07-24 — Blend on 1095d members: tested, NOT adopted (DM p=0.06)**
 Context: natural follow-up to the two pending promotions — rebuild the CRPS blend on 1095d-window LGBM/LEAR. Pre-declared gates: beat ens-365 with DM p<0.05, coverage holds, Winkler not worse.
 Decision: MAE improves 17.34→17.18 but NOT significantly (p=0.0596), loses the 2026 slice, P&L capture identical (0.925 vs 0.926). Blend stays on 365d members. Solo-champion 1095d promotion case (p=0.0009) unaffected.

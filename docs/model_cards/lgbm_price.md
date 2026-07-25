@@ -4,8 +4,11 @@
 
 The same `LightGBMQuantile` class as the load model (`src/models/gbm.py`),
 pointed at the price target. Three boosters (P10/P50/P90), pinball
-objective, conservative untuned defaults. Current MAE champion on the
-price table.
+objective. Tuned 2026-07-25: a 14-config HPO campaign (temporal
+screen/confirm split, pre-declared gate) failed to beat the
+conservative defaults by the required 0.10 MAE — the defaults
+survived and stay. Current single-model MAE champion on the price
+table (the CRPS ensemble is the overall best).
 
 Target: PL day-ahead price, EUR/MWh (`price_da_eur.parquet`).
 

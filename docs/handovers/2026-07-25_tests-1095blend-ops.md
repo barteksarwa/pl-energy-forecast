@@ -24,6 +24,17 @@
   documented 23.69 / 24.86 — covariate negative reproduces. The only
   preds still missing are the deep/TFT ones (owner-scheduled).
 
+## HPO campaign (owner-authorized, 2026-07-25)
+
+- LGBM price HPO at 1095d: 14 configs, screen/confirm temporal split,
+  gate ≥0.10 MAE on both years. **NO config passed — defaults stay.**
+  Best gain 0.02-0.08/yr (slow-learn variants). Card updated.
+- Side finding: noloadlags flips sign at 1095d (+0.09 worse; was
+  −0.12 better at 365d). Cancel the load-lags drop for the 1095d
+  config. Third window-conditional ablation flip in the repo.
+- Full rows: `reports/backtests/2026-07-25_lgbm_price_hpo.csv`.
+- Enabler kept: `LightGBMQuantile(params=...)` override (tested).
+
 ## Owner decisions pending (all evidence now in)
 
 1. 1095d window for the SOLO champion (DM p=0.0009 — solid).

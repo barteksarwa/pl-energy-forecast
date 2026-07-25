@@ -210,6 +210,27 @@ Pre-declared gates: beat ens-365 (17.34) with DM p<0.05, coverage
   spike caveat carries through.
 - Source: `reports/backtests/2026-07-24_price_ensemble_1095_summary.md`.
 
+## LGBM price HPO (2026-07-25) — defaults survive
+
+14 configs, 1095d windows, screen year 1 / confirm year 2 (top-3 +
+control only; confirm never used for selection). Gate: beat control
+by ≥0.10 MAE on both years.
+
+| Config | Screen MAE | Confirm MAE | Verdict |
+|---|---|---|---|
+| control (shipped defaults) | 17.62 | 16.98 | stays |
+| lr02_n1500 (best) | 17.55 | 16.91 | gate failed |
+| lr03_n1000 | 17.54 | 16.97 | gate failed |
+| leaves127 | 17.62 | 17.10 | gate failed |
+
+- NO config clears the gate. The M4 "conservative defaults" were
+  already near the optimum for this feature set — the HPO surface is
+  flat, the honest and common LGBM outcome on engineered features.
+- Side finding: `noloadlags` at 1095d is +0.09 WORSE (17.71 vs 17.62);
+  at 365d it was −0.12 better. The load-lags verdict is
+  window-conditional — third documented ablation sign-flip.
+- Source: `reports/backtests/2026-07-25_lgbm_price_hpo.csv`.
+
 ## Battery-arbitrage P&L (2026-07-24) — forecasts in EUR
 
 1 MW / 2 MWh / 0.85 round-trip / 1 cycle/day. Schedule from P50 at
