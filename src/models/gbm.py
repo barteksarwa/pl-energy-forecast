@@ -31,14 +31,18 @@ PARAMS = {
 class LightGBMQuantile:
     name = "lgbm_quantile"
 
-    def __init__(self) -> None:
+    def __init__(self, params: dict | None = None) -> None:
+        """`params` overrides entries of the default PARAMS (HPO runs,
+        config-driven variants). Omitted -> shipped defaults."""
+        self._params = {**PARAMS, **(params or {})}
         self._models: dict[float, lgb.LGBMRegressor] = {}
         self._columns: list[str] | None = None
 
     def fit(self, x: pd.DataFrame, y: pd.Series) -> None:
         self._columns = list(x.columns)
         for q in QUANTILES:
-            model = lgb.LGBMRegressor(objective="quantile", alpha=q, **PARAMS)
+            model = lgb.LGBMRegressor(objective="quantile", alpha=q,
+                                      **self._params)
             model.fit(x, y)
             self._models[q] = model
 
