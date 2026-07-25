@@ -19,11 +19,10 @@
 - **Ops verified post-incident.** `make dry-run` clean on the rebuilt
   store: fetch, scoring, load+price forecasts, spike line, report
   2026-07-25 committed. Challenger beat TSO on load yesterday.
-- **Moirai regeneration launched** (scratch venv rebuilt at
-  `~/Documents/moirai_scratch/moirai_env`): univariate + covariate
-  2-yr runs, log `logs/regen_moirai_2026-07-25.log`. Check the
-  parquets land in `backtest_preds_price_moirai2yr/` and spot-check
-  vs RESULTS (23.69 / 24.86).
+- **Moirai regenerated and VERIFIED** (scratch venv rebuilt at
+  `~/Documents/moirai_scratch/moirai_env`): zs 23.70 / cov 24.87 vs
+  documented 23.69 / 24.86 — covariate negative reproduces. The only
+  preds still missing are the deep/TFT ones (owner-scheduled).
 
 ## Owner decisions pending (all evidence now in)
 
