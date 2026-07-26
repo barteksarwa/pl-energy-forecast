@@ -100,7 +100,7 @@ def main() -> int:
     p3, p4 = blends[60], build_blend(m4, y, 60)
     t = summarize_price(
         [BacktestResult("blend3", p3), BacktestResult("blend4", p4)], y)
-    lines += [t[["mae", "rmae", "coverage_80_pct", "winkler"]]
+    lines += [t[["mae", "coverage_80_pct", "winkler"]]
               .round(3).to_markdown(), ""]
     stat, pval = dm_test(daily_mae(p4, y), daily_mae(p3, y))
     mae3 = float(t.loc["blend3", "mae"])
