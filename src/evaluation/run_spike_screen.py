@@ -101,6 +101,7 @@ def main() -> int:
     y = price.reindex(x.index)
 
     rows = []
+    (proc / "backtest_preds_spike").mkdir(parents=True, exist_ok=True)
     for seed in args.seeds:
         print(f"walk-forward, seed {seed} ...")
         proba = walk_forward_proba(
