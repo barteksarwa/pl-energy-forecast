@@ -133,9 +133,12 @@ in advance. Every non-obvious choice is logged in `docs/DECISIONS.md`.
   agent-based audit traced every headline number to its artifact and
   red-teamed the code. It confirmed 31 findings — mostly documentation
   drift after regenerated runs, plus 2 real protocol bugs. Both bugs
-  fixed with regression tests; impact bounded at ~0.11 MAE, shared by
-  all trained models, so rankings were unaffected. No modeling
-  conclusion was overturned. Full review: `docs/VALIDATION.md`.
+  fixed with regression tests. Follow-up analysis then narrowed one
+  finding: the flagged training hours are PUBLIC for prices (fixed at
+  the previous day's auction), so the price tables were never
+  flattered — the retraction is documented, and the load-side impact
+  is still to be bounded. No modeling conclusion was overturned.
+  Full review: `docs/VALIDATION.md`.
 
 ## Stack
 
@@ -150,7 +153,7 @@ DuckDB · GitHub Actions · ENTSO-E API · Open-Meteo
 | Shadow runs (load + price) | running; the 07-19→21 outage hole stays in the tallies |
 | 4-member ensemble (+ TFT) | new best price forecast; promotion pending owner (TFT inference cost) |
 | Independent validation | done 2026-07-27; 2 protocol bugs fixed, impact bounded (docs/VALIDATION.md) |
-| Corrected-protocol re-runs | running — next campaign, bounds the ~0.11 MAE shared bias |
+| Price-chain re-runs | running — rebuilding stored predictions under the task-aware cutoff |
 | Data store | wiped by a git accident 2026-07-24, fully rebuilt same day from APIs; all numbers reproduced (DECISIONS) |
 
 Updated 2026-07-27. Outages and accidents are part of ops reality;

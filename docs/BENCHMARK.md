@@ -19,11 +19,14 @@ story around them. Blog draft; arXiv-style expansion is the stretch goal.
 1. **Hard information cutoff.** Only data observable at 09:00 D-1.
    Enforced by asserts and tests, incl. the 25-hour DST day that broke
    a naive "minus 24 hours" lag once. Documented bug, fixed, tested.
-   The 2026-07-27 validation review found the backtest training mask
-   still reached past this cutoff (D-1 09:00-23:00 leaked into training).
-   Fixed with a regression test; impact bounded at ~0.11 MAE, shared by
-   all trained models, rankings unaffected (see §6). The cutoff is
-   tested, not just stated.
+   The 2026-07-27 validation review flagged the backtest training mask
+   reaching past this cutoff (D-1 09:00-23:00). The fix shipped with a
+   regression test, then follow-up analysis narrowed the finding: D-1
+   prices are PUBLIC at decision time (fixed at the D-2 auction), so
+   the price cutoff is now task-aware (`target_published` vs
+   `decision_0900`) and the price tables were never flattered. The
+   load-side impact is still to be bounded. The cutoff is tested in
+   both modes, not just stated.
 2. **Walk-forward only.** Rolling refits (weekly for trained models,
    daily context for zero-shot). No random splits. Test period
    2024-07 → 2026-07, ~17.7k hours.
@@ -140,11 +143,15 @@ code. It is the audit a model-risk function would run.
 - **2 real protocol bugs** in the code, fixed with regression tests: the
   backtest training mask reached past the 09:00 cutoff, and the D-1 price
   vector picked up the D-2 shape on the day after spring DST.
-- **Impact bounded.** The cutoff bug added ~0.11 MAE of optimism, SHARED
-  by every trained model (champion 17.95 vs 17.84 corrected). Rankings
-  unaffected. The production daily loop never had the defect — it runs
-  after gate closure and cannot see the future.
-- Corrected-protocol re-runs are the next campaign. Full review:
+- **Impact assessed, then narrowed.** Cutting the flagged hours cost
+  the champion 0.11 MAE (17.95 vs 17.84) — but follow-up analysis
+  showed those hours are PUBLIC for prices (D-2 auction), so the
+  finding is retracted for the price task and the price tables were
+  never flattered. It stands for the load task, where the impact is
+  not yet bounded. The production daily loop never had the defect —
+  it runs after gate closure and cannot see the future.
+- The price prediction store is being rebuilt under the task-aware
+  cutoff; a load-side bounding run is the open item. Full review:
   `docs/VALIDATION.md`.
 
 No finding overturned a modeling conclusion. The gap was documentation
