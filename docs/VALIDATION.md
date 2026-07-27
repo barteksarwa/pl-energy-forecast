@@ -87,17 +87,17 @@ All against `2026-07-24_pnl_summary.csv` (722 days).
 | D5 | m | RESULTS internally inconsistent (capture 0.924 at L243 vs 0.926 at L197) | fixed 07-27 |
 | D6 | m | Ensemble edge "+2.3 EUR/day"; artifact diff 2.353 | fixed 07-27 |
 | D7 | m | Chronos/TimesFM capture rounded down (0.890/0.880 vs 0.891/0.881) | fixed 07-27 |
-| D8 | m | HPO leaves127 screen MAE 17.62; artifact rounds to 17.61 | open (cosmetic) |
+| D8 | m | HPO leaves127 screen MAE 17.62; artifact rounds to 17.61 | fixed 07-27 |
 
 **E. Code findings** — detailed in Section 3.
 
 | # | Sev | Where | Issue | Status |
 |---|---|---|---|---|
-| E1 | **M** | `src/features/price_lags.py:103` | D-1 price vector built from D-2 on the day after spring DST | **open** |
-| E2 | **M** | `src/evaluation/backtest.py:54` | Training target includes D-1 hours after the 09:00 cutoff | **open** |
-| E3 | m | `src/evaluation/conformal.py:69` etc. | Linear-interpolated quantile weakens the finite-sample CQR guarantee | open |
-| E4 | m | `src/evaluation/conformal.py:137-144` | Asymmetric path sizes the upper tail from the lower-tail count; no upper guard | open |
-| E5 | m | `src/evaluation/run_ensemble_sweeps.py:117-137` | Blend "CQR window sweep" stacks a second CQR on a fixed 90d first pass; sweep mislabeled | open |
+| E1 | **M** | `src/features/price_lags.py:103` | D-1 price vector built from D-2 on the day after spring DST | FIXED 07-27 (regression test) |
+| E2 | **M** | `src/evaluation/backtest.py:54` | Training target includes D-1 hours after the 09:00 cutoff | FIXED 07-27 (test; impact bound ~0.11 MAE; spike-screen loop fixed too) |
+| E3 | m | `src/evaluation/conformal.py:69` etc. | Linear-interpolated quantile weakens the finite-sample CQR guarantee | FIXED 07-27 ('higher'; effect ~0 measured) |
+| E4 | m | `src/evaluation/conformal.py:137-144` | Asymmetric path sizes the upper tail from the lower-tail count; no upper guard | FIXED 07-27 (per-tail sizing) |
+| E5 | m | `src/evaluation/run_ensemble_sweeps.py:117-137` | Blend "CQR window sweep" stacks a second CQR on a fixed 90d first pass; sweep mislabeled | disclosed 07-27 (note on the sweep report; verdict discarded) |
 | E6 | m | `src/models/price.py:157-179` | LEAR raw band from in-sample residuals — optimistic width | open |
 | E7 | m | `src/features/price_matrix.py:57` | RES forecast post-dates gate closure — disclosed proxy, not a hidden leak | accepted design choice |
 
@@ -144,7 +144,7 @@ This is a genuinely strong disclosure culture. The failures found here are drift
 
 Prioritized. P1 = fix before quoting the numbers externally.
 
-**P1 — protocol correctness (open):**
+**P1 — protocol correctness (DONE 2026-07-27 — both fixed, tested, impact bounded):**
 1. Fix `backtest.py:54`. Cap the training target at the 09:00 D-1 UTC cutoff, not the day boundary. Add a test. Re-run one champion backtest to bound the impact; expect small, but measure it.
 2. Fix `daily_price_vector`. Derive D-1 with the local-day shift helper, not `Timedelta(days=1)`. Add a spring-DST regression test (target day 2024-04-01).
 

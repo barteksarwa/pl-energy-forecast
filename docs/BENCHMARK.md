@@ -19,6 +19,11 @@ story around them. Blog draft; arXiv-style expansion is the stretch goal.
 1. **Hard information cutoff.** Only data observable at 09:00 D-1.
    Enforced by asserts and tests, incl. the 25-hour DST day that broke
    a naive "minus 24 hours" lag once. Documented bug, fixed, tested.
+   The 2026-07-27 validation review found the backtest training mask
+   still reached past this cutoff (D-1 09:00-23:00 leaked into training).
+   Fixed with a regression test; impact bounded at ~0.11 MAE, shared by
+   all trained models, rankings unaffected (see §6). The cutoff is
+   tested, not just stated.
 2. **Walk-forward only.** Rolling refits (weekly for trained models,
    daily context for zero-shot). No random splits. Test period
    2024-07 → 2026-07, ~17.7k hours.
@@ -56,7 +61,8 @@ P&L (1 MW / 2 MWh / 0.85 RTE / 1 cycle, day-ahead only).
 
 | Model | MAE | rMAE | Coverage (80% nom.) | P&L capture |
 |---|---|---|---|---|
-| **Ensemble (CRPS-weighted + CQR)** | **17.34** | **0.622** | **79.9%** | **0.926** |
+| **4-member ensemble (+ TFT, CQR)** | **16.89** | **0.605** | **80.0%** | **0.929** |
+| Ensemble, 3-member variant (CRPS-weighted + CQR) | 17.34 | 0.622 | 79.9% | 0.926 |
 | LGBM 1095d window (candidate) | 17.38 | 0.623 | 78.7% | — |
 | LGBM 365d + CQR (champion) | 17.84 | 0.640 | 78.6% | 0.915 |
 | LEAR + CQR (industry standard) | 18.46 | 0.662 | 79.5% | 0.911 |
@@ -67,6 +73,11 @@ P&L (1 MW / 2 MWh / 0.85 RTE / 1 cycle, day-ahead only).
 | Moirai univariate zero-shot | 23.69 | 0.849 | 77.0% raw | — |
 | Moirai + covariates zero-shot | 24.86 | 0.890 | 75.5% raw | — |
 | Naive (same hour yesterday) | 27.88 | 1.000 | 53.1% | 0.814 |
+
+The 4-member row adds an archived TFT (3-seed, 730d) as a diversity
+donor. It is scored on the 17,456 h intersection where all members
+overlap — the TFT window ends 2026-07-14. New best on every gate
+(DM p=2.3e-09 vs the 3-member blend; source `docs/RESULTS.md`).
 
 Notes on provenance: ensemble/LGBM/LEAR/FM rows from the regenerated
 2026-07-24 runs (window ends 2026-07-24); TFT/PatchTST/Moirai rows from
@@ -107,8 +118,39 @@ the 17.84 above. Sources in `docs/RESULTS.md`.
 8. **The champion's edge over LEAR is not significant** (DM p=0.056).
    We say "matches or slightly beats". The ensemble's edge IS
    significant.
+9. **A dead model can still be the best donor.** TFT lost solo and was
+   archived. Added to the blend it gives the new best (16.89 vs 17.34,
+   DM p=2.3e-09), because deep-model errors decorrelate from
+   trees/linear/FM. A second FM (TimesFM) added nothing (+0.57). What
+   the blend wants is a different error STRUCTURE, not another strong
+   member.
+10. **Selection is not combination.** BOA weights were rejected (18.41
+    vs 16.89): BOA minimizes regret against the single best expert, so
+    it piles 99.6% of the weight on LGBM and forfeits the diversity
+    averaging that drives the blend. Inverse-CRPS combination stays.
 
-## 6. Honest negatives (kept, not hidden)
+## 6. Independent validation (2026-07-27)
+
+An agent-based model-risk review audited the numbers and red-teamed the
+code. It is the audit a model-risk function would run.
+
+- **31 confirmed findings** (adversarial: every finding had to survive a
+  refuter). 24 were documentation drifts — stale citations and
+  hand-transcription errors after regenerated runs. All 24 fixed.
+- **2 real protocol bugs** in the code, fixed with regression tests: the
+  backtest training mask reached past the 09:00 cutoff, and the D-1 price
+  vector picked up the D-2 shape on the day after spring DST.
+- **Impact bounded.** The cutoff bug added ~0.11 MAE of optimism, SHARED
+  by every trained model (champion 17.95 vs 17.84 corrected). Rankings
+  unaffected. The production daily loop never had the defect — it runs
+  after gate closure and cannot see the future.
+- Corrected-protocol re-runs are the next campaign. Full review:
+  `docs/VALIDATION.md`.
+
+No finding overturned a modeling conclusion. The gap was documentation
+drift, not concealment.
+
+## 7. Honest negatives (kept, not hidden)
 
 | Attempt | Verdict | Where documented |
 |---|---|---|
@@ -120,8 +162,12 @@ the 17.84 above. Sources in `docs/RESULTS.md`.
 | load_lags in price model | dead weight (−0.12 MAE without) | DECISIONS 07-22 |
 | Chronos fine-tune | gate closed (rMAE 0.787 > 0.75) | DECISIONS 07-23 |
 | Outage features | flat | backlog, PLAN |
+| LGBM HPO (14 configs) | defaults survived; flat surface | RESULTS, DECISIONS 07-25 |
+| BOA ensemble weights | 18.41 vs 16.89; selection, not combination | DECISIONS 07-27 |
+| Rolling-90d spike threshold | AUC 0.955 vs 0.966; static stays | DECISIONS 07-27 |
+| TimesFM as 4th blend member | added nothing (+0.57 MAE) | RESULTS, DECISIONS 07-27 |
 
-## 7. Reproducibility appendix
+## 8. Reproducibility appendix
 
 - **Data:** ENTSO-E Transparency (token in `.env`), PSE raporty API,
   Open-Meteo archive + previous-runs. `make backfill` rebuilds

@@ -10,16 +10,16 @@ The git history is the live track record.
 
 - **Load: beats the Polish TSO.** Ridge combiner 2.08% MAPE vs PSE's own
   day-ahead forecast at 2.23%.
-- **Price: a three-model ensemble is the new best.** CRPS-weighted blend
-  of LightGBM + LEAR + a zero-shot foundation model: MAE 17.34 EUR/MWh,
-  rMAE 0.622 (DM p=2.5e-04 vs the single champion). LightGBM alone
-  matches the LEAR standard (its MAE edge is not significant, p=0.056 —
-  we say so).
+- **Price: a four-model ensemble is the new best.** CRPS-weighted blend
+  of LightGBM + LEAR + a zero-shot foundation model + an archived TFT as
+  diversity donor: MAE 16.89 EUR/MWh, 39% better than seasonal naive
+  (DM p=2.3e-09 vs the 3-member blend). LightGBM alone matches the LEAR
+  standard (its MAE edge is not significant, p=0.056 — we say so).
 - **Calibrated uncertainty.** P10/P90 bands conformally calibrated to
   ~80% empirical coverage — including the blend (double-conformal).
 - **Forecasts priced in EUR.** A battery-arbitrage backtest converts
-  MAE into money: the ensemble captures 92.6% of perfect-foresight
-  value. Full writeup: `docs/BENCHMARK.md`.
+  MAE into money: the 4-member ensemble captures 92.9% of
+  perfect-foresight value. Full writeup: `docs/BENCHMARK.md`.
 
 ## The two products
 
@@ -60,7 +60,8 @@ PL day-ahead auction price (SDAC), EUR/MWh, forecast before gate closure.
 
 | Model | MAE (EUR/MWh) | rMAE | Band coverage (nominal 80%) | P&L capture |
 |---|---|---|---|---|
-| **Ensemble (CRPS + CQR)** | **17.3** | **0.622** | **79.9%** | **0.926** |
+| **Ensemble (4-member, + TFT donor)** | **16.9** | **0.605** | **80.0%** | **0.929** |
+| Ensemble (3-member variant, CRPS + CQR) | 17.3 | 0.622 | 79.9% | 0.926 |
 | LightGBM quantile + conformal | 17.8 | 0.640 | 78.6% | 0.915 |
 | LEAR + conformal (published daily) | 18.5 | 0.662 | 79.5% | 0.911 |
 | TFT-730 (3-seed ensemble) | 19.5 | 0.699 | 80.9% raw | — |
@@ -128,6 +129,13 @@ in advance. Every non-obvious choice is logged in `docs/DECISIONS.md`.
 - **Four bugs found by our own defenses**, each documented with the
   measured impact: DST leakage, asinh blowup, solar-growth extrapolation
   (38,000 EUR/MWh predictions → z-clip guard), gap-permanence.
+- **Model-risk discipline: we invited an independent review.** An
+  agent-based audit traced every headline number to its artifact and
+  red-teamed the code. It confirmed 31 findings — mostly documentation
+  drift after regenerated runs, plus 2 real protocol bugs. Both bugs
+  fixed with regression tests; impact bounded at ~0.11 MAE, shared by
+  all trained models, so rankings were unaffected. No modeling
+  conclusion was overturned. Full review: `docs/VALIDATION.md`.
 
 ## Stack
 
@@ -140,10 +148,12 @@ DuckDB · GitHub Actions · ENTSO-E API · Open-Meteo
 |---|---|
 | Cron (05:30 UTC) | LIVE on the public repo since 2026-07-23, committing daily reports |
 | Shadow runs (load + price) | running; the 07-19→21 outage hole stays in the tallies |
-| Ensemble + 1095d window | promotion candidates, owner decision pending |
+| 4-member ensemble (+ TFT) | new best price forecast; promotion pending owner (TFT inference cost) |
+| Independent validation | done 2026-07-27; 2 protocol bugs fixed, impact bounded (docs/VALIDATION.md) |
+| Corrected-protocol re-runs | running — next campaign, bounds the ~0.11 MAE shared bias |
 | Data store | wiped by a git accident 2026-07-24, fully rebuilt same day from APIs; all numbers reproduced (DECISIONS) |
 
-Updated 2026-07-24. Outages and accidents are part of ops reality;
+Updated 2026-07-27. Outages and accidents are part of ops reality;
 the tallies and DECISIONS.md record them instead of hiding them.
 
 ## Quickstart
