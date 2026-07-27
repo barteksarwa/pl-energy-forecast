@@ -1,5 +1,9 @@
 # Model card — ens4_tft (price ensemble)
 
+**Production status: BACKTEST CANDIDATE** — not in the daily loop.
+Best price forecast on every backtest gate; promotion pending owner
+(TFT inference cost).
+
 ## What it is
 
 A CRPS-weighted blend of four price models, re-conformalized.

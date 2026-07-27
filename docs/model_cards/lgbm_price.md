@@ -1,5 +1,8 @@
 # Model card — lgbm_quantile (price)
 
+**Production status: SHADOW** — price challenger, scored daily, never
+published. Backtest champion; promotion is a human decision.
+
 ## What it is
 
 The same `LightGBMQuantile` class as the load model (`src/models/gbm.py`),

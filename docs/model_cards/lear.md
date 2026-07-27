@@ -1,5 +1,8 @@
 # Model card — lear (price)
 
+**Production status: PUBLISHED daily** — the price incumbent. The
+daily loop publishes its P50 and conformally widened band.
+
 ## What it is
 
 LEAR = LASSO-Estimated AutoRegression (Ziel & Weron 2018). The standard
