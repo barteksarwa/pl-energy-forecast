@@ -38,6 +38,7 @@ def write_report(
     weather: pd.DataFrame,
     oddities: list[str],
     extra_sections: list[str] | None = None,
+    challenger_drivers: list[str] | None = None,
 ) -> Path:
     tz = cfg.timezone_local
     tomorrow = today_local.date() + pd.Timedelta(days=1)
@@ -75,11 +76,23 @@ def write_report(
         "",
         "### Top drivers (plain words)",
         "",
-        "1. Same hour last week. The naive model copies it.",
-        "2. Day of week: tomorrow is a "
-        f"{pd.Timestamp(tomorrow).day_name()}.",
-        f"3. Warsaw temperature tomorrow: {temp_tomorrow.min():.0f} to "
-        f"{temp_tomorrow.max():.0f} °C (not yet used by the model).",
+        "Published forecast (seasonal naive): it copies the same hour "
+        "last week, so its only drivers are last week's load and the "
+        f"day of week (tomorrow is a {pd.Timestamp(tomorrow).day_name()}).",
+        "",
+    ]
+    if challenger_drivers:
+        lines += [
+            "Shadow challenger (ridge + TSO) — measured drivers of "
+            "tomorrow's forecast (|coef x standardized feature|, exact "
+            "for a linear model):",
+            "",
+        ]
+        lines += [f"{i}. {d}" for i, d in enumerate(challenger_drivers, 1)]
+        lines += [""]
+    lines += [
+        f"Context: Warsaw temperature tomorrow {temp_tomorrow.min():.0f} "
+        f"to {temp_tomorrow.max():.0f} °C.",
         "",
         "### Oddities",
         "",

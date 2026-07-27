@@ -30,13 +30,13 @@ import json
 import pandas as pd
 
 from src.config import REPO_ROOT, Config
+from src.features.price_matrix import build_price_features
+from src.models.price import PriceLEAR
 
 # Anchored to the repo, not the cwd: a relative open() here once meant a
 # different working directory silently published the RAW (uncalibrated,
 # ~72% coverage) band instead of the conformal one.
 CONFORMAL_PATH = REPO_ROOT / "config" / "price_conformal.json"
-from src.features.price_matrix import build_price_features
-from src.models.price import PriceLEAR
 
 
 def _local_day_hours_utc(day: pd.Timestamp, tz: str) -> pd.DatetimeIndex:
@@ -290,6 +290,20 @@ def price_daily_step(
     ]
     if spike_line:
         lines.append(spike_line)
+    # Drivers of the published forecast (hard rule 3): exact per-hour
+    # |coef * scaled feature| for the LEAR models, plain words.
+    try:
+        from src.interpretability.linear_drivers import lear_drivers
+
+        drivers = lear_drivers(model, x_pred)
+        lines += [
+            "",
+            "Top drivers of tomorrow's price forecast (measured, "
+            "|coef x standardized feature| across the 24 hour-models): "
+            + "; ".join(f"{i}. {d}" for i, d in enumerate(drivers, 1)) + ".",
+        ]
+    except Exception as exc:  # noqa: BLE001 — drivers must never kill the price step
+        oddities.append(f"Price: driver attribution failed ({exc}).")
     lines += [
         "",
         f"![Price forecast tomorrow](../figures/daily/price_{tomorrow.date()}.png)",

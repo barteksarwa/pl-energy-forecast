@@ -94,12 +94,13 @@ def run(cfg: Config, today_local: pd.Timestamp) -> str:
 
     # 3b. Shadow challenger (UAT): scored daily, promoted only by a human.
     challenger_note = None
+    challenger_drivers: list[str] = []
     try:
         from src.ingestion.backfill import backfill_pse
         from src.pipeline.challenger import challenger_forecast
 
         backfill_pse(cfg)  # incremental: keeps the processed store current
-        ch = challenger_forecast(cfg, today_local)
+        ch, challenger_drivers = challenger_forecast(cfg, today_local)
         ch_path = cfg.paths["forecasts"] / f"{tomorrow.date()}_challenger.csv"
         ch.rename_axis("time_utc").to_csv(ch_path, float_format="%.1f")
         # score yesterday's shadow forecast if it exists
@@ -157,6 +158,7 @@ def run(cfg: Config, today_local: pd.Timestamp) -> str:
         weather=weather,
         oddities=oddities,
         extra_sections=price_lines,
+        challenger_drivers=challenger_drivers,
     )
     return str(report_path)
 
