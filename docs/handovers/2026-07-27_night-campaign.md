@@ -64,6 +64,44 @@ spike_threshold,conformal_p3}.csv`, scripts in `outputs/experiments/`:
 4. Public README softening (unchanged).
 5. New PLAN: validation P3 items, BOA weights, resource-note ideas.
 
+## PARALLEL-SESSION COORDINATION (2026-07-27 evening — read before merging anything)
+
+A second session worked the E2/price-cutoff problem in parallel in
+`.claude/worktrees/price-cutoff-revert` (branch
+`worktree-price-cutoff-revert`, pushed to origin). It killed this
+session's rerun chains (exit 143) on purpose — correctly, because the
+blanket 09:00 cutoff had produced a broken Chronos rerun (MAE 55.9)
+and was destroying stored predictions.
+
+Division of findings:
+- This session: identified the E2 price-task retraction (D-1 prices
+  public at 09:00), added `train_cutoff="decision_0900"/"target_published"`
+  to `walk_forward_backtest`, reverted the spike screen, updated all
+  docs (RESULTS protocol note, DECISIONS retraction entry, VALIDATION
+  addendum, README/BENCHMARK wording).
+- Other session (per shared memory, deeper on the mechanism): the FM
+  wrappers stamp the next-24h forecast onto the target day, so a
+  context ending 08:00 D-1 shifts forecasts by ~15h — root cause of
+  the 55.9. Fixed wrappers to align by timestamp (`forecast_span` in
+  fm_common), TimesFM max_horizon 24→64, API named
+  `target_availability="realtime"/"day_ahead"`. Backed up pre-chain
+  preds to `data/backup_20260727_prechain/`. Its corrected chain is
+  running in its worktree on COPIED data.
+
+MERGE ORDER FOR THE NEXT SESSION:
+1. Let the other session's chain finish and its branch merge FIRST —
+   its FM alignment fix is strictly deeper than this session's revert.
+2. Reconcile the duplicated API: keep ONE parameter name on
+   `walk_forward_backtest` (their `target_availability` vs this
+   session's `train_cutoff` — pick theirs, port this session's two
+   regression tests in tests/test_backtest.py to it).
+3. Conflict surface: src/evaluation/backtest.py,
+   run_price_backtest.py, run_lgbm_price_hpo.py, run_spike_screen.py,
+   tests/test_backtest.py.
+4. Doc layer (this session's RESULTS/DECISIONS/VALIDATION/README/
+   BENCHMARK retraction wording) has no counterpart on their branch
+   per the memory note — keep it.
+
 ## Gotchas
 
 - Corrected cutoff = `x.index < D-1 09:00 local` in
