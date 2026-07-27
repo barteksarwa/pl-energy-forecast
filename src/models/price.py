@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import LassoCV
+from sklearn.linear_model import LassoCV, LassoLarsIC
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -180,6 +180,42 @@ class PriceLEAR:
         return out
 
 
+class PriceLEARFull(PriceLEAR):
+    """Faithful-LEAR variant: canonical regressor set + AIC penalty.
+
+    Differences vs PriceLEAR (the shipped incumbent), each closing a
+    documented deviation from Ziel & Weron 2018 (see the LEAR model
+    card):
+
+    - expects the full D-2/D-3/D-7 price day-vectors in X — run the
+      backtest with --full-price-vectors (~96 price regressors);
+    - day_of_week / month enter as one-hot dummies, not ordinal ints —
+      a LASSO cannot express weekday effects along Mon<...<Sun;
+    - penalty chosen by LassoLarsIC (AIC), the canonical choice; the
+      k-fold CV folds of the incumbent are not time-ordered.
+    """
+
+    name = "lear_full"
+
+    @staticmethod
+    def _make_pipe() -> Pipeline:
+        return Pipeline(
+            [
+                ("scale", StandardScaler()),
+                ("est", LassoLarsIC(criterion="aic", max_iter=2000)),
+            ]
+        )
+
+    def _transform_x(self, x: pd.DataFrame) -> pd.DataFrame:
+        out = super()._transform_x(x)
+        for d in range(7):
+            out[f"dow_{d}"] = (out["day_of_week"] == d).astype(float)
+        for m in range(1, 13):
+            out[f"month_{m}"] = (out["month"] == m).astype(float)
+        return out.drop(columns=["day_of_week", "month"])
+
+
 register("price_naive_yesterday")(PriceNaiveYesterday)
 register("price_naive_week")(PriceNaiveWeek)
 register("lear")(PriceLEAR)
+register("lear_full")(PriceLEARFull)

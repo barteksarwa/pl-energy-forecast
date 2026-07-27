@@ -33,6 +33,7 @@ def build_price_features(
     res: pd.DataFrame | None = None,
     outages: pd.DataFrame | None = None,
     fuel: pd.DataFrame | None = None,
+    full_price_vectors: bool = False,
 ) -> pd.DataFrame:
     """Feature matrix for a target day's hours, leakage-safe on both series.
 
@@ -52,6 +53,13 @@ def build_price_features(
     day_vec = daily_price_vector(price, target_hours, price_cutoff)
     load_lags = lagged_load_features(load, target_hours, load_cutoff)
     parts = [cal, price_lags, day_vec, load_lags]
+    if full_price_vectors:
+        # canonical LEAR regressor set: the full 24-hour curves of D-2,
+        # D-3 and D-7 next to the D-1 vector (~96 price regressors)
+        parts += [
+            daily_price_vector(price, target_hours, price_cutoff, days_back=k)
+            for k in (2, 3, 7)
+        ]
     if tso is not None:
         parts.append(tso.reindex(target_hours).rename("tso_forecast_mw"))
     if res is not None:
