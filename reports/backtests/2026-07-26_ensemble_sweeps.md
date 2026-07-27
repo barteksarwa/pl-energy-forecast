@@ -43,3 +43,10 @@ Verdict (lgbm): candidate 180d (gate passed)
 |      180 |      79.8  |     85.49 |          54.6 |
 
 Verdict (blend): candidate 180d (gate passed)
+
+---
+Validation note (2026-07-27, finding E5): the blend branch of the CQR
+window sweep re-conformalizes an already-conformalized (90d) blend, a
+configuration no production path produces — its "180d candidate"
+verdict is unreliable and was NOT adopted. The lgbm branch is a
+genuine single-pass sweep. Verdicts above stand: nothing adopted.
