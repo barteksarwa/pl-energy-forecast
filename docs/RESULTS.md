@@ -270,17 +270,19 @@ by ≥0.10 MAE on both years.
 
 1 MW / 2 MWh / 0.85 round-trip / 1 cycle/day. Schedule from P50 at
 D-1 (per-day LP), settle at actual DA prices. Day-ahead only.
-Same 713 days for every model. Capture = P&L / perfect-foresight P&L.
+Same 722 days for every model. Capture = P&L / perfect-foresight P&L.
+(Numbers re-checked against the artifact 2026-07-27 after the
+validation review flagged a stale copy of the pre-regeneration run.)
 
 | Model | EUR/day | Capture | Loss days |
 |---|---|---|---|
 | Perfect foresight | 221 | 1.000 | 0% |
-| **ens_crps_cqr** | **205** | **0.924** | 1.7% |
-| LGBM champion | 202 | 0.914 | 2.1% |
-| LEAR | 201 | 0.908 | 1.5% |
-| Chronos zero-shot | 197 | 0.891 | 2.7% |
-| TimesFM zero-shot | 195 | 0.881 | 2.7% |
-| Naive (yesterday) | 180 | 0.813 | 4.5% |
+| **ens_crps_cqr** | **205** | **0.926** | 1.8% |
+| LGBM champion | 203 | 0.915 | 2.1% |
+| LEAR | 202 | 0.911 | 1.4% |
+| Chronos zero-shot | 197 | 0.891 | 2.6% |
+| TimesFM zero-shot | 195 | 0.881 | 2.6% |
+| Naive (yesterday) | 180 | 0.814 | 4.4% |
 
 - MAE rank == capture rank, no flips (PLAN watch item closed).
 - Value compresses: naive is 10.6 MAE worse yet captures 81% —

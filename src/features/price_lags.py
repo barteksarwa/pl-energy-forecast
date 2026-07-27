@@ -21,6 +21,8 @@ defense in depth.
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 import pandas as pd
 
 LOCAL_TZ = "Europe/Warsaw"
@@ -100,7 +102,10 @@ def daily_price_vector(
         raise ValueError("price, target_hours and cutoff must all be tz-aware")
 
     visible = price[price.index < cutoff]
-    d_minus_1 = (target_hours[0].tz_convert(tz) - pd.Timedelta(days=1)).date()
+    # calendar-day shift, NOT Timedelta(days=1): 24 absolute hours from
+    # local midnight lands on D-2 when D-1 is the 23-hour spring-DST day
+    # (validation finding E1, 2026-07-27)
+    d_minus_1 = target_hours[0].tz_convert(tz).date() - timedelta(days=1)
     local = visible.index.tz_convert(tz)
     day_mask = pd.Index(local.date) == d_minus_1
     yesterday = visible[day_mask]

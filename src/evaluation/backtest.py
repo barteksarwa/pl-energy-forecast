@@ -12,6 +12,7 @@ target never includes the target day or anything after it.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Callable
 
 import pandas as pd
@@ -51,7 +52,16 @@ def walk_forward_backtest(
     preds: list[pd.DataFrame] = []
 
     for day in test_days:
-        train_mask = (dates < day) & (dates >= day - pd.Timedelta(days=train_window_days))
+        # The decision moment is 09:00 local on D-1. `dates < day` alone
+        # let the training target include D-1 hours 09:00-23:00, which do
+        # not exist yet at that moment (validation finding E2, 2026-07-27).
+        # 09:00 wall clock is safe to localize: DST switches at 02:00-03:00.
+        decision = pd.Timestamp(
+            f"{day - timedelta(days=1)} 09:00").tz_localize(tz)
+        train_mask = (
+            (x.index < decision.tz_convert("UTC"))
+            & (dates >= day - pd.Timedelta(days=train_window_days))
+        )
         needs_refit = (
             model is None
             or (pd.Timestamp(day) - pd.Timestamp(last_fit_day)).days >= refit_every_days

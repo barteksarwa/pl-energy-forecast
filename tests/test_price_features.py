@@ -97,3 +97,21 @@ def test_build_price_features_shape_and_columns() -> None:
     assert x.index.equals(hours)
     for col in ("price_lag_1d", "load_lag_168h", "is_holiday", "tso_forecast_mw"):
         assert col in x.columns
+
+
+def test_d1_vector_uses_calendar_day_after_spring_switch() -> None:
+    """Regression (validation E1): the day after the 23-hour spring-DST
+    day must get the D-1 price shape, not D-2. A Timedelta(days=1) from
+    local midnight lands on D-2 because D-1 has only 23 hours."""
+    from src.features.price_lags import daily_price_vector
+
+    idx = pd.date_range("2025-03-01", periods=45 * 24, freq="1h", tz="UTC")
+    # encode the local calendar day in the price so the source day is legible
+    local_days = pd.Index(idx.tz_convert(TZ).day)
+    price = pd.Series(local_days.astype(float), index=idx)
+
+    # spring switch 2025-03-30 (23h); target = 2025-03-31
+    hours, cutoff = _day("2025-03-31")
+    vec = daily_price_vector(price, hours, cutoff, TZ)
+    # every d1 column must carry day-30 values, never day-29
+    assert (vec.iloc[0] == 30.0).all(), vec.iloc[0].unique()

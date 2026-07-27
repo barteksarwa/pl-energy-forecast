@@ -81,3 +81,39 @@ def test_lasso_ar_runs_and_orders_quantiles() -> None:
     res = walk_forward_backtest(LassoAR, X, Y, TEST_START, refit_every_days=60)
     p = res.predictions.dropna()
     assert (p["p10"] <= p["p90"]).all()
+
+
+def test_training_stops_at_0900_on_d_minus_1() -> None:
+    """Regression (validation E2): the forecast for day D is decided at
+    09:00 on D-1 — training data must not contain D-1 hours from 09:00
+    local onward."""
+    import numpy as np
+
+    idx = pd.date_range("2024-01-01", periods=120 * 24, freq="1h", tz="UTC")
+    rng = np.random.default_rng(0)
+    x = pd.DataFrame({"f": rng.normal(size=len(idx))}, index=idx)
+    y = pd.Series(rng.normal(size=len(idx)), index=idx)
+
+    seen: list[pd.Timestamp] = []
+
+    class Spy:
+        name = "spy"
+
+        def fit(self, x_tr, y_tr):
+            seen.append(x_tr.index.max())
+
+        def predict(self, x_day):
+            return pd.DataFrame(
+                {"p10": 0.0, "p50": 0.0, "p90": 0.0}, index=x_day.index
+            )
+
+    test_start = pd.Timestamp("2024-04-01", tz="Europe/Warsaw")
+    walk_forward_backtest(Spy, x, y, test_start.tz_convert("UTC"),
+                          train_window_days=60, refit_every_days=1)
+    assert seen, "no refits happened"
+    tz = "Europe/Warsaw"
+    for last in seen:
+        local = last.tz_convert(tz)
+        assert local.hour < 9 or local.time() < pd.Timestamp("09:00").time(), (
+            f"training saw {local}, at/after the 09:00 D-1 decision moment"
+        )
