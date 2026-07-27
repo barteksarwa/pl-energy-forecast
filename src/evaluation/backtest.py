@@ -65,6 +65,11 @@ def walk_forward_backtest(
     model = None
     last_fit_day: pd.Timestamp | None = None
     preds: list[pd.DataFrame] = []
+    # Coverage accounting: .dropna() can silently delete whole stretches
+    # of training data when one optional feature has ragged history, and
+    # a skipped day is invisible in the output. Both get reported.
+    skipped_days: list = []
+    max_train_rows_dropped = 0
 
     for day in test_days:
         window_mask = dates >= day - pd.Timedelta(days=train_window_days)
@@ -87,7 +92,11 @@ def walk_forward_backtest(
             x_tr = x[train_mask].dropna()
             y_tr = y.reindex(x_tr.index).dropna()
             x_tr = x_tr.reindex(y_tr.index)
+            max_train_rows_dropped = max(
+                max_train_rows_dropped, int(train_mask.sum()) - len(x_tr)
+            )
             if len(x_tr) < 24 * 30:
+                skipped_days.append(day)
                 continue  # not enough history yet; skip day, keep walking
             model = model_factory()
             model.fit(x_tr, y_tr)
@@ -96,11 +105,20 @@ def walk_forward_backtest(
         day_mask = dates == day
         x_day = x[day_mask].dropna()
         if x_day.empty:
+            skipped_days.append(day)
             continue
         preds.append(model.predict(x_day))
 
     if not preds:
         raise ValueError("Backtest produced no predictions — not enough data?")
+    if skipped_days:
+        print(f"backtest: {len(skipped_days)} of {len(test_days)} test days "
+              f"skipped (first {skipped_days[0]}, last {skipped_days[-1]}) — "
+              "thin history or all-NaN features")
+    if max_train_rows_dropped:
+        print(f"backtest: up to {max_train_rows_dropped} training rows per "
+              "refit dropped by NaN filtering — check optional-feature "
+              "history if this is large")
     out = pd.concat(preds).sort_index()
     return BacktestResult(model_name=model_factory().name, predictions=out)
 

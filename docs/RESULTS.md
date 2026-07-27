@@ -4,7 +4,7 @@ One page. Every headline number in the repo lives here.
 Other docs link here instead of copying numbers.
 Update this file first when a campaign ends.
 
-Updated: 2026-07-21.
+Updated: 2026-07-27.
 
 ## Load — day-ahead national load (MW)
 
@@ -299,7 +299,7 @@ validation review flagged a stale copy of the pre-regeneration run.)
 - MAE rank == capture rank, no flips (PLAN watch item closed).
 - Value compresses: naive is 10.6 MAE worse yet captures 81% —
   storage needs hour ORDERING, not price level.
-- Ensemble edge over champion: +2.3 EUR/day/MW (~850 EUR/yr/MW).
+- Ensemble edge over champion: +2.35 EUR/day/MW (~860 EUR/yr/MW; artifact 2026-07-24_pnl_summary.csv gives 2.353).
   Pays for its complexity at portfolio scale, not on one battery.
 - Sources: `reports/backtests/2026-07-24_pnl_summary.md`,
   `reports/figures/pnl/cumulative_pnl.png`. Engine:

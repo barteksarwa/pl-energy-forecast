@@ -24,11 +24,12 @@ import lightgbm as lgb
 import pandas as pd
 
 from src.config import load_config
+from src.evaluation.backtest import walk_forward_backtest
 from src.evaluation.run_price_backtest import assemble_price_features
 from src.models.gbm import PARAMS
 
 GROUPS = {
-    "price_lags": lambda c: c.startswith(("price_lag_", "price_mean", "price_d1_")),
+    "price_lags": lambda c: c.startswith(("price_lag_", "price_mean", "price_d")),
     "res_forecast": lambda c: c in ("solar_fcst_mw", "wind_on_fcst_mw", "wind_off_fcst_mw"),
     "tso_load_fcst": lambda c: c == "tso_forecast_mw",
     "load_lags": lambda c: c.startswith("load_"),
@@ -39,30 +40,37 @@ GROUPS = {
 }
 
 
+class _P50Booster:
+    """Median-only LGBM in the engine's model contract.
+
+    The ablation only needs P50 MAE; p10/p90 just repeat p50 so the
+    shared walk-forward engine (one cutoff implementation, not two —
+    validation lesson) can be reused as-is.
+    """
+
+    name = "ablation_p50"
+
+    def __init__(self) -> None:
+        self._m = lgb.LGBMRegressor(objective="quantile", alpha=0.5, **PARAMS)
+
+    def fit(self, x: pd.DataFrame, y: pd.Series) -> None:
+        self._m.fit(x, y)
+
+    def predict(self, x: pd.DataFrame) -> pd.DataFrame:
+        p = pd.Series(self._m.predict(x), index=x.index)
+        return pd.DataFrame({"p10": p, "p50": p, "p90": p})
+
+
 def walk_forward_mae(
     x: pd.DataFrame, y: pd.Series, test_start: pd.Timestamp, tz: str
 ) -> float:
-    dates = pd.Index(x.index.tz_convert(tz).date)
-    test_days = sorted(set(dates[x.index >= test_start]))
-    model, last_fit, errs = None, None, []
-    for day in test_days:
-        if model is None or (pd.Timestamp(day) - pd.Timestamp(last_fit)).days >= 7:
-            # `dates < day` is leak-free for the DA price target: the full
-            # D-1 curve clears at auction on D-2 (target_availability
-            # "day_ahead" in the main engine — keep the two in sync).
-            tr = (dates < day) & (dates >= day - pd.Timedelta(days=365))
-            x_tr = x[tr].dropna()
-            y_tr = y.reindex(x_tr.index).dropna()
-            x_tr = x_tr.reindex(y_tr.index)
-            model = lgb.LGBMRegressor(objective="quantile", alpha=0.5, **PARAMS)
-            model.fit(x_tr, y_tr)
-            last_fit = day
-        x_day = x[dates == day].dropna()
-        if x_day.empty:
-            continue
-        pred = pd.Series(model.predict(x_day), index=x_day.index)
-        errs.append((pred - y.reindex(x_day.index)).abs())
-    return float(pd.concat(errs).mean())
+    result = walk_forward_backtest(
+        _P50Booster, x, y, test_start.tz_convert("UTC"),
+        train_window_days=365, refit_every_days=7, tz=tz,
+        target_availability="day_ahead",
+    )
+    pred = result.predictions["p50"]
+    return float((pred - y.reindex(pred.index)).abs().mean())
 
 
 def main() -> int:
