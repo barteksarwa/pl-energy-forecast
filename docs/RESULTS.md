@@ -265,7 +265,7 @@ by ≥0.10 MAE on both years.
 | control (shipped defaults) | 17.62 | 16.98 | stays |
 | lr02_n1500 (best) | 17.55 | 16.91 | gate failed |
 | lr03_n1000 | 17.54 | 16.97 | gate failed |
-| leaves127 | 17.62 | 17.10 | gate failed |
+| leaves127 | 17.61 | 17.10 | gate failed |
 
 - NO config clears the gate. The M4 "conservative defaults" were
   already near the optimum for this feature set — the HPO surface is

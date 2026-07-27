@@ -1,0 +1,94 @@
+\section{4-member blend verdict --- TFT the diversity donor}
+
+\subsection{What was tested}
+
+A 4-member CRPS-weighted blend. Members: champion LGBM+CQR,
+LEAR+CQR, Chronos+CQR, and TFT-730 ens-3+CQR.
+Same inverse trailing-60-day crps3 weights as the 3-member blend
+(learning note 23). A second rolling-CQR pass tightens the band.
+TFT is the new fourth member. Its full 2-year predictions had
+survived the data wipe under \texttt{reports/sensitivity/tft/}.
+So the deferred ``1-year with TFT'' test became a clean 2-year test.
+
+Evaluated on the 17,456-hour intersection (TFT window ends 2026-07-14).
+
+\subsection{Pre-declared gates --- all smashed}
+
+\begin{tabular}{lll}
+\hline
+Gate & Required & Result \\
+\hline
+MAE vs ens3 (17.34) & beat by $\ge 0.10$ & $-0.45$ (16.89) \\
+Significance & DM $p < 0.05$ & $p = 2.3\times10^{-9}$ \\
+Consistency & wins every test year & won 2024, 2025, 2026 \\
+Coverage & 78--82\% & 80.0\% \\
+\hline
+\end{tabular}
+
+\subsection{The numbers}
+
+\begin{tabular}{lccccc}
+\hline
+Model & MAE & rMAE & Cover & Winkler & P\&L cap \\
+\hline
+ens4\_tft (CQR) & 16.89 & 0.605 & 80.0\% & 82.6 & 0.929 \\
+ens3 (candidate) & 17.34 & 0.622 & 79.9\% & 85.2 & 0.926 \\
+TFT-730 alone & 19.53 & 0.699 & 79.4\% & 97.5 & --- \\
+\hline
+\end{tabular}
+
+\vspace{0.5em}
+Winkler 82.6 is the best interval score any model has posted here.
+P\&L capture 0.929 leads the battery-arbitrage backtest.
+
+\subsection{TFT the diversity donor}
+
+This is the interesting part. TFT lost solo.
+It was archived on 2026-07-21: 19.53 MAE, worse than the champion.
+Yet it is the best diversity donor we have tested.
+Deep-model errors decorrelate from trees, linear, and the FM.
+So TFT adds the one thing the other three lack: a fourth failure mode.
+The blend beats its best member by more once TFT joins.
+A weak member can still be the most valuable member.
+Strength solo and value in a blend are different things.
+
+\subsection{The TimesFM counter-example}
+
+We also tried TimesFM as a fourth member instead of TFT.
+It added nothing: $+0.57$ MAE, a loss.
+TimesFM is a foundation model, like Chronos.
+Its errors correlate with Chronos's errors --- same model family.
+So it brought no new failure mode.
+Lesson: diversity of \emph{error structure} matters.
+Not member count. Not member strength.
+Adding a fourth model helps only if it fails differently.
+
+\subsection{Verdict}
+
+\textbf{\texttt{ens4\_tft} is the promotion candidate for the price
+product.} MAE 16.89, rMAE 0.605, coverage 80.0\%, Winkler 82.6,
+P\&L capture 0.929. It replaces the 3-member blend as the candidate.
+Every gate was smashed, not just cleared.
+
+\subsection{Honest caveats}
+
+\begin{itemize}
+\item Promotion is an owner call. The blocker is operational cost.
+\item A 3-seed deep model in the daily loop is expensive:
+      MPS inference plus monthly refits, roughly hours per month.
+\item Evaluated on the 17,456-hour intersection, not the full window
+      --- TFT's stored predictions end 2026-07-14.
+\item These tables predate the corrected-cutoff protocol
+      (E2 fix). Every trained member carries the same $\sim$0.11 MAE
+      of shared flattery; rankings stand.
+\end{itemize}
+
+\subsection{Interview line}
+
+``My best price forecast is a four-model blend: gradient boosting,
+regularized linear, a zero-shot foundation model, and a temporal
+fusion transformer. The transformer lost on its own, yet it is the
+best member to add --- its deep-model errors decorrelate from the
+rest. It cut blend MAE from 17.34 to 16.89 at $p = 2.3\times10^{-9}$.
+A second foundation model added nothing: same family, same errors.
+Diversity of error structure is what pays, not member strength.''

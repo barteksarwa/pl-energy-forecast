@@ -1,0 +1,92 @@
+\section{HPO and idea-sprint verdicts --- cheap, trustworthy negatives}
+
+\subsection{What this note covers}
+
+Four experiments that all said ``no''. Or ``no measurable change''.
+LGBM hyperparameter tuning. A rolling spike threshold.
+Two conformal finite-sample fixes.
+None moved the headline MAE. All are worth writing down.
+The meta-lesson at the end is the real point of the note.
+
+\subsection{LGBM HPO --- defaults survive}
+
+The champion ran ``conservative untuned defaults'' since M4.
+Owner authorized a proper tuning campaign.
+14 configs, 1095-day windows. Screen on test year 1.
+Confirm the top 3 plus control on test year 2.
+The confirm year is never used for selection --- no peeking.
+Pre-declared gate: beat control by $\ge 0.10$ MAE on \emph{both} years.
+
+\begin{tabular}{lccl}
+\hline
+Config & Screen MAE & Confirm MAE & Verdict \\
+\hline
+control (defaults) & 17.62 & 16.98 & stays \\
+lr02\_n1500 (best) & 17.55 & 16.91 & gate failed \\
+lr03\_n1000 & 17.54 & 16.97 & gate failed \\
+leaves127 & 17.62 & 17.10 & gate failed \\
+\hline
+\end{tabular}
+
+\vspace{0.5em}
+No config clears the gate. Best gain is 0.02--0.08 MAE per year.
+The defaults were already near the optimum for this feature set.
+The HPO surface is flat. That is the normal LGBM outcome
+on well-engineered features. Chasing 0.05 MAE buys fragility,
+not skill. The model card now reads
+``tuned 2026-07-25 --- defaults survived''.
+
+\subsection{Side finding --- a third sign flip}
+
+Dropping the load-lag features helped at 365-day windows:
+$-0.12$ MAE. At 1095-day windows it \emph{hurts}: $+0.09$
+(17.71 vs 17.62). Same feature, opposite verdict, different window.
+This is the third documented ablation sign flip in the project.
+Lesson: an ablation verdict is only valid for its training window.
+Always quote the window with the verdict.
+
+\subsection{Rolling spike threshold --- rejected}
+
+The spike classifier flags the top-5\% price hours.
+It uses a static threshold from the training window.
+Idea: make the threshold roll over a trailing 90 days instead.
+Result: AUC 0.955 vs 0.966. Precision@2 down too.
+The static train-window threshold stays.
+The rolling version reacts to noise, not to regime.
+
+\subsection{Conformal finite-sample fixes --- adopted, effect $\sim$0}
+
+The validation review flagged two statistical defects (E3, E4).
+The conformal quantile was linearly interpolated.
+The asymmetric path sized the upper tail from the lower-tail count.
+Both can slightly under-deliver the coverage guarantee.
+
+Fix: use \texttt{np.quantile(..., method="higher")} and size each
+tail from its own score count. We adopted both in \texttt{src}.
+Measured effect on our numbers: about zero.
+At our window size (2{,}160 scores) interpolation barely matters.
+We adopted them anyway --- for the finite-sample \emph{guarantee},
+not for a MAE gain. A correctness fix does not need to move a metric.
+
+\subsection{The meta-lesson --- pre-declared gates make negatives cheap}
+
+Every experiment here declared its gate \emph{before} running.
+HPO: beat control by $\ge 0.10$ on both years.
+Spike threshold: beat AUC 0.966. Conformal: restore the guarantee.
+
+Because the bar was set first, a ``no'' is a clean result.
+No temptation to move the goalposts after seeing the numbers.
+No cherry-picking the one year or one metric that looks good.
+A pre-declared gate turns a negative into evidence you can trust.
+It also makes negatives cheap to report: the gate is unmet, done.
+Most of a real desk's experiments fail. This is how you fail honestly.
+
+\subsection{Interview line}
+
+``I ran a 14-config LGBM tuning campaign with a screen year and a
+held-out confirm year, gate declared up front: beat the defaults by
+0.10 MAE on both. Nothing cleared it --- the surface was flat, which
+is the honest LGBM outcome on engineered features. Same discipline
+killed a rolling spike threshold and confirmed two conformal fixes
+had zero measured effect. Pre-declaring the gate is what makes a
+negative result cheap to run and safe to trust.''

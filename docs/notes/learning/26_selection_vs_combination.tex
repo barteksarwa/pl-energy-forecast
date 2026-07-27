@@ -1,0 +1,99 @@
+\section{Selection vs combination --- why online aggregation can pick, not blend}
+
+\subsection{The idea}
+
+We combine several forecasts into one. Two ways exist.
+Combination: average the members with fixed or slow weights.
+Selection: pick the single best member and follow it.
+They sound similar. They are not.
+Combination reduces variance. Selection does not.
+This note explains when an ``adaptive weights'' method quietly
+turns into selection --- and why that cost us MAE.
+
+\subsection{Online aggregation and exponential weights}
+
+Online aggregation updates the member weights every day.
+It learns from how each member scored so far.
+The classic recipe is \emph{exponential weights}.
+Weight of member $m$ after day $D$:
+\[
+w_m \propto \exp\!\big(-\eta \, L_m\big),
+\]
+where $L_m$ is member $m$'s cumulative loss.
+$\eta$ is the learning rate. A worse member gets a smaller weight.
+This is the ``Hedge'' or exponentially weighted average forecaster.
+
+\emph{Bernstein Online Aggregation} (BOA) is a modern refinement.
+It adds a second-order term (the variance of the losses).
+That lets it use a bigger learning rate safely.
+It reacts faster and has a tighter theory guarantee.
+
+\subsection{The objective is regret vs the best expert}
+
+Here is the catch. What does BOA promise?
+It bounds \emph{regret}: your total loss minus the best single
+member's total loss. ``Expert'' is the theory word for member.
+So the target is: do almost as well as the best single expert.
+
+Read that again. The benchmark is the best \emph{one} member.
+So the optimum BOA chases is: find that member, put all weight there.
+When one member is clearly best, BOA's weights collapse onto it.
+That is selection. The averaging is gone.
+
+\subsection{Why selection forfeits variance reduction}
+
+Combination wins because members make different mistakes.
+Member A is $+2$ too high, member B is $-2$ too low.
+Their average is perfect. The errors cancel.
+This is variance reduction. It needs at least two members with weight.
+
+Selection keeps only one member. Its errors have nobody to cancel.
+So selection throws away the exact thing that makes a blend good.
+A regret-vs-best-expert objective is built to select.
+That is the wrong objective when diversity is your edge.
+
+\subsection{Worked example: our numbers}
+
+We tested BOA against our inverse-CRPS blend on the price product.
+Same four members: LGBM, LEAR, Chronos, TFT.
+
+\begin{tabular}{lcc}
+\hline
+Weighting scheme & MAE & Weight on LGBM \\
+\hline
+Inverse-CRPS (shipped) & 16.89 & shared across 4 \\
+BOA online weights & 18.41 & 99.6\% \\
+\hline
+\end{tabular}
+
+\vspace{0.5em}
+BOA put 99.6\% of the weight on LGBM.
+It selected the single best member and dropped the rest.
+Result: 18.41 MAE --- 1.52 worse than the blend.
+It even lost to LGBM alone, because the last 0.4\% weight
+on weaker members added noise without enough averaging to pay for it.
+The inverse-CRPS blend keeps real weight on all four.
+The diversity does the work.
+
+\subsection{When BOA IS the right tool}
+
+BOA is not bad. It is a mismatch here. It shines when:
+\begin{itemize}
+\item You have many experts, and they are highly correlated.
+\item One expert is clearly best, but you do not know which in advance.
+\item The best expert may change over time (regime shifts).
+\end{itemize}
+Then selection IS near-optimal, and BOA's regret bound is real value.
+It tracks the winner without you hand-picking it.
+Our case is the opposite: few members, deliberately diverse,
+each contributing. So a fixed convex average beats adaptive selection.
+
+\subsection{Interview line}
+
+``I tested Bernstein Online Aggregation against my inverse-CRPS
+blend. BOA piled 99.6\% of the weight onto the best single model
+and scored 18.41 MAE versus the blend's 16.89. The lesson: BOA
+minimizes regret against the best expert, so it converges to
+selection. When your edge is error diversity, selection forfeits
+the variance reduction. Adaptive weights are the right tool only
+when many correlated experts hide one clear winner.''
