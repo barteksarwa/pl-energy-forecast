@@ -4,6 +4,11 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-07-27 — Cutoff breach in the backtest loop: fixed, impact bounded at ~0.11 MAE**
+Context: validation finding E2 — `dates < day` let walk-forward training see D-1 hours 09:00-23:00, violating the stated decision-moment rule. E1 — the D-1 price vector picked up the D-2 shape on the day after spring DST.
+Decision: both fixed with regression tests (118 green). Bounding rerun: champion 17.95 under the corrected protocol vs 17.84 before — ~0.11 MAE of shared flattery. Rankings stand (every trained model had the same extra hours); the production daily loop was never affected (runs 07:30 local, cannot see the future). Published tables keep their numbers with a protocol note; full re-runs under the corrected protocol are the next campaign, owner-scheduled.
+Why: the honest fix is the rule going forward plus a measured bound on the past, not silently rewriting every historical table.
+
 **2026-07-27 — TFT joins the blend: 4-member ensemble is the new best (16.89)**
 Context: TFT full-2yr preds turned out to live under reports/ (survived the wipe). PLAN's deferred "1-yr with TFT" two-window test became a clean 2-yr 4-member test. Pre-declared: beat 17.34 by >=0.10, DM p<0.05, coverage 78-82.
 Decision: ens4 (LGBM+LEAR+Chronos+TFT, all CQR, second CQR on blend) MAE 16.89, DM p=2.3e-09, wins all years, coverage 80.0%, Winkler 82.6, P&L capture 0.929 — every gate smashed. ens4 replaces ens3 as the promotion candidate. Owner call: TFT inference cost in the daily loop (3 seeds, MPS, monthly refits).
