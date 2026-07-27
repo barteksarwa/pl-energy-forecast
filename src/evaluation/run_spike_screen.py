@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from datetime import timedelta
 
 import pandas as pd
 from sklearn.metrics import brier_score_loss, roc_auc_score
@@ -38,7 +39,12 @@ def walk_forward_proba(
     model, last_fit, out = None, None, []
     for day in test_days:
         if model is None or (pd.Timestamp(day) - pd.Timestamp(last_fit)).days >= refit_days:
-            tr = (dates < day) & (dates >= day - pd.Timedelta(days=train_days))
+            # 09:00 D-1 decision moment, same rule as walk_forward_backtest
+            # (validation E2 applied here too, 2026-07-27)
+            decision = pd.Timestamp(
+                f"{day - timedelta(days=1)} 09:00").tz_localize(tz)
+            tr = ((x.index < decision.tz_convert("UTC"))
+                  & (dates >= day - pd.Timedelta(days=train_days)))
             x_tr = x[tr].dropna()
             model = SpikeClassifier(seed=seed)
             model.fit(x_tr, y.reindex(x_tr.index))

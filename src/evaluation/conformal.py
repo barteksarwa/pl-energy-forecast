@@ -65,9 +65,11 @@ def rolling_conformal(
         ]
         if len(past) < min_days * 24:
             continue
-        # finite-sample corrected quantile level, capped at 1
+        # finite-sample corrected quantile level, capped at 1; 'higher'
+        # keeps the conservative finite-sample guarantee (validation E3
+        # — empirical effect measured at ~0, adopted for correctness)
         level = min(coverage * (len(past) + 1) / len(past), 1.0)
-        q = float(np.quantile(past.to_numpy(), level))
+        q = float(np.quantile(past.to_numpy(), level, method="higher"))
         mask = days == day
         out.loc[mask, "p10"] = preds.loc[mask, "p10"] - q
         out.loc[mask, "p90"] = preds.loc[mask, "p90"] + q
@@ -90,7 +92,7 @@ def latest_offset(
     cutoff = scores.index.max() - pd.Timedelta(days=window_days)
     recent = scores[scores.index >= cutoff]
     level = min(coverage * (len(recent) + 1) / len(recent), 1.0)
-    return float(np.quantile(recent.to_numpy(), level))
+    return float(np.quantile(recent.to_numpy(), level, method="higher"))
 
 
 def rolling_conformal_asymmetric(
@@ -136,12 +138,15 @@ def rolling_conformal_asymmetric(
         ]
         if len(past_lo) < min_days * 24:
             continue
-        n = len(past_lo)
-        # finite-sample corrected level per tail
-        level_lo = min((1.0 - alpha_half) * (n + 1) / n, 1.0)
-        level_hi = min((1.0 - alpha_half) * (n + 1) / n, 1.0)
-        q_lo = float(np.quantile(past_lo.to_numpy(), level_lo))
-        q_hi = float(np.quantile(past_hi.to_numpy(), level_hi))
+        # finite-sample corrected level, EACH tail sized from its own
+        # score count (validation E4)
+        n_lo, n_hi = len(past_lo), max(len(past_hi), 1)
+        level_lo = min((1.0 - alpha_half) * (n_lo + 1) / n_lo, 1.0)
+        level_hi = min((1.0 - alpha_half) * (n_hi + 1) / n_hi, 1.0)
+        q_lo = float(np.quantile(past_lo.to_numpy(), level_lo,
+                                 method="higher"))
+        q_hi = float(np.quantile(past_hi.to_numpy(), level_hi,
+                                 method="higher"))
 
         mask = days == day
         out.loc[mask, "p10"] = preds.loc[mask, "p10"] - q_lo
