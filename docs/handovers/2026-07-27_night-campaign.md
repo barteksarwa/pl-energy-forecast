@@ -38,6 +38,21 @@ TFT's full-2yr preds had survived the wipe under `reports/` all along
    live postings. Top ideas: BOA online weights, interval methods
    scored by battery P&L, JSU head, Chronos-2 ARX rerun.
 
+## Morning idea sprint (2026-07-27, after the subagent-limit reset)
+
+Three experiments from the research note, run inline, pre-declared
+gates, artifacts `reports/backtests/2026-07-27_{boa_weights,
+spike_threshold,conformal_p3}.csv`, scripts in `outputs/experiments/`:
+
+- **BOA weights: REJECTED** (18.41 vs 16.89). BOA converges to
+  selecting LGBM (99.6% weight) — regret-vs-best-expert is the wrong
+  objective when diversity averaging is the edge. Inverse-CRPS stays.
+- **Rolling-90d spike threshold: REJECTED** (AUC 0.955 vs 0.966).
+- **Conformal E3/E4 fixes: ADOPTED** ('higher' quantile, per-tail
+  sizing — effect ~0, guarantee restored). E2 cutoff also fixed in
+  the spike-screen loop; spike AUC unchanged on the corrected
+  protocol (0.9655).
+
 ## Owner decisions pending (updated)
 
 1. **Promotion target changed:** ens4 (with TFT) is now the

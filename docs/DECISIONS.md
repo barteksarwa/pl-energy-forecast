@@ -4,6 +4,11 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-07-27 — Idea sprint: BOA and rolling spike threshold rejected; conformal fixes adopted**
+Context: owner-authorized implementation sprint on the research note's top testable ideas, pre-declared gates, adversarial framing (scripts in outputs/experiments/, artifacts in reports/backtests/2026-07-27_*).
+Decision: (1) BOA ensemble weights REJECTED — 18.41 vs 16.89; BOA piles 99.6% weight on LGBM because it minimizes regret vs the best single expert (selection), forfeiting the diversity averaging that drives the blend; inverse-CRPS stays. (2) Rolling-90d spike threshold REJECTED — AUC 0.955 vs 0.966, p@2 down; static train-window threshold stays. (3) Conformal 'higher' quantile + per-tail sizing ADOPTED in src (measured effect ~0 at 2,160-score windows; adopted for the finite-sample guarantee). Also fixed the E2 cutoff in the spike-screen loop; spike AUC on the corrected protocol: 0.9655 (unchanged).
+Why: three pre-declared gates, two honest negatives with mechanisms, one correctness adoption — the sprint strengthened the evidence, not the MAE, and that is a valid outcome.
+
 **2026-07-27 — Cutoff breach in the backtest loop: fixed, impact bounded at ~0.11 MAE**
 Context: validation finding E2 — `dates < day` let walk-forward training see D-1 hours 09:00-23:00, violating the stated decision-moment rule. E1 — the D-1 price vector picked up the D-2 shape on the day after spring DST.
 Decision: both fixed with regression tests (118 green). Bounding rerun: champion 17.95 under the corrected protocol vs 17.84 before — ~0.11 MAE of shared flattery. Rankings stand (every trained model had the same extra hours); the production daily loop was never affected (runs 07:30 local, cannot see the future). Published tables keep their numbers with a protocol note; full re-runs under the corrected protocol are the next campaign, owner-scheduled.
