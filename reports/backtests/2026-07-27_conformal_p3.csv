@@ -1,0 +1,5 @@
+target,variant,coverage,winkler,diff_share_days
+lgbm_raw,lgbm_raw_interp,78.628,90.317,0.959
+lgbm_raw,lgbm_raw_higher,78.634,90.318,0.959
+blend4_raw,blend4_raw_interp,80.03,82.609,0.959
+blend4_raw,blend4_raw_higher,80.058,82.61,0.959
