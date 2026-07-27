@@ -14,6 +14,21 @@ by 0.65 EUR/MWh on the shared 1-year test.** Champion stands. The full
 loss autopsy is below — most of the original 3 EUR/MWh gap was our own
 training config, not the architecture.
 
+## 2026-07-27 — role change: diversity donor
+
+TFT was archived as a solo challenger (19.52 MAE on the full 2-yr
+window; loses to the champion). But as a 4th ensemble member it adds
+the LARGEST improvement of any member tested.
+
+- The blend goes 17.34 → 16.89 when TFT joins (DM p=2.3e-09).
+- Why: deep-model errors decorrelate from the trees (LGBM), the
+  linear model (LEAR), and the foundation model (Chronos). Different
+  architecture, different mistakes.
+- A model that loses alone can still be the best diversity donor.
+  Error-structure diversity beats member strength.
+- Details: `docs/model_cards/ensemble_price.md` and `docs/RESULTS.md`
+  (4-member blend block).
+
 ## Architecture
 
 - Encoder: 56 days (1344 h) of past hourly price. Instance-normalised.
