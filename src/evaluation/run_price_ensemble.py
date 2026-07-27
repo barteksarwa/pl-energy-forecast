@@ -30,10 +30,13 @@ MEMBERS = {
     # 1095d-window variants (deep-history campaign follow-up)
     "lgbm_1095": PROC / "backtest_preds_price_res1095/lgbm_quantile.parquet",
     "lear_1095": PROC / "backtest_preds_price_res1095/lear.parquet",
+    # best deep model, full-2yr preds (survive under reports/, not data/)
+    "tft": Path("reports/sensitivity/tft/preds_tft730_2yr_ens3.parquet"),
 }
 # raw bands get CQR before blending (FMs ship raw; the 1095d runs are
 # stored raw so the shared calibration script never sees their offsets)
-CALIBRATE = ("chronos", "timesfm", "moirai_cov", "lgbm_1095", "lear_1095")
+CALIBRATE = ("chronos", "timesfm", "moirai_cov", "lgbm_1095", "lear_1095",
+             "tft")
 
 
 def main() -> int:
