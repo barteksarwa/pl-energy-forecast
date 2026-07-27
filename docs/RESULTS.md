@@ -23,14 +23,17 @@ Source: `reports/backtests/2026-07-16_2yr_summary.md`.
 - We beat the TSO benchmark by 0.15 pp. Small but consistent.
 - 12-month table (incl. lstm_attn 2.43%): `reports/backtests/2026-07-15_overnight_readout.md`.
 
-> **Protocol note (2026-07-27).** The independent validation review
-> found the backtest training mask included D-1 hours 09:00-23:00 —
-> after the stated decision moment. Fixed (regression-tested); the
-> corrected champion run is 17.95 vs 17.84, so all price tables below
-> carry ~0.11 MAE of optimistic bias, SHARED by every trained model —
-> rankings unaffected. The production loop never had the defect.
-> Re-runs under the corrected protocol are the next campaign.
-> Full review: `docs/VALIDATION.md`.
+> **Protocol note (2026-07-27, amended same day).** The validation
+> review flagged the training mask for including D-1 hours 09:00-23:00
+> (finding E2). The scope was later narrowed: DA prices for delivery
+> day D-1 clear at auction on D-2, so the full D-1 curve is public at
+> the 09:00 D-1 decision moment — no leak for the PRICE target. Price
+> tables below stand as-is (the earlier "~0.11 shared bias" caveat is
+> withdrawn). The finding stays real for the live-observed LOAD target:
+> the engine now cuts load training at 09:00 D-1
+> (`target_availability="realtime"`); load tables above predate that
+> cutoff and carry a small optimistic bias, shared by every trained
+> model, until rerun. Full story: `docs/VALIDATION.md`, amendment.
 
 ## Price — day-ahead auction price (EUR/MWh)
 

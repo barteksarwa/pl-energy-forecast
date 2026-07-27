@@ -196,6 +196,10 @@ def main() -> int:
                 REGISTRY[name], x, y, test_start.tz_convert("UTC"),
                 train_window_days=args.train_days,
                 refit_every_days=args.refit_days,
+                # DA prices for delivery day D-1 clear at auction on D-2,
+                # so the full D-1 curve is public at the 09:00 D-1
+                # decision moment.
+                target_availability="day_ahead",
             )
         )
 

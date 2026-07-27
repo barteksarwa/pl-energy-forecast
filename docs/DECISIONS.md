@@ -256,3 +256,8 @@ Why: mirrors real desk practice before the 12:00 day-ahead auction. Leaves margi
 Context: owner knows deep learning; jobs demand explainability.
 Decision: LightGBM quantile + SHAP is the "production" model. LSTM/transformer are challengers.
 Why: EU energy employers ask "why is the forecast high today?" every single morning.
+
+**2026-07-27 — Training cutoff is target-aware (E2 scope narrowed)**
+Context: the E2 fix cut ALL training at 09:00 D-1. For price this broke zero-shot wrappers (15-h misalignment, Chronos MAE 55.9 vs 21.9) and contradicted the E1 feature fix.
+Decision: `walk_forward_backtest(target_availability=...)` — "day_ahead" for DA price (full D-1 known, auction clears D-2), "realtime" (09:00 D-1) for load actuals. FM wrappers align by timestamp.
+Why: publication time, not delivery time, decides what training may see. DA prices publish a day ahead.

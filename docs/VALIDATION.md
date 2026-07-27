@@ -94,7 +94,7 @@ All against `2026-07-24_pnl_summary.csv` (722 days).
 | # | Sev | Where | Issue | Status |
 |---|---|---|---|---|
 | E1 | **M** | `src/features/price_lags.py:103` | D-1 price vector built from D-2 on the day after spring DST | FIXED 07-27 (regression test) |
-| E2 | **M** | `src/evaluation/backtest.py:54` | Training target includes D-1 hours after the 09:00 cutoff | FIXED 07-27 (test; impact bound ~0.11 MAE; spike-screen loop fixed too) |
+| E2 | **M** | `src/evaluation/backtest.py:54` | Training target includes D-1 hours after the 09:00 cutoff | SCOPE NARROWED 07-27 pm: applies to live-observed targets (load) only. DA prices for D-1 clear at auction on D-2, so the full D-1 curve is public at 09:00 D-1 — no leak for the price target. Engine now takes `target_availability`; price runs use `day_ahead` (original mask, tested), load keeps the 09:00 cutoff. See amendment below. |
 | E3 | m | `src/evaluation/conformal.py:69` etc. | Linear-interpolated quantile weakens the finite-sample CQR guarantee | FIXED 07-27 ('higher'; effect ~0 measured) |
 | E4 | m | `src/evaluation/conformal.py:137-144` | Asymmetric path sizes the upper tail from the lower-tail count; no upper guard | FIXED 07-27 (per-tail sizing) |
 | E5 | m | `src/evaluation/run_ensemble_sweeps.py:117-137` | Blend "CQR window sweep" stacks a second CQR on a fixed 90d first pass; sweep mislabeled | disclosed 07-27 (note on the sweep report; verdict discarded) |
@@ -110,7 +110,7 @@ One line each. "Clean" means the red-team found no cutoff violation.
 - **`src/features/price_lags.py` (lags):** clean — lags shift by local calendar day via `_shift_local_days`; DST-verified.
 - **`src/features/price_lags.py` (`daily_price_vector`):** defect — `Timedelta(days=1)` is 24 absolute hours, so the day after spring DST silently gets the D-2 price shape; stale-window bug, one day per year, wrong direction for leakage but a correctness bug.
 - **`src/features/price_matrix.py` (RES covariate):** known look-ahead vs the 12:00 gate; disclosed in docstring, DECISIONS, and model card; standard EPF convention (Lago et al. 2021); accepted.
-- **`src/evaluation/backtest.py`:** breach — `dates < day` lets the training target include D-1 09:00–23:00 actuals, which do not exist at the decision moment; no leakage of day D itself; impact small against a 365-day window but it violates the stated hard rule.
+- **`src/evaluation/backtest.py`:** breach for live-observed targets — `dates < day` lets the training target include D-1 09:00–23:00 actuals, which do not exist at the decision moment for a target measured in real time (load). AMENDED 07-27 pm: the price target is the DA auction price, published on D-2 for delivery day D-1 — the full D-1 curve is public at 09:00 D-1, so `dates < day` was never a leak there. The finding stands for load; it does not apply to price.
 - **`src/evaluation/conformal.py`:** temporally clean (trailing-window scores only); defects are statistical — interpolated quantile and asymmetric-path sample sizing can under-deliver the coverage guarantee.
 - **`src/models/price.py` (LEAR):** temporally clean — MAD/asinh stats and residuals come only from the fit window; the raw P10/P90 band uses in-sample residuals, so it under-covers (calibration defect, not leakage).
 - **`src/evaluation/run_ensemble_sweeps.py`:** no leakage; the blend branch measures a double-CQR band no production path produces, so its sweep verdict is unreliable; the LGBM branch is a genuine single-pass sweep.
@@ -162,3 +162,30 @@ Prioritized. P1 = fix before quoting the numbers externally.
 9. Fix the leaves127 rounding slip (17.61). Re-check all 2-d.p. roundings when the doc-checker from item 5 lands.
 
 **Overall opinion.** The modeling conclusions are sound and unusually well evidenced. The control gap is documentation drift after regenerated runs, plus two code defects against the stated cutoff. Fix P1 and automate P2.5, and this desk's numbers would pass a second independent review without findings.
+---
+
+## Amendment — 2026-07-27 evening (E2 scope correction)
+
+The E2 fix was applied to the shared walk-forward engine, price and load
+alike. That over-corrected on price and broke one thing:
+
+- **Wrong scope.** The price target is the DA auction price. It clears
+  on D-2 for delivery day D-1. At the 09:00 D-1 decision moment the
+  whole D-1 curve is public. `dates < day` was never a leak for price.
+  It stays a real defect for load actuals. The E1 fix (keeping the D-1
+  price vector as a feature) already relied on this timing — the 09:00
+  training mask contradicted our own feature set.
+- **Broken zero-shot wrappers.** With training data cut at 09:00 D-1,
+  the Chronos/TimesFM context ended at 08:00 D-1. The wrappers stamped
+  the next 24 forecast hours onto the target day — a 15-hour shift.
+  Chronos rerun scored MAE 55.9 vs 21.9 true. Caught before any number
+  was published; the rerun chain was stopped mid-run.
+
+Resolution: `walk_forward_backtest` takes `target_availability`
+("realtime" = 09:00 D-1 cutoff, "day_ahead" = full D-1). Price runs and
+the spike screen use "day_ahead"; load keeps "realtime". Wrappers now
+align forecasts by timestamp (`forecast_span`), robust to any context
+end. Tests: `tests/test_backtest.py`, `tests/test_fm_alignment.py`.
+Consequence: the "~0.11 shared flattery" bound no longer applies to
+price tables — 17.84 stands as-is. Load tables keep the E2 caveat until
+rerun.

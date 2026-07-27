@@ -83,12 +83,8 @@ def test_lasso_ar_runs_and_orders_quantiles() -> None:
     assert (p["p10"] <= p["p90"]).all()
 
 
-def test_training_stops_at_0900_on_d_minus_1() -> None:
-    """Regression (validation E2): the forecast for day D is decided at
-    09:00 on D-1 — training data must not contain D-1 hours from 09:00
-    local onward."""
-    import numpy as np
-
+def _spy_backtest(**kwargs) -> list[pd.Timestamp]:
+    """Run a spy model over noise; return the max training timestamp per fit."""
     idx = pd.date_range("2024-01-01", periods=120 * 24, freq="1h", tz="UTC")
     rng = np.random.default_rng(0)
     x = pd.DataFrame({"f": rng.normal(size=len(idx))}, index=idx)
@@ -109,11 +105,33 @@ def test_training_stops_at_0900_on_d_minus_1() -> None:
 
     test_start = pd.Timestamp("2024-04-01", tz="Europe/Warsaw")
     walk_forward_backtest(Spy, x, y, test_start.tz_convert("UTC"),
-                          train_window_days=60, refit_every_days=1)
+                          train_window_days=60, refit_every_days=1, **kwargs)
     assert seen, "no refits happened"
-    tz = "Europe/Warsaw"
-    for last in seen:
-        local = last.tz_convert(tz)
+    return seen
+
+
+def test_realtime_training_stops_at_0900_on_d_minus_1() -> None:
+    """Regression (validation E2): a live-observed target decided at 09:00
+    on D-1 — training data must not contain D-1 hours from 09:00 local
+    onward."""
+    for last in _spy_backtest():
+        local = last.tz_convert("Europe/Warsaw")
         assert local.hour < 9 or local.time() < pd.Timestamp("09:00").time(), (
             f"training saw {local}, at/after the 09:00 D-1 decision moment"
         )
+
+
+def test_day_ahead_training_sees_full_d_minus_1() -> None:
+    """A day-ahead-published target (DA price): the whole D-1 curve is
+    known at decision time. Training must reach 23:00 local D-1 — and
+    never touch the target day."""
+    for last in _spy_backtest(target_availability="day_ahead"):
+        local = last.tz_convert("Europe/Warsaw")
+        assert local.hour == 23, (
+            f"daily refit should train through 23:00 D-1, saw {local}"
+        )
+
+
+def test_unknown_target_availability_rejected() -> None:
+    with pytest.raises(ValueError, match="target_availability"):
+        _spy_backtest(target_availability="typo")

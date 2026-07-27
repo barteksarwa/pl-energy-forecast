@@ -40,8 +40,23 @@ def walk_forward_backtest(
     train_window_days: int = 365,
     refit_every_days: int = 7,
     tz: str = LOCAL_TZ,
+    target_availability: str = "realtime",
 ) -> BacktestResult:
-    """Predict every local day of `x` from `test_start` onward, walking forward."""
+    """Predict every local day of `x` from `test_start` onward, walking forward.
+
+    target_availability sets how much target history training may use at
+    the 09:00 D-1 decision moment:
+
+    - "realtime": the target is observed live (load actuals). Hours from
+      09:00 D-1 onward do not exist yet, so training stops strictly
+      before that moment (validation E2).
+    - "day_ahead": the target is published one day ahead (DA auction
+      prices clear on D-2 for delivery day D-1). The full D-1 curve is
+      already public at 09:00 D-1, so training uses every day before the
+      target day.
+    """
+    if target_availability not in ("realtime", "day_ahead"):
+        raise ValueError(f"unknown target_availability: {target_availability!r}")
     if x.index.tz is None:
         raise ValueError("x must have a tz-aware index")
     dates = _local_dates(x.index, tz)
@@ -52,16 +67,18 @@ def walk_forward_backtest(
     preds: list[pd.DataFrame] = []
 
     for day in test_days:
-        # The decision moment is 09:00 local on D-1. `dates < day` alone
-        # let the training target include D-1 hours 09:00-23:00, which do
-        # not exist yet at that moment (validation finding E2, 2026-07-27).
-        # 09:00 wall clock is safe to localize: DST switches at 02:00-03:00.
-        decision = pd.Timestamp(
-            f"{day - timedelta(days=1)} 09:00").tz_localize(tz)
-        train_mask = (
-            (x.index < decision.tz_convert("UTC"))
-            & (dates >= day - pd.Timedelta(days=train_window_days))
-        )
+        window_mask = dates >= day - pd.Timedelta(days=train_window_days)
+        if target_availability == "day_ahead":
+            train_mask = (dates < day) & window_mask
+        else:
+            # The decision moment is 09:00 local on D-1. `dates < day` alone
+            # would let the training target include D-1 hours 09:00-23:00,
+            # which do not exist yet for a live-observed target (validation
+            # finding E2, 2026-07-27). 09:00 wall clock is safe to localize:
+            # DST switches at 02:00-03:00.
+            decision = pd.Timestamp(
+                f"{day - timedelta(days=1)} 09:00").tz_localize(tz)
+            train_mask = (x.index < decision.tz_convert("UTC")) & window_mask
         needs_refit = (
             model is None
             or (pd.Timestamp(day) - pd.Timestamp(last_fit_day)).days >= refit_every_days

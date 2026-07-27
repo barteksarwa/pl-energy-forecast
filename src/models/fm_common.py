@@ -23,3 +23,20 @@ class HistoryContext:
         assert self._history is not None, "fit first"
         return self._history[self._history.index < first_ts].tail(
             self.context_hours)
+
+
+def forecast_span(
+    context_end: pd.Timestamp, idx: pd.DatetimeIndex
+) -> tuple[int, pd.DatetimeIndex]:
+    """Hourly stretch a zero-shot model must forecast to cover `idx`.
+
+    Foundation models forecast the hours immediately AFTER their context.
+    If the context ends before midnight (e.g. the stored history was cut
+    at a training cutoff), naively taking the first len(idx) forecast
+    hours mis-stamps them onto the target day. Return the horizon length
+    and the timestamps it covers, so callers can align by timestamp.
+    """
+    step = pd.Timedelta(hours=1)
+    n_ahead = int((idx[-1] - context_end) / step)
+    fc_idx = pd.date_range(context_end + step, periods=n_ahead, freq="1h")
+    return n_ahead, fc_idx
