@@ -88,6 +88,7 @@ def _run(
         lambda: LightGBMQuantile(params=overrides), x, y,
         test_start.tz_convert("UTC"), train_window_days=TRAIN_DAYS,
         refit_every_days=7,
+        train_cutoff="target_published",  # price target: see backtest.py
     )
     table = summarize_price([result], y)
     return table.iloc[0].to_dict()

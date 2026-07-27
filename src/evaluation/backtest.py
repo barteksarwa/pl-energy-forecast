@@ -40,10 +40,24 @@ def walk_forward_backtest(
     train_window_days: int = 365,
     refit_every_days: int = 7,
     tz: str = LOCAL_TZ,
+    train_cutoff: str = "decision_0900",
 ) -> BacktestResult:
-    """Predict every local day of `x` from `test_start` onward, walking forward."""
+    """Predict every local day of `x` from `test_start` onward, walking forward.
+
+    `train_cutoff` encodes WHEN the training target becomes observable:
+    - "decision_0900" (default, physical actuals like LOAD): the target
+      for D-1 hours 09:00-23:00 does not exist at the 09:00 D-1 decision
+      moment, so training stops at 09:00 D-1 (validation finding E2).
+    - "target_published" (day-ahead PRICES): D-1's full 24h price vector
+      was fixed at the D-2 auction (~13:00) and is public long before
+      09:00 D-1 — training may use everything through the end of D-1.
+      Cutting it at 09:00 costs real skill AND breaks context-based
+      zero-shot models (validation follow-up, 2026-07-27).
+    """
     if x.index.tz is None:
         raise ValueError("x must have a tz-aware index")
+    if train_cutoff not in ("decision_0900", "target_published"):
+        raise ValueError(f"unknown train_cutoff: {train_cutoff}")
     dates = _local_dates(x.index, tz)
     test_days = sorted(set(dates[x.index >= test_start]))
 
@@ -52,15 +66,15 @@ def walk_forward_backtest(
     preds: list[pd.DataFrame] = []
 
     for day in test_days:
-        # The decision moment is 09:00 local on D-1. `dates < day` alone
-        # let the training target include D-1 hours 09:00-23:00, which do
-        # not exist yet at that moment (validation finding E2, 2026-07-27).
-        # 09:00 wall clock is safe to localize: DST switches at 02:00-03:00.
-        decision = pd.Timestamp(
-            f"{day - timedelta(days=1)} 09:00").tz_localize(tz)
+        if train_cutoff == "decision_0900":
+            # 09:00 wall clock is safe to localize: DST switches at 02-03.
+            decision = pd.Timestamp(
+                f"{day - timedelta(days=1)} 09:00").tz_localize(tz)
+            upper = x.index < decision.tz_convert("UTC")
+        else:  # target_published: everything through the end of D-1
+            upper = dates < day
         train_mask = (
-            (x.index < decision.tz_convert("UTC"))
-            & (dates >= day - pd.Timedelta(days=train_window_days))
+            upper & (dates >= day - pd.Timedelta(days=train_window_days))
         )
         needs_refit = (
             model is None

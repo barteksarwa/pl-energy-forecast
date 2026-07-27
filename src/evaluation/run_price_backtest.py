@@ -196,6 +196,9 @@ def main() -> int:
                 REGISTRY[name], x, y, test_start.tz_convert("UTC"),
                 train_window_days=args.train_days,
                 refit_every_days=args.refit_days,
+                # D-1 prices are fixed at the D-2 auction — fully public
+                # at the 09:00 D-1 decision moment (see backtest.py)
+                train_cutoff="target_published",
             )
         )
 

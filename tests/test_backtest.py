@@ -117,3 +117,40 @@ def test_training_stops_at_0900_on_d_minus_1() -> None:
         assert local.hour < 9 or local.time() < pd.Timestamp("09:00").time(), (
             f"training saw {local}, at/after the 09:00 D-1 decision moment"
         )
+
+
+def test_published_target_mode_uses_full_d_minus_1_but_never_day_d() -> None:
+    """Day-ahead prices for D-1 are public at decision time (fixed at
+    the D-2 auction). In target_published mode, training may include
+    all of D-1 — and still nothing from day D."""
+    import numpy as np
+
+    idx = pd.date_range("2024-01-01", periods=120 * 24, freq="1h", tz="UTC")
+    rng = np.random.default_rng(1)
+    x = pd.DataFrame({"f": rng.normal(size=len(idx))}, index=idx)
+    y = pd.Series(rng.normal(size=len(idx)), index=idx)
+
+    seen: list[tuple[pd.Timestamp, pd.Timestamp]] = []
+
+    class Spy:
+        name = "spy"
+
+        def fit(self, x_tr, y_tr):
+            seen.append(x_tr.index.max())
+
+        def predict(self, x_day):
+            return pd.DataFrame(
+                {"p10": 0.0, "p50": 0.0, "p90": 0.0}, index=x_day.index
+            )
+
+    test_start = pd.Timestamp("2024-04-01", tz="Europe/Warsaw")
+    result = walk_forward_backtest(
+        Spy, x, y, test_start.tz_convert("UTC"),
+        train_window_days=60, refit_every_days=1,
+        train_cutoff="target_published")
+    tz = "Europe/Warsaw"
+    # every refit sees D-1 evening hours (not cut at 09:00) ...
+    assert all(last.tz_convert(tz).hour >= 21 for last in seen)
+    # ... and even the final refit trains strictly before its target day
+    pred_days = pd.Index(result.predictions.index.tz_convert(tz).date)
+    assert max(seen).tz_convert(tz).date() < max(pred_days)
