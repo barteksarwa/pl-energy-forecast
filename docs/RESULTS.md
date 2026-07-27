@@ -25,20 +25,25 @@ Source: `reports/backtests/2026-07-16_2yr_summary.md`.
 
 ## Price — day-ahead auction price (EUR/MWh)
 
-2-year walk-forward. Test 2024-07-16 → 2026-07-14, ~17,480 hours.
-Source: `reports/figures/backtest_price/metrics_summary.csv`.
+2-year walk-forward. Test 2024-07-16 → 2026-07-23, 17,696 hours
+(regenerated 2026-07-24 after the data-store rebuild; the deep rows
+keep their campaign windows ending 2026-07-14 — noted).
+Source: `reports/backtests/2026-07-24_price_conformal_summary.csv`.
 
 | Model | MAE | rMAE | 80% band coverage |
 |---|---|---|---|
-| **LGBM quantile + CQR** (champion) | **17.87** | **0.640** | 78.9% |
-| LEAR + CQR | 18.24 | 0.653 | 79.6% |
-| TFT ens-3 (365d windows) | 19.71 | 0.706 | 79.6% |
-| PatchTST (365d windows) | 22.98 | 0.823 | 69.5% |
-| Naive (1-day) | 27.96 | 1.001 | 53.1% |
+| **LGBM quantile + CQR** (champion) | **17.84** | **0.640** | 78.6% |
+| LEAR + CQR | 18.46 | 0.662 | 79.5% |
+| TFT ens-3 (365d windows, to 07-14) | 19.71 | 0.706 | 79.6% |
+| PatchTST (365d windows, to 07-14) | 22.98 | 0.823 | 69.5% |
+| Naive (1-day) | 27.88 | 1.000 | 53.1% |
 
 - rMAE = MAE relative to naive. Below 1.0 beats naive.
 - CQR = conformalized quantile regression. Fixes band coverage honestly.
-- LEAR wins interval quality (Winkler 87.96 vs 89.58). LGBM wins MAE.
+- LEAR wins interval quality (Winkler 88.8 vs 90.3). LGBM wins MAE.
+- Validation note (2026-07-27): this table previously mixed the older
+  07-14-window run with newer artifacts across docs. It now cites one
+  run; the independent review caught it (`docs/VALIDATION.md`).
 
 ## Deep-model campaign — final verdict (2026-07-21)
 
@@ -95,7 +100,8 @@ Full report: `reports/backtests/2026-07-22_deep_history_campaign.md`.
 - More history helps up to 3 years, then the 2021-22 crisis regime
   starts hurting (1460d worse than 1095d).
 - Robustness (2026-07-23): on the 5-yr crisis test 1095d does not
-  degrade (17.37 vs 17.49, DM p=0.17 — direction still favorable;
+  degrade (17.37 vs 17.49 — runs differ by 120 test hours, so this is
+  a direction check, not a paired test; no DM artifact exists for it;
   2022 slice rMAE 0.678). LEAR also improves at 1095d (18.04 vs
   18.24) — the gain is a data property, not an LGBM quirk.
 - Caveat: spike MAE slightly worse at 1095d (63.6 vs 60.7); spike
@@ -130,20 +136,24 @@ champion also sees RES/TSO/calendar. The gap measures what covariates
 
 | Model | MAE (2-yr) | rMAE | Coverage (+CQR) |
 |---|---|---|---|
-| Champion LGBM (365d) | 17.87 | 0.640 | 78.9% |
-| TFT-730 ens-3 | 19.52 | 0.699 | 80.9% raw |
-| **Chronos-Bolt zero-shot** | **21.98** | **0.787** | 79.9% |
-| PatchTST-730 ens-3 (trained!) | 22.25 | 0.797 | 77.1% raw |
+| Champion LGBM (365d) | 17.84 | 0.640 | 78.6% |
+| TFT-730 ens-3 (to 07-14) | 19.52 | 0.699 | 80.9% raw |
+| **Chronos-Bolt zero-shot** | **21.93** | **0.787** | 79.9% |
+| PatchTST-730 ens-3 (trained!, to 07-14) | 22.25 | 0.797 | 77.1% raw |
 | TimesFM 2.5 zero-shot | 22.52 | 0.807 | 80.7% raw |
-| Naive | 27.91 | 1.000 | — |
+| Naive | 27.88 | 1.000 | — |
 
 - A pretrained model with NO training on our data and NO covariates
   beats our trained PatchTST. Sic transit patch attention.
-- Chronos beats TimesFM (DM p=0.011). TimesFM's raw band is the best
+- Chronos beats TimesFM (DM p=0.0095). TimesFM's raw band is the best
   calibrated of any model out of the box (80.7% vs nominal 80%).
-- All gaps DM-significant. Phase 6 fine-tune gate (rMAE < 0.75): closed.
-- Sources: `reports/backtests/2026-07-23_price_chronos2yr_summary.md`,
-  `2026-07-23_price_timesfm2yr_summary.md`.
+- Champion beats both FMs at p<1e-6; DM artifact for all FM pairs:
+  `reports/backtests/2026-07-27_stats_tests_fm_dm.csv` (computed
+  2026-07-27 — the earlier "all gaps DM-significant" line predated
+  the artifact; the independent review caught it).
+- Phase 6 fine-tune gate (rMAE < 0.75): closed.
+- Sources: `reports/backtests/2026-07-24_price_chronos2yr_summary.md`,
+  `2026-07-24_price_timesfm2yr_summary.md`.
 
 **Spike classifier** (2-yr walk-forward, top-5% hours, train-window
 labels): AUC 0.966, Brier 0.034, precision@2 0.736. Gate 0.80 passed —
@@ -167,24 +177,26 @@ Weights: inverse trailing-60d crps3, past-only, equal-weight warm-up.
 
 | Model | MAE (2-yr) | rMAE | Coverage | Winkler |
 |---|---|---|---|---|
-| **ens_crps_cqr** | **17.34** | **0.620** | **79.9%** | **84.7** |
-| ens_crps (raw blend) | 17.34 | 0.620 | 84.2% | 85.2 |
-| ens_equal | 17.46 | 0.624 | 84.3% | 85.9 |
-| LGBM champion (365d) | 17.87 | 0.639 | 78.9% | 89.5 |
-| LGBM (1095d window) | 17.38 | 0.623 | — | — |
+| **ens_crps_cqr** | **17.34** | **0.622** | **79.9%** | **85.2** |
+| ens_crps (raw blend) | 17.34 | 0.622 | 83.9% | 85.5 |
+| ens_equal | 17.45 | 0.626 | 84.0% | 86.2 |
+| LGBM champion (365d) | 17.84 | 0.640 | 78.6% | 90.3 |
+| LGBM (1095d window) | 17.35 | 0.622 | — | — |
 
-- ALL pre-declared gates pass: −0.53 MAE (gate 0.15), DM p=2.5e-04,
+- ALL pre-declared gates pass: −0.50 MAE (gate 0.15), DM p=2.5e-04,
   wins every test year (2024/25/26), Winkler improves.
 - The diversity does the work: a zero-shot univariate FM adds skill to
   two structural models even though it is 4 MAE worse alone.
 - Over-coverage FIXED (2026-07-24): a second rolling-CQR pass on the
   blended band tightens it (Q negative when over-covered). Coverage
-  84.2% → 79.9%, Winkler 85.2 → 84.7, MAE unchanged (P50 untouched).
-  Cost: spike coverage 57.4% → 55.3% (still above LGBM's 51.3%).
+  83.9% → 79.9%, Winkler 85.5 → 85.2, MAE unchanged (P50 untouched).
+  (Validation note 2026-07-27: an earlier draft quoted Winkler 84.7
+  from the pre-incident run; the regenerated artifact says 85.2.)
   `ens_crps_cqr` is the promotion candidate.
 - Moirai (both variants) excluded by the pre-declared member rule
   (best FM only). See FM section: covariates HURT zero-shot Moirai
-  (24.86 vs 23.69, DM-significant) — covariate skill needs training.
+  (24.87 vs 23.70, DM p=8e-06 —
+  `2026-07-27_stats_tests_fm_dm.csv`) — covariate skill needs training.
 - Sources: `reports/backtests/2026-07-24_price_ensemble_summary.md`,
   `2026-07-24_price_moirai2yr_summary.csv`.
 
@@ -243,8 +255,8 @@ Same 713 days for every model. Capture = P&L / perfect-foresight P&L.
 | **ens_crps_cqr** | **205** | **0.924** | 1.7% |
 | LGBM champion | 202 | 0.914 | 2.1% |
 | LEAR | 201 | 0.908 | 1.5% |
-| Chronos zero-shot | 197 | 0.890 | 2.7% |
-| TimesFM zero-shot | 195 | 0.880 | 2.7% |
+| Chronos zero-shot | 197 | 0.891 | 2.7% |
+| TimesFM zero-shot | 195 | 0.881 | 2.7% |
 | Naive (yesterday) | 180 | 0.813 | 4.5% |
 
 - MAE rank == capture rank, no flips (PLAN watch item closed).

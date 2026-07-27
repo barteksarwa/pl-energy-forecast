@@ -70,8 +70,12 @@ P&L (1 MW / 2 MWh / 0.85 RTE / 1 cycle, day-ahead only).
 
 Notes on provenance: ensemble/LGBM/LEAR/FM rows from the regenerated
 2026-07-24 runs (window ends 2026-07-24); TFT/PatchTST/Moirai rows from
-their documented campaign runs (window ends 2026-07-15); 1095d row from
-the deep-history campaign. Sources in `docs/RESULTS.md`.
+their documented campaign runs (TFT/PatchTST windows end 2026-07-15;
+Moirai was regenerated 2026-07-24 on the same window as the FMs above);
+1095d row from
+the deep-history campaign — its matched-window comparison is against
+365d = 17.87 on the SAME 07-14-ending window (delta 0.49), not against
+the 17.84 above. Sources in `docs/RESULTS.md`.
 
 ## 5. Findings
 
