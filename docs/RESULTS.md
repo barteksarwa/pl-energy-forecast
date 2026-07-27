@@ -200,6 +200,29 @@ Weights: inverse trailing-60d crps3, past-only, equal-weight warm-up.
 - Sources: `reports/backtests/2026-07-24_price_ensemble_summary.md`,
   `2026-07-24_price_moirai2yr_summary.csv`.
 
+**4-member blend with TFT (2026-07-27) — NEW BEST price forecast.**
+Members: LGBM+CQR, LEAR+CQR, Chronos+CQR, TFT-730 ens-3+CQR. TFT's
+full-2yr preds survive under `reports/sensitivity/tft/`; evaluated on
+the 17,456h intersection (TFT window ends 2026-07-14).
+
+| Model | MAE | rMAE | Coverage | Winkler | P&L capture |
+|---|---|---|---|---|---|
+| **ens4_tft (CQR)** | **16.89** | **0.605** | **80.0%** | **82.6** | **0.929** |
+| ens3 (shipped candidate) | 17.34 | 0.622 | 79.9% | 85.2 | 0.926 |
+| TFT-730 ens-3 alone | 19.53 | 0.699 | 79.4% | 97.5 | — |
+
+- All pre-declared gates smashed: −0.45 MAE (gate 0.10),
+  DM p=2.3e-09, wins 2024/25/26, coverage nominal, Winkler best ever.
+- The lesson: TFT lost solo (archived 2026-07-21) but is the best
+  diversity donor tested — deep-model errors decorrelate from
+  trees/linear/FM. TimesFM (4th member, FM like Chronos) added
+  NOTHING (+0.57). Diversity of ERROR STRUCTURE matters, not member
+  count or member strength.
+- Operational cost is the promotion question: 3-seed TFT in the
+  daily loop = MPS inference + monthly refits (~hours/month).
+- Sources: `reports/backtests/2026-07-27_price_ensemble_tft_summary.md`,
+  DM in the session log 2026-07-27.
+
 **Blend on 1095d members (2026-07-24) — tested, NOT adopted.**
 Pre-declared gates: beat ens-365 (17.34) with DM p<0.05, coverage
 78-82%, Winkler not worse.

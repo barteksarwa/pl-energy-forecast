@@ -4,6 +4,16 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-07-27 — TFT joins the blend: 4-member ensemble is the new best (16.89)**
+Context: TFT full-2yr preds turned out to live under reports/ (survived the wipe). PLAN's deferred "1-yr with TFT" two-window test became a clean 2-yr 4-member test. Pre-declared: beat 17.34 by >=0.10, DM p<0.05, coverage 78-82.
+Decision: ens4 (LGBM+LEAR+Chronos+TFT, all CQR, second CQR on blend) MAE 16.89, DM p=2.3e-09, wins all years, coverage 80.0%, Winkler 82.6, P&L capture 0.929 — every gate smashed. ens4 replaces ens3 as the promotion candidate. Owner call: TFT inference cost in the daily loop (3 seeds, MPS, monthly refits).
+Why: archived-solo TFT is the best diversity donor tested (deep errors decorrelate from trees/linear/FM); TimesFM added nothing. Error-structure diversity beats member strength.
+
+**2026-07-27 — Validation review: stale numbers fixed, missing DM artifacts created**
+Context: owner-authorized multi-agent MRM-style review (16 finders, adversarial refuters) audited every RESULTS/BENCHMARK number against artifacts and red-teamed leakage.
+Decision: confirmed findings fixed — price tables now cite ONE canonical run (the regenerated 07-24 window); Chronos/Moirai DM claims now have a real artifact (`2026-07-27_stats_tests_fm_dm.csv`: Chronos>TimesFM p=0.0095, Moirai-cov worse p=8e-06); Winkler 84.7 corrected to 85.2 (pre-incident value had leaked into the narrative); crisis "DM p=0.17" downgraded to a direction check (no artifact, unpaired windows); P&L captures re-rounded.
+Why: exactly the audit a model-risk function would run; the repo's honesty claim has to survive independent review, and now it documents surviving one.
+
 **2026-07-25 — LGBM price HPO: defaults survive; honest negative**
 Context: champion ran "conservative untuned defaults" since M4; owner authorized a tuning campaign. 14 configs at 1095d windows, screen on test year 1, confirm top-3+control on year 2 (never used for selection). Pre-declared gate: beat control by >=0.10 MAE on BOTH years.
 Decision: NO config passes. Best (slow-learn lr 0.02-0.03, 1000-1500 trees) gains 0.02-0.08/yr. Defaults stay; the card now says "tuned 2026-07-25 — defaults survived". Side finding: noloadlags is +0.09 WORSE at 1095d (was -0.12 better at 365d) — the load-lags-drop flip is window-conditional, cancel it for the 1095d config.
