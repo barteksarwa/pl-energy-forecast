@@ -4,6 +4,11 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-07-27 — Validation E2 partially RETRACTED: not a leak for the price task; cutoff made task-aware**
+Context: re-running the price chain under the blanket 09:00 cutoff broke Chronos (MAE 55.9 — context horizon misaligned) and that smell forced a market-mechanics re-derivation. D-1 day-ahead prices clear at the D-2 auction (~13:00) — they are fully public at the 09:00 D-1 decision moment.
+Decision: `walk_forward_backtest` now takes `train_cutoff`: "target_published" (price — full D-1 legal) vs "decision_0900" (load and other physical actuals — E2 stands). Price runners and the spike screen use published mode; the "~0.11 flattery" claim is retracted for price (those hours were legitimate); the load tables' E2 impact remains unbounded until a load re-run. Tests cover both modes (119 green).
+Why: the review was right about the rule and wrong about one target's information timeline; the desk's job is to know its market. An independent finding that survives adversarial review can STILL fall to domain mechanics — documented in full rather than silently absorbed.
+
 **2026-07-27 — Idea sprint: BOA and rolling spike threshold rejected; conformal fixes adopted**
 Context: owner-authorized implementation sprint on the research note's top testable ideas, pre-declared gates, adversarial framing (scripts in outputs/experiments/, artifacts in reports/backtests/2026-07-27_*).
 Decision: (1) BOA ensemble weights REJECTED — 18.41 vs 16.89; BOA piles 99.6% weight on LGBM because it minimizes regret vs the best single expert (selection), forfeiting the diversity averaging that drives the blend; inverse-CRPS stays. (2) Rolling-90d spike threshold REJECTED — AUC 0.955 vs 0.966, p@2 down; static train-window threshold stays. (3) Conformal 'higher' quantile + per-tail sizing ADOPTED in src (measured effect ~0 at 2,160-score windows; adopted for the finite-sample guarantee). Also fixed the E2 cutoff in the spike-screen loop; spike AUC on the corrected protocol: 0.9655 (unchanged).

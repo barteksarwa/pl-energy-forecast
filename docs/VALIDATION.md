@@ -162,3 +162,18 @@ Prioritized. P1 = fix before quoting the numbers externally.
 9. Fix the leaves127 rounding slip (17.61). Re-check all 2-d.p. roundings when the doc-checker from item 5 lands.
 
 **Overall opinion.** The modeling conclusions are sound and unusually well evidenced. The control gap is documentation drift after regenerated runs, plus two code defects against the stated cutoff. Fix P1 and automate P2.5, and this desk's numbers would pass a second independent review without findings.
+---
+
+## Addendum (2026-07-27, post-review follow-up)
+
+Finding E2's scope was narrowed by market mechanics after the fix
+shipped. D-1 day-ahead prices clear at the D-2 auction (~13:00 local),
+so at the 09:00 D-1 decision moment the full D-1 price vector is
+public. Training a PRICE model through the end of D-1 is therefore
+legitimate; the blanket 09:00 cutoff was over-strict for that task
+(and broke context-based zero-shot models when applied). E2 STANDS
+for the LOAD task, where the target is a physical actual that does
+not exist yet. The training cutoff is now task-aware
+(`walk_forward_backtest(train_cutoff=...)`, both modes tested).
+The "~0.11 shared flattery" bound is retracted for the price tables
+and remains to be measured for the load tables.
