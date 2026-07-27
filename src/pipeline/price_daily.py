@@ -26,11 +26,15 @@ is conformally widened (config/price_conformal.json).
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pandas as pd
 
-from src.config import Config
+from src.config import REPO_ROOT, Config
+
+# Anchored to the repo, not the cwd: a relative open() here once meant a
+# different working directory silently published the RAW (uncalibrated,
+# ~72% coverage) band instead of the conformal one.
+CONFORMAL_PATH = REPO_ROOT / "config" / "price_conformal.json"
 from src.features.price_matrix import build_price_features
 from src.models.price import PriceLEAR
 
@@ -98,14 +102,17 @@ def price_daily_step(
     yesterday = shift_local_day(today_local, -1, tz)
     tomorrow = shift_local_day(today_local, 1, tz)
     proc = cfg.paths["data_processed"]
+    oddities_early: list[str] = []
 
     # 1. Incremental data pull (resume-based, cheap after backfill).
     backfill_entsoe_prices(cfg)
     backfill_entsoe_res(cfg)
     try:
         backfill_fuel(cfg)
-    except Exception:
-        pass  # yfinance hiccup must not kill the price step; stale closes ffill
+    except Exception as exc:  # noqa: BLE001 — yfinance hiccup must not kill the price step
+        # stale closes ffill downstream, but the failure goes on the record
+        oddities_early.append(f"Price: fuel backfill failed ({exc}); "
+                              "using last stored closes.")
 
     price = pd.read_parquet(proc / "price_da_eur.parquet").iloc[:, 0]
     load = pd.read_parquet(proc / "load.parquet").iloc[:, 0]
@@ -116,7 +123,7 @@ def price_daily_step(
 
 
     scores: dict[str, float] = {}
-    oddities: list[str] = []
+    oddities: list[str] = list(oddities_early)
     if fuel is None:
         oddities.append("Price: fuel_daily.parquet missing — running without "
                         "TTF/EUA features (DECISIONS 2026-07-17).")
@@ -180,7 +187,7 @@ def price_daily_step(
     # trailing 90d of out-of-sample backtest errors). Without it the raw
     # LEAR band covers 72% instead of 80% — see model card.
     try:
-        with open("config/price_conformal.json") as f:
+        with open(CONFORMAL_PATH) as f:
             q = json.load(f)["lear"]
         fc["p10"] = (fc["p10"] - q).clip(upper=fc["p50"])
         fc["p90"] = (fc["p90"] + q).clip(lower=fc["p50"])
@@ -200,7 +207,7 @@ def price_daily_step(
         ch = LightGBMQuantile()
         ch.fit(x_tr, y_tr)
         ch_fc = ch.predict(x.reindex(thours).dropna())
-        with open("config/price_conformal.json") as f:
+        with open(CONFORMAL_PATH) as f:
             q_ch = json.load(f)["lgbm_quantile"]
         ch_fc["p10"] = (ch_fc["p10"] - q_ch).clip(upper=ch_fc["p50"])
         ch_fc["p90"] = (ch_fc["p90"] + q_ch).clip(lower=ch_fc["p50"])
@@ -257,7 +264,7 @@ def price_daily_step(
     local = fc.tz_convert(tz)
     peak = local["p50"].idxmax()
     lines = [
-        f"## Price — day-ahead (LEAR, shadow)",
+        "## Price — day-ahead (LEAR, shadow)",
         "",
         f"### Yesterday ({yesterday.date()}) — forecast vs realized",
         "",

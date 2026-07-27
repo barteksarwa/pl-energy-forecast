@@ -61,14 +61,26 @@ def test_ridge_beats_naive_on_learnable_pattern() -> None:
 
 
 def test_backtest_ignores_future_target_values() -> None:
-    """Corrupt y after each prediction day; predictions must not change."""
-    res_clean = walk_forward_backtest(Climatology, X, Y, TEST_START, refit_every_days=999)
+    """Corrupt y from a mid-test day onward; every DAILY refit before that
+    day must be unaffected, so predictions up to it must not change.
+
+    refit_every_days=1 on purpose: with one big fit before the test
+    period (refit 999) this test would pass even if every later refit
+    leaked — it must exercise refits that run right up against the
+    corruption boundary."""
+    cut = pd.Timestamp("2026-06-01", tz="UTC")
+    res_clean = walk_forward_backtest(Climatology, X, Y, TEST_START, refit_every_days=1)
     y_dirty = Y.copy()
-    y_dirty[y_dirty.index >= TEST_START] = 1e9
+    y_dirty[y_dirty.index >= cut] = 1e9
     # Features stay clean (they are cutoff-safe by construction); only the
-    # future *target* is corrupted. Training must never see it.
-    res_dirty = walk_forward_backtest(Climatology, X, y_dirty, TEST_START, refit_every_days=999)
-    pd.testing.assert_frame_equal(res_clean.predictions, res_dirty.predictions)
+    # future *target* is corrupted. Training before `cut` must never see it.
+    res_dirty = walk_forward_backtest(Climatology, X, y_dirty, TEST_START, refit_every_days=1)
+    before = res_clean.predictions.index < cut
+    pd.testing.assert_frame_equal(
+        res_clean.predictions[before], res_dirty.predictions[before]
+    )
+    # sanity: the corruption is real — after the cut they must differ
+    assert not res_clean.predictions[~before].equals(res_dirty.predictions[~before])
 
 
 def test_summarize_has_skill_column_and_naive_zero() -> None:

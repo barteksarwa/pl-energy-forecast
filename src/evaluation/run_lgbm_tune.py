@@ -36,7 +36,6 @@ def make_factory(name: str, params: dict):
 
         # swap params for this instance only
         m._params = params
-        orig_fit = m.fit
 
         def fit(x, y):
             import lightgbm as lgb

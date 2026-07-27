@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import sys
 import time
-from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -31,8 +30,8 @@ import torch
 
 from src.config import load_config
 from src.evaluation.run_2year_backtest import make_hybrid_weather, TEST_START_LOCAL
-from src.models.deep.data import DaySamples, build_samples, standardize_covariates
-from src.models.deep.train import device, pinball, predict_mw, train_variant
+from src.models.deep.data import build_samples, standardize_covariates
+from src.models.deep.train import device, predict_mw, train_variant
 from src.models.deep.tft import TFT, TFT_CONFIGS
 from src.pipeline.daily_run import local_day_hours_utc, shift_local_day
 

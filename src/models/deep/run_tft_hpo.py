@@ -31,7 +31,7 @@ import pandas as pd
 import torch
 
 from src.config import load_config
-from src.models.deep.data import apply_covariate_stats, standardize_covariates
+from src.models.deep.data import standardize_covariates
 from src.models.deep.price_data import build_price_samples
 from src.models.deep.tft import TFT
 from src.models.deep.train import device, train_variant

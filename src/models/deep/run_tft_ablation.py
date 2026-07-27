@@ -37,7 +37,6 @@ import optuna
 import pandas as pd
 
 from src.models.deep.patchtst_feature_analysis import (
-    GROUPS,
     load_inputs,
     score_preds,
     walk_forward_ablate,

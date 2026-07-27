@@ -27,7 +27,7 @@ import sys
 
 import pandas as pd
 
-from src.config import load_config
+from src.config import REPO_ROOT, load_config
 from src.evaluation.backtest import BacktestResult
 from src.evaluation.conformal import (
     latest_offset,
@@ -98,7 +98,9 @@ def main() -> int:
         "window_end": str(y_full.index.max().date()),
         "refresh": "rerun src.evaluation.run_price_calibration after each backtest / monthly",
     }
-    with open("config/price_conformal.json", "w") as f:
+    # repo-anchored, cwd-independent (same rule as the reader in
+    # src/pipeline/price_daily.py)
+    with open(REPO_ROOT / "config" / "price_conformal.json", "w") as f:
         json.dump(offsets, f, indent=2)
 
     print(table.round(3).to_string())
@@ -111,7 +113,6 @@ def main() -> int:
             p = pd.read_parquet(preds_dir / f"{name}.parquet")
             sym = rolling_conformal(p, y_full)
             asym = rolling_conformal_asymmetric(p, y_full)
-            changed = sym["p90"] != p["p90"]
             q_lo, q_hi = latest_offset_asymmetric(p, y_full)
             rows.append({
                 "model": name,

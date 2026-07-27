@@ -1,0 +1,26 @@
+# Tests + lint on every push and PR. The daily cron proves the product
+# runs; this proves the code is sound before it ships.
+
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Install (locked)
+        run: uv sync --locked
+      - name: Lint
+        run: uv run ruff check src tests
+      # Split mirrors `make test` (torch/LightGBM OpenMP clash on macOS;
+      # same split everywhere so local and CI agree).
+      - name: Tests
+        run: |
+          uv run pytest -q -m "not smoke" --ignore=tests/test_deep_data.py
+          uv run pytest -q -m "not smoke" tests/test_deep_data.py

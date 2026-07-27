@@ -17,7 +17,6 @@ def csv_block(path: Path, title: str, cols: list[str]) -> list[str]:
     if not path.exists():
         return [f"## {title}", "", "_missing — stage failed, see overnight.log_", ""]
     df = pd.read_csv(path)
-    keep = [c for c in cols if c in df.columns]
     g = df.groupby([c for c in ["variant", "hidden"] if c in df.columns])[
         [c for c in ["test_mape", "test_pinball_p50", "n_params"] if c in df.columns]
     ].mean().round(3).reset_index()

@@ -26,7 +26,6 @@ import pandas as pd
 from src.config import load_config
 from src.evaluation.run_price_backtest import assemble_price_features
 from src.models.gbm import PARAMS
-from src.pipeline.daily_run import shift_local_day
 
 GROUPS = {
     "price_lags": lambda c: c.startswith(("price_lag_", "price_mean", "price_d1_")),
@@ -48,9 +47,13 @@ def walk_forward_mae(
     model, last_fit, errs = None, None, []
     for day in test_days:
         if model is None or (pd.Timestamp(day) - pd.Timestamp(last_fit)).days >= 7:
+            # `dates < day` is leak-free for the DA price target: the full
+            # D-1 curve clears at auction on D-2 (target_availability
+            # "day_ahead" in the main engine — keep the two in sync).
             tr = (dates < day) & (dates >= day - pd.Timedelta(days=365))
             x_tr = x[tr].dropna()
-            y_tr = y.reindex(x_tr.index)
+            y_tr = y.reindex(x_tr.index).dropna()
+            x_tr = x_tr.reindex(y_tr.index)
             model = lgb.LGBMRegressor(objective="quantile", alpha=0.5, **PARAMS)
             model.fit(x_tr, y_tr)
             last_fit = day

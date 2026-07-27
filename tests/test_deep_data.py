@@ -1,7 +1,5 @@
 """Tests for src/models/deep/data.py — standardize_covariates."""
 
-import numpy as np
-import pytest
 import torch
 
 from src.models.deep.data import DaySamples, apply_covariate_stats, standardize_covariates

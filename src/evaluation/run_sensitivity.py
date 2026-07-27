@@ -27,21 +27,18 @@ import numpy as np
 import pandas as pd
 from sklearn.decomposition import PCA
 from sklearn.inspection import permutation_importance
-from sklearn.linear_model import LassoCV, Ridge, RidgeCV
+from sklearn.linear_model import Ridge
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 import src.models.baselines  # noqa: F401
 import src.models.gbm  # noqa: F401
 from src.config import load_config
-from src.evaluation.backtest import walk_forward_backtest, summarize, BacktestResult
+from src.evaluation.backtest import walk_forward_backtest, summarize
 from src.evaluation.run_2year_backtest import (
-    assemble, make_hybrid_weather, TEST_START_LOCAL, RidgeTSO, LGBMQuantileTSO,
+    assemble, make_hybrid_weather, TEST_START_LOCAL, RidgeTSO,
 )
-from src.features.weather import load_weather_forecast_history, load_weather_history
-from src.models.baselines import RidgeForecaster, SeasonalNaive
-from src.models.gbm import LightGBMQuantile
-from src.pipeline.daily_run import shift_local_day
+from src.models.baselines import RidgeForecaster
 
 TZ = "Europe/Warsaw"
 
@@ -176,7 +173,7 @@ def run_group_ablation(
 
     md = ["# Feature group ablation", "", result.round(3).to_markdown(), ""]
     (out_dir / "group_ablation.md").write_text("\n".join(md))
-    print(f"  saved group_ablation.csv / .md / .png")
+    print("  saved group_ablation.csv / .md / .png")
 
 
 def run_permutation_importance(
@@ -405,7 +402,7 @@ def run_pca_feature_backtest(
     print("  raw ridge_tso baseline ...")
     raw_r = walk_forward_backtest(RidgeTSO, x_with_tso, y, test_start_utc,
                                   train_window_days=365)
-    from src.evaluation.backtest import summarize, BacktestResult
+    from src.evaluation.backtest import summarize
     raw_tbl = summarize([raw_r], y)
     raw_mape = float(raw_tbl["mape_pct"].iloc[0])
     print(f"  raw baseline MAPE: {raw_mape:.3f}%")
@@ -459,7 +456,7 @@ def run_pca_feature_backtest(
         result.round(3).to_markdown(),
     ]
     (out_dir / "pca_feature_backtest.md").write_text("\n".join(md))
-    print(f"  saved pca_feature_backtest.csv / .md / .png")
+    print("  saved pca_feature_backtest.csv / .md / .png")
 
 
 def main() -> int:
@@ -478,7 +475,7 @@ def main() -> int:
     data_end = load.index[-1].tz_convert(tz) - pd.Timedelta(days=1)
     test_start_utc = test_start_local.tz_convert("UTC")
 
-    print(f"Assembling 2-year feature matrices ...")
+    print("Assembling 2-year feature matrices ...")
     x_no_tso = assemble(load, weather, tz,
                         pd.Timestamp(data_start.date(), tz=tz),
                         pd.Timestamp(data_end.date(), tz=tz))

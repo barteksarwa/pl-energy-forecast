@@ -246,7 +246,7 @@ def plot_error_distribution(actual: pd.Series, preds: dict[str, pd.DataFrame]) -
         errors[label] = (p["p50"] - y).values
 
     labels = list(errors.keys())
-    data = [errors[l] for l in labels]
+    data = [errors[lab] for lab in labels]
     bps = axes[0].violinplot(data, positions=range(len(labels)), showmedians=True, showextrema=False)
     for i, (body, label) in enumerate(zip(bps["bodies"], labels)):
         body.set_facecolor(colors.get(label, "#888"))
@@ -258,9 +258,9 @@ def plot_error_distribution(actual: pd.Series, preds: dict[str, pd.DataFrame]) -
     axes[0].set_title("Error distribution (p50 − actual)")
 
     # Absolute error
-    abs_errors = {l: np.abs(e) for l, e in errors.items()}
+    abs_errors = {lab: np.abs(e) for lab, e in errors.items()}
     bp2 = axes[1].boxplot(
-        [abs_errors[l] for l in labels],
+        [abs_errors[lab] for lab in labels],
         tick_labels=labels, patch_artist=True,
         flierprops=dict(marker=".", markersize=1, alpha=0.3),
         medianprops=dict(color="black", lw=1.5),
@@ -426,11 +426,6 @@ def plot_spike_analysis(actual: pd.Series, preds: dict[str, pd.DataFrame]) -> No
     # Spike = price above 95th percentile
     spike_cut = actual.quantile(0.95)
     mask = actual >= spike_cut
-    spike_actual = actual[mask]
-
-    colors = {"LGBM+CQR": "#2ecc71", "LEAR+CQR": "#3498db", "TFT ens-3": "#e67e22"}
-    positions = np.array([0, 1, 2])
-    width = 0.25
 
     spike_maes = []
     for label in ["LGBM+CQR", "LEAR+CQR", "TFT ens-3"]:
