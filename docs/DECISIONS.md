@@ -147,7 +147,7 @@ Why: aggregate capacity unavailability is too coarse. Individual outage identity
 
 **2026-07-17 — Fuel features (TTF/EUA proxy) adopted for LEAR**
 Context: winter 2024/25 LEAR monthly bias −15.9 EUR/MWh in January. Gas prices were high; LEAR saw no fuel signal.
-Decision: TTF index (LNG import proxy via ENTSO-E) and EUA-tracking ETF added to LEAR feature matrix. LGBM: no improvement (trees already carry the slow level via price lags).
+Decision: TTF futures (yfinance `TTF=F` daily close) and an EUA-tracking ETC (`CO2.MI`, a tracker proxy — not EUA settlement prices) added to LEAR feature matrix. LGBM: no improvement (trees already carry the slow level via price lags).
 Why: LEAR reduced winter bias to −4.6 EUR/MWh; Jan MAE −2.5 EUR/MWh. Gain concentrated in exactly the months where the mechanism predicts it: high-gas regime. Merit-order mechanism, measured.
 
 **2026-07-17 — Shadow tally started for both load and price**

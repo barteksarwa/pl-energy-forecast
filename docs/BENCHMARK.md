@@ -19,11 +19,13 @@ story around them. Blog draft; arXiv-style expansion is the stretch goal.
 1. **Hard information cutoff.** Only data observable at 09:00 D-1.
    Enforced by asserts and tests, incl. the 25-hour DST day that broke
    a naive "minus 24 hours" lag once. Documented bug, fixed, tested.
-   The 2026-07-27 validation review found the backtest training mask
-   still reached past this cutoff (D-1 09:00-23:00 leaked into training).
-   Fixed with a regression test; impact bounded at ~0.11 MAE, shared by
-   all trained models, rankings unaffected (see §6). The cutoff is
-   tested, not just stated.
+   The 2026-07-27 validation review flagged the training mask for
+   using D-1 hours 09:00-23:00. Scope was narrowed the same day: DA
+   prices for D-1 clear at auction on D-2, so the full D-1 curve is
+   public at 09:00 D-1 — no leak for the price target. The engine is
+   now target-aware (`target_availability`): price trains through D-1,
+   load stops at 09:00 D-1. Both modes regression-tested (see §6 and
+   the VALIDATION.md amendment).
 2. **Walk-forward only.** Rolling refits (weekly for trained models,
    daily context for zero-shot). No random splits. Test period
    2024-07 → 2026-07, ~17.7k hours.
@@ -136,16 +138,20 @@ code. It is the audit a model-risk function would run.
 
 - **31 confirmed findings** (adversarial: every finding had to survive a
   refuter). 24 were documentation drifts — stale citations and
-  hand-transcription errors after regenerated runs. All 24 fixed.
-- **2 real protocol bugs** in the code, fixed with regression tests: the
-  backtest training mask reached past the 09:00 cutoff, and the D-1 price
-  vector picked up the D-2 shape on the day after spring DST.
-- **Impact bounded.** The cutoff bug added ~0.11 MAE of optimism, SHARED
-  by every trained model (champion 17.95 vs 17.84 corrected). Rankings
-  unaffected. The production daily loop never had the defect — it runs
-  after gate closure and cannot see the future.
-- Corrected-protocol re-runs are the next campaign. Full review:
-  `docs/VALIDATION.md`.
+  hand-transcription errors after regenerated runs. 23 fixed, one (A5) disclosed with a tightened note.
+- **2 real code bugs** against the stated cutoff, fixed with regression
+  tests: the training mask ignored the 09:00 decision moment, and the
+  D-1 price vector picked up the D-2 shape on the day after spring DST.
+- **Cutoff finding later scope-narrowed (same day).** DA prices publish
+  one day ahead (auction on D-2 for delivery day D-1), so the full D-1
+  curve is public at the 09:00 D-1 decision moment — the mask was never
+  a leak for the PRICE target. The earlier "~0.11 MAE shared optimism"
+  bound (champion 17.95 under the over-strict mask vs 17.84) is
+  withdrawn for price; price tables stand as-is. The finding stays real
+  for the live-observed LOAD target; load tables carry that small
+  shared caveat until rerun. The production daily loop never had the
+  defect either way.
+- Full review and amendment: `docs/VALIDATION.md`.
 
 No finding overturned a modeling conclusion. The gap was documentation
 drift, not concealment.
@@ -188,7 +194,7 @@ drift, not concealment.
   - P&L: `uv run python -m src.evaluation.run_pnl`
 - **Determinism:** LGBM/LEAR deterministic given data; deep models
   report 3-seed ensembles; zero-shot FMs deterministic single passes.
-- **Tests:** `make test` (102 tests; leakage, DST, metrics, conformal,
+- **Tests:** `make test` (125 tests; leakage, DST, metrics, conformal,
   ensemble, P&L accounting).
 
 *Written 2026-07-24 (Phase 7). Update alongside RESULTS.md.*

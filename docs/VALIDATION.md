@@ -1,7 +1,7 @@
 # VALIDATION.md — Independent model-validation review (draft)
 
 **Review date:** 2026-07-26. **Remediation status noted as of:** 2026-07-27.
-**Reviewer:** independent agent-based review (MRM style), commissioned by the desk owner.
+**Reviewer:** adversarial LLM audit commissioned and directed by the desk owner — separate agents for the numbers audit, the leakage red-team, and a refuter pass that every finding had to survive. Not an independent human review, and not presented as one; the value is the adversarial protocol and the artifacts it produced.
 **Scope owner:** one-person forecasting desk, PL day-ahead load and price.
 
 ---
