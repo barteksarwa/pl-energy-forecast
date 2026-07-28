@@ -126,7 +126,7 @@ Every answer is specific and backed by a number from this repo.
 ### Project overview
 
 **"Walk me through your project."**
-A day-ahead forecasting desk for the Polish power market. Forecasts load and price, scores itself every morning, commits the report to git. Load beats PSE's forecast: 2.08% vs 2.23% MAPE, 2-year walk-forward. Price beats the LEAR standard: rMAE 0.638 vs 0.660. Runs unattended on GitHub Actions.
+A day-ahead forecasting desk for the Polish power market. Forecasts load and price, scores itself every morning, commits the report to git. Load beats PSE's forecast in backtest: 2.08% vs 2.23% MAPE, 2-year walk-forward (what ships daily is still the naive incumbent — ridge is in shadow until it passes the gate; say this before they find it). Price: LGBM rMAE 0.640 vs LEAR 0.662; the 4-member ensemble is the best at 0.605. Runs unattended on GitHub Actions.
 
 **"Why load AND price?"**
 Load is the core skill: public data, no negatives, strong seasonality. But the highest-paying roles are trading desks, and desks care about price. Price runs on the same feature pipeline, backtest engine, and daily loop. That mirrors a real desk.
@@ -154,7 +154,7 @@ Load: MAPE (stakeholder-friendly, TSO standard), plus MAE and skill vs naive. Pr
 ### Technical — price
 
 **"What is LEAR?"**
-LASSO-Estimated AutoRegression (Ziel & Weron 2018). 24 LASSO regressions, one per delivery hour. Inputs: price lags (24h, 48h, 168h), load forecast, calendar. The standard benchmark. Ours: rMAE 0.660; our LightGBM challenger: 0.638.
+LASSO-Estimated AutoRegression (Ziel & Weron 2018). 24 LASSO regressions, one per delivery hour. Inputs: price lags (24h, 48h, 168h), load forecast, calendar. The standard benchmark. Ours: rMAE 0.662; our LightGBM challenger: 0.640. Know the simplifications cold (see the LEAR model card deviations list): only D-1 is a full day-vector, ordinal day-of-week, CV-selected penalty. If asked, lead with them — Weron's group is at Wrocław.
 
 **"What drives Polish day-ahead prices?"**
 Merit order: the marginal plant sets the price; wind >4 GW cuts price 21% (measured). Demand: high load + low RES → gas marginal → high price. Fundamentals: TTF gas and EUA CO2 set the marginal unit's cost. Adding fuel proxies to LEAR cut winter bias from −15.9 to −4.6 EUR/MWh.

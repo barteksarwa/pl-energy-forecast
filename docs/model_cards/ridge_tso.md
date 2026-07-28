@@ -1,5 +1,10 @@
 # Model card — ridge_tso
 
+**Production status: SHADOW** — load challenger. The published load
+forecast is still the seasonal-naive incumbent; this model replaces it
+only after the pre-agreed 14-day gate. The Open-Meteo fetch outage that
+stalled the gate (07-17 → 07-27) was fixed with retries on 2026-07-27.
+
 ## What it is
 
 Ridge regression (L2 penalty, α=1.0) with the TSO day-ahead load forecast

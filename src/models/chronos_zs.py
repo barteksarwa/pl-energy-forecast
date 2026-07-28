@@ -22,7 +22,7 @@ import numpy as np
 import pandas as pd
 
 from src.models.base import register
-from src.models.fm_common import HistoryContext
+from src.models.fm_common import HistoryContext, forecast_span
 
 CONTEXT_HOURS = 2048  # Bolt's maximum context
 MODEL_ID = "amazon/chronos-bolt-base"
@@ -59,13 +59,15 @@ class ChronosBoltZS:
         context = self._ctx.context_before(idx[0])
         if len(context) < 168:
             return out  # not enough history — NaN row, engine skips
+        n_ahead, fc_idx = forecast_span(context.index[-1], idx)
         quantiles, _ = pipe.predict_quantiles(
             torch.tensor(context.to_numpy(), dtype=torch.float32),
-            prediction_length=len(idx),
+            prediction_length=n_ahead,
             quantile_levels=[0.1, 0.5, 0.9],
         )
-        q = quantiles[0].cpu().numpy()  # (len(idx), 3)
-        out["p10"], out["p50"], out["p90"] = q[:, 0], q[:, 1], q[:, 2]
+        q = quantiles[0].cpu().numpy()[:n_ahead]  # (n_ahead, 3)
+        fc = pd.DataFrame(q, index=fc_idx, columns=["p10", "p50", "p90"])
+        out[["p10", "p50", "p90"]] = fc.reindex(idx).to_numpy()
         # enforce quantile ordering, same trick as gbm.py
         arr = np.sort(out[["p10", "p50", "p90"]].to_numpy(), axis=1)
         out[["p10", "p50", "p90"]] = arr

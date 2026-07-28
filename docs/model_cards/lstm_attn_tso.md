@@ -63,9 +63,10 @@ to training-window idiosyncrasies.
 ## Interpretability
 
 No analytic coefficients. Interpretability tools:
-- **Permutation importance** (on the validation set): shows that `tso_forecast_mw`
-  has the highest permutation importance by a large margin, confirming the same
-  pattern as ridge.
+- **Permutation importance** (on the validation set): `tso_forecast_mw`
+  ranked first in the session where this was run, matching the ridge
+  pattern. Caveat: no artifact of that run survives in `reports/` — the
+  claim is unverifiable until regenerated, so treat it as indicative.
 - **Attention weight visualization**: `decoder attention[:,·,·]` shows which
   encoder steps each prediction attends to — typically peaking at 168 h ago
   (same weekday, same hour), consistent with seasonal naive intuition.

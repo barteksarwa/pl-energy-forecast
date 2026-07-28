@@ -16,52 +16,17 @@ import shap
 
 from src.config import REPO_ROOT, load_config
 from src.evaluation.run_backtest import assemble_features
+from src.interpretability.plain_words import top_phrases
 from src.features.weather import load_weather_forecast_history
 from src.models.gbm import LightGBMQuantile
 from src.pipeline.daily_run import shift_local_day
 
 FIGURES = REPO_ROOT / "reports" / "figures"
 
-# Feature → plain words, for reports a manager reads in 60 seconds.
-PLAIN_WORDS = {
-    "load_lag_48h": "load two days ago at this hour",
-    "load_lag_72h": "load three days ago at this hour",
-    "load_lag_168h": "load last week at this hour",
-    "load_lag_336h": "load two weeks ago at this hour",
-    "load_lag_504h": "load three weeks ago at this hour",
-    "load_lag_672h": "load four weeks ago at this hour",
-    "load_mean_7d": "the average load level of the past week",
-    "hour_local": "the hour of the day",
-    "hour_sin": "the hour of the day",
-    "hour_cos": "the hour of the day",
-    "day_of_week": "the day of the week",
-    "is_weekend": "weekend vs workday",
-    "is_holiday": "a public holiday",
-    "is_bridge_day": "a bridge day (workday squeezed next to a holiday)",
-    "month": "the season",
-    "doy_sin": "the time of year",
-    "doy_cos": "the time of year",
-    "temperature_2m": "temperature",
-    "wind_speed_10m": "wind",
-    "cloud_cover": "cloud cover",
-    "shortwave_radiation": "sunshine",
-    "relative_humidity_2m": "humidity",
-    "heating_degrees": "heating demand (cold below 15°C)",
-    "cooling_degrees": "cooling demand (heat above 22°C)",
-}
-
 
 def top_drivers(shap_values: np.ndarray, columns: list[str], n: int = 3) -> list[str]:
     """Top-n features by mean |SHAP|, deduplicated by plain-words phrase."""
-    order = np.argsort(np.abs(shap_values).mean(axis=0))[::-1]
-    phrases: list[str] = []
-    for i in order:
-        phrase = PLAIN_WORDS.get(columns[i], columns[i])
-        if phrase not in phrases:
-            phrases.append(phrase)
-        if len(phrases) == n:
-            break
-    return phrases
+    return top_phrases(np.abs(shap_values).mean(axis=0), columns, n)
 
 
 def main() -> int:

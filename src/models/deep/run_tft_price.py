@@ -27,9 +27,7 @@ import sys
 import time
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
-import torch
 
 from src.config import load_config
 from src.models.deep.price_data import build_price_samples
@@ -124,7 +122,6 @@ def main() -> int:
     test_days = [d for d in all_dates if (last - d).days < args.days]
 
     rows, t0 = [], time.time()
-    naive = price.reindex(price.index)  # for rMAE below
     for ctx in CONTEXTS:
         pred = walk_forward_tft_price(price, res, tso, ctx, test_days, all_dates)
         if pred is None:

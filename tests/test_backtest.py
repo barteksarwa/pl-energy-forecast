@@ -61,14 +61,26 @@ def test_ridge_beats_naive_on_learnable_pattern() -> None:
 
 
 def test_backtest_ignores_future_target_values() -> None:
-    """Corrupt y after each prediction day; predictions must not change."""
-    res_clean = walk_forward_backtest(Climatology, X, Y, TEST_START, refit_every_days=999)
+    """Corrupt y from a mid-test day onward; every DAILY refit before that
+    day must be unaffected, so predictions up to it must not change.
+
+    refit_every_days=1 on purpose: with one big fit before the test
+    period (refit 999) this test would pass even if every later refit
+    leaked — it must exercise refits that run right up against the
+    corruption boundary."""
+    cut = pd.Timestamp("2026-06-01", tz="UTC")
+    res_clean = walk_forward_backtest(Climatology, X, Y, TEST_START, refit_every_days=1)
     y_dirty = Y.copy()
-    y_dirty[y_dirty.index >= TEST_START] = 1e9
+    y_dirty[y_dirty.index >= cut] = 1e9
     # Features stay clean (they are cutoff-safe by construction); only the
-    # future *target* is corrupted. Training must never see it.
-    res_dirty = walk_forward_backtest(Climatology, X, y_dirty, TEST_START, refit_every_days=999)
-    pd.testing.assert_frame_equal(res_clean.predictions, res_dirty.predictions)
+    # future *target* is corrupted. Training before `cut` must never see it.
+    res_dirty = walk_forward_backtest(Climatology, X, y_dirty, TEST_START, refit_every_days=1)
+    before = res_clean.predictions.index < cut
+    pd.testing.assert_frame_equal(
+        res_clean.predictions[before], res_dirty.predictions[before]
+    )
+    # sanity: the corruption is real — after the cut they must differ
+    assert not res_clean.predictions[~before].equals(res_dirty.predictions[~before])
 
 
 def test_summarize_has_skill_column_and_naive_zero() -> None:
@@ -83,12 +95,8 @@ def test_lasso_ar_runs_and_orders_quantiles() -> None:
     assert (p["p10"] <= p["p90"]).all()
 
 
-def test_training_stops_at_0900_on_d_minus_1() -> None:
-    """Regression (validation E2): the forecast for day D is decided at
-    09:00 on D-1 — training data must not contain D-1 hours from 09:00
-    local onward."""
-    import numpy as np
-
+def _spy_backtest(**kwargs) -> list[pd.Timestamp]:
+    """Run a spy model over noise; return the max training timestamp per fit."""
     idx = pd.date_range("2024-01-01", periods=120 * 24, freq="1h", tz="UTC")
     rng = np.random.default_rng(0)
     x = pd.DataFrame({"f": rng.normal(size=len(idx))}, index=idx)
@@ -109,48 +117,53 @@ def test_training_stops_at_0900_on_d_minus_1() -> None:
 
     test_start = pd.Timestamp("2024-04-01", tz="Europe/Warsaw")
     walk_forward_backtest(Spy, x, y, test_start.tz_convert("UTC"),
-                          train_window_days=60, refit_every_days=1)
+                          train_window_days=60, refit_every_days=1, **kwargs)
     assert seen, "no refits happened"
-    tz = "Europe/Warsaw"
-    for last in seen:
-        local = last.tz_convert(tz)
+    return seen
+
+
+def test_realtime_training_stops_at_0900_on_d_minus_1() -> None:
+    """Regression (validation E2): a live-observed target decided at 09:00
+    on D-1 — training data must not contain D-1 hours from 09:00 local
+    onward."""
+    for last in _spy_backtest():
+        local = last.tz_convert("Europe/Warsaw")
         assert local.hour < 9 or local.time() < pd.Timestamp("09:00").time(), (
             f"training saw {local}, at/after the 09:00 D-1 decision moment"
         )
 
 
-def test_published_target_mode_uses_full_d_minus_1_but_never_day_d() -> None:
-    """Day-ahead prices for D-1 are public at decision time (fixed at
-    the D-2 auction). In target_published mode, training may include
-    all of D-1 — and still nothing from day D."""
-    import numpy as np
+def test_day_ahead_training_sees_full_d_minus_1() -> None:
+    """A day-ahead-published target (DA price): the whole D-1 curve is
+    known at decision time. Training must reach 23:00 local D-1 — and
+    never touch the target day."""
+    for last in _spy_backtest(target_availability="day_ahead"):
+        local = last.tz_convert("Europe/Warsaw")
+        assert local.hour == 23, (
+            f"daily refit should train through 23:00 D-1, saw {local}"
+        )
 
-    idx = pd.date_range("2024-01-01", periods=120 * 24, freq="1h", tz="UTC")
-    rng = np.random.default_rng(1)
-    x = pd.DataFrame({"f": rng.normal(size=len(idx))}, index=idx)
-    y = pd.Series(rng.normal(size=len(idx)), index=idx)
 
-    seen: list[tuple[pd.Timestamp, pd.Timestamp]] = []
+def test_unknown_target_availability_rejected() -> None:
+    with pytest.raises(ValueError, match="target_availability"):
+        _spy_backtest(target_availability="typo")
 
-    class Spy:
-        name = "spy"
 
-        def fit(self, x_tr, y_tr):
-            seen.append(x_tr.index.max())
-
-        def predict(self, x_day):
-            return pd.DataFrame(
-                {"p10": 0.0, "p50": 0.0, "p90": 0.0}, index=x_day.index
-            )
-
-    test_start = pd.Timestamp("2024-04-01", tz="Europe/Warsaw")
-    result = walk_forward_backtest(
-        Spy, x, y, test_start.tz_convert("UTC"),
-        train_window_days=60, refit_every_days=1,
-        train_cutoff="target_published")
-    tz = "Europe/Warsaw"
-    # every refit sees D-1 evening hours (not cut at 09:00) ...
-    assert all(last.tz_convert(tz).hour >= 21 for last in seen)
-    # ... and even the final refit trains strictly before its target day
-    pred_days = pd.Index(result.predictions.index.tz_convert(tz).date)
-    assert max(seen).tz_convert(tz).date() < max(pred_days)
+def test_day_ahead_mode_never_sees_day_d() -> None:
+    """Ported from the parallel session's `train_cutoff` fix: in
+    day_ahead mode training may reach through D-1 but must never touch
+    day D. Corrupt from a mid-test day on; daily-refit predictions
+    before it must be identical."""
+    cut = pd.Timestamp("2026-06-01", tz="UTC")
+    clean = walk_forward_backtest(Climatology, X, Y, TEST_START,
+                                  refit_every_days=1,
+                                  target_availability="day_ahead")
+    y_dirty = Y.copy()
+    y_dirty[y_dirty.index >= cut] = 1e9
+    dirty = walk_forward_backtest(Climatology, X, y_dirty, TEST_START,
+                                  refit_every_days=1,
+                                  target_availability="day_ahead")
+    before = clean.predictions.index < cut
+    pd.testing.assert_frame_equal(
+        clean.predictions[before], dirty.predictions[before]
+    )

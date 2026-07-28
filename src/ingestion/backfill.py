@@ -201,12 +201,19 @@ def backfill_weather_forecasts(cfg: Config) -> None:
 
 
 def backfill_pse(cfg: Config) -> None:
-    """Load + TSO forecast from PSE API v2. Keyless. Data from 2024-06-14."""
-    from src.clients.pse_client import fetch_kse_load
+    """Load + TSO forecast from PSE API v2. Keyless. Data from 2024-06-14.
+
+    Stores both resolutions: the hourly series the models consume, and
+    the native 15-min series (load_15min.parquet) — PL settles imbalance
+    on 15-min periods, so the native resolution is kept, not resampled
+    away.
+    """
+    from src.clients.pse_client import fetch_kse_load_native
 
     gap_log = cfg.paths["data_processed"] / "gap_log.csv"
     load_path = cfg.paths["data_processed"] / "load.parquet"
     tso_path = cfg.paths["data_processed"] / "tso_forecast.parquet"
+    native_path = cfg.paths["data_processed"] / "load_15min.parquet"
     pse_start = max(pd.Timestamp(cfg.backfill_start, tz="UTC"),
                     pd.Timestamp("2024-06-14", tz="UTC"))
     start_ts = _resume_start(load_path, pse_start)
@@ -218,10 +225,12 @@ def backfill_pse(cfg: Config) -> None:
     chunk_start = start_ts.date()
     while chunk_start <= end_date:
         chunk_end = min(chunk_start + pd.Timedelta(days=60), end_date)
-        df = fetch_kse_load(str(chunk_start), str(chunk_end))
+        native = fetch_kse_load_native(str(chunk_start), str(chunk_end))
+        df = native.resample("1h").mean()
         if not df.empty:
             _merge_save(load_path, df[["load_mw"]].dropna())
             _merge_save(tso_path, df[["tso_forecast_mw"]].dropna())
+            _merge_save(native_path, native.dropna(how="all"))
             print(f"pse: {chunk_start} → {chunk_end}, {len(df)} hours")
         else:
             print(f"pse: {chunk_start} → {chunk_end}, empty")
@@ -243,13 +252,19 @@ PSE_PRICE_ENTITIES = {
 
 
 def backfill_pse_prices(cfg: Config) -> None:
-    """Phase 2 data: day-ahead price, balancing price, generation mix. Keyless."""
-    from src.clients.pse_client import fetch_entity_hourly
+    """Phase 2 data: day-ahead price, balancing price, generation mix. Keyless.
+
+    Each entity is stored at both resolutions (hourly for the current
+    models, native 15-min as *_15min.parquet). Balancing settles on
+    15-min periods — the native store is what an imbalance model reads.
+    """
+    from src.clients.pse_client import fetch_entity_native
 
     gap_log = cfg.paths["data_processed"] / "gap_log.csv"
     end_date = (pd.Timestamp.now(tz="Europe/Warsaw") + pd.Timedelta(days=1)).date()
     for entity, (cols, stem) in PSE_PRICE_ENTITIES.items():
         path = cfg.paths["data_processed"] / f"{stem}.parquet"
+        native_path = cfg.paths["data_processed"] / f"{stem}_15min.parquet"
         start_ts = _resume_start(path, pd.Timestamp("2024-06-14", tz="UTC"))
         if start_ts.date() > end_date:
             print(f"{stem}: up to date")
@@ -257,9 +272,12 @@ def backfill_pse_prices(cfg: Config) -> None:
         chunk_start = start_ts.date()
         while chunk_start <= end_date:
             chunk_end = min(chunk_start + pd.Timedelta(days=60), end_date)
-            df = fetch_entity_hourly(entity, cols, str(chunk_start), str(chunk_end))
+            native = fetch_entity_native(entity, cols, str(chunk_start),
+                                         str(chunk_end))
+            df = native.resample("1h").mean()
             if not df.empty:
                 _merge_save(path, df.dropna(how="all"))
+                _merge_save(native_path, native.dropna(how="all"))
             chunk_start = chunk_end + pd.Timedelta(days=1)
             time.sleep(cfg.request_sleep_s)
         if path.exists():

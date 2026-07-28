@@ -1,5 +1,8 @@
 # Model card — lear (price)
 
+**Production status: PUBLISHED daily** — the price incumbent. The
+daily loop publishes its P50 and conformally widened band.
+
 ## What it is
 
 LEAR = LASSO-Estimated AutoRegression (Ziel & Weron 2018). The standard
@@ -90,7 +93,26 @@ is 0.75–0.85 — fundamentals push us past it.
   the weak spot of the whole table.
 - **Fuel features (TTF/EUA proxy) adopted 2026-07-17**: MAE 18.5 → 18.24.
   Gain concentrated in high-gas winter 2024/25 (Jan bias −15.9 → −4.6).
-  Cross-border flows and outages evaluated; outages FLAT (CI 503 endpoint).
+  Outages evaluated and NOT adopted (±0.05, noise; CI 503 endpoint).
+  Cross-border flows: not fetched, not evaluated — open item.
+
+## Deviations from canonical LEAR (Ziel & Weron 2018)
+
+Honest list; each is a simplification, not an improvement:
+
+- Price regressors: only D-1 enters as a full 24-hour vector. D-2, D-3,
+  D-7 enter as same-hour scalars. Canonical LEAR uses ~96 price
+  regressors (four full day-vectors).
+- Exogenous variables enter as single values per row, not day-vectors.
+- `day_of_week` is an ordinal integer, not one-hot dummies. For a
+  LASSO this imposes a Mon<Tue<...<Sun ordering — a known weakness.
+- Penalty chosen by `LassoCV` (k-fold), not `LassoLarsIC` (AIC). The
+  folds are not time-ordered, so penalty selection sees future data
+  (fit coefficients do not).
+
+Making the variant faithful (day-vectors, dummies, AIC) is on the
+roadmap; expect the LEAR baseline to improve and the LGBM edge to
+shrink accordingly.
 
 ## Status
 

@@ -62,11 +62,6 @@ def main() -> int:
     print(f"samples: train {len(tr.days)}, val {len(va.days)}, test {len(te.days)}",
           flush=True)
 
-    y_test = pd.concat([
-        pd.Series(te.y[i].numpy() * float(te.std[i]) + float(te.mean[i]))
-        for i in range(len(te.days))
-    ])
-
     enc_feat, fut_feat = tr.enc.shape[-1], tr.fut.shape[-1]
     CKPT_DIR.mkdir(parents=True, exist_ok=True)
 

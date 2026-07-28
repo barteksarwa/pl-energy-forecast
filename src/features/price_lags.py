@@ -87,14 +87,17 @@ def daily_price_vector(
     target_hours: pd.DatetimeIndex,
     cutoff: pd.Timestamp,
     tz: str = LOCAL_TZ,
+    days_back: int = 1,
 ) -> pd.DataFrame:
-    """All 24 hourly prices of D-1 as one row-constant feature block.
+    """All 24 hourly prices of day D-`days_back` as one row-constant block.
 
     This is the core LEAR input (Lago et al. 2021): predicting hour h of
-    day D uses the WHOLE shape of yesterday, not just hour h. Columns
-    price_d1_h00 ... price_d1_h23, identical on every row of day D.
+    day D uses the WHOLE shape of a past day, not just hour h. Columns
+    price_d{days_back}_h00 ... _h23, identical on every row of day D.
+    Canonical LEAR uses the vectors of D-1, D-2, D-3 and D-7 (~96 price
+    regressors); the default here is the D-1 vector alone.
 
-    DST handling on the source day D-1: the repeated autumn hour is
+    DST handling on the source day: the repeated autumn hour is
     averaged; the missing spring hour is linearly interpolated from its
     neighbours. Both are deterministic and stated here rather than hidden.
     """
@@ -102,18 +105,18 @@ def daily_price_vector(
         raise ValueError("price, target_hours and cutoff must all be tz-aware")
 
     visible = price[price.index < cutoff]
-    # calendar-day shift, NOT Timedelta(days=1): 24 absolute hours from
-    # local midnight lands on D-2 when D-1 is the 23-hour spring-DST day
+    # calendar-day shift, NOT Timedelta(days=k): absolute-hour arithmetic
+    # from local midnight lands on the wrong day across DST switches
     # (validation finding E1, 2026-07-27)
-    d_minus_1 = target_hours[0].tz_convert(tz).date() - timedelta(days=1)
+    source_day = target_hours[0].tz_convert(tz).date() - timedelta(days=days_back)
     local = visible.index.tz_convert(tz)
-    day_mask = pd.Index(local.date) == d_minus_1
-    yesterday = visible[day_mask]
-    by_hour = yesterday.groupby(yesterday.index.tz_convert(tz).hour).mean()
+    day_mask = pd.Index(local.date) == source_day
+    day_prices = visible[day_mask]
+    by_hour = day_prices.groupby(day_prices.index.tz_convert(tz).hour).mean()
     by_hour = by_hour.reindex(range(24)).interpolate(limit_direction="both")
 
     out = pd.DataFrame(
-        {f"price_d1_h{h:02d}": by_hour.loc[h] for h in range(24)},
+        {f"price_d{days_back}_h{h:02d}": by_hour.loc[h] for h in range(24)},
         index=target_hours,
     )
     return out

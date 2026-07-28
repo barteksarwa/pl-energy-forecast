@@ -29,7 +29,6 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
-from src.models.deep.data import ENCODER_HOURS
 
 N_Q = 3  # p10, p50, p90
 

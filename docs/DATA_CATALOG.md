@@ -26,6 +26,8 @@ idempotent: they resume from the last stored timestamp.
 | Fuel proxies | `data/processed/fuel_daily.parquet` | yfinance: TTF future + EUA-tracking ETC | EUR/MWh, EUR/t (proxy) | 2023-01 → now | daily close | price model |
 | Unit outages | `data/processed/outages.parquet` | ENTSO-E UMM | event-level, MW | ~21k events, 2023 → D+60 | opt-in, manual | research (backtest: flat) |
 | Polish holidays | `holidays` package, computed on the fly | offline | flags | any | — | both |
+| Load + TSO fcst, native MTU | `data/processed/load_15min.parquet` | PSE v2 `kse-load` | MW, 15-min | 2024-06-14 → now (accrues from 2026-07-27 ingest fix) | daily | imbalance/intraday research |
+| PSE price entities, native MTU | `data/processed/{price_da,price_balancing,generation_mix}_15min.parquet` | PSE v2 | PLN/MWh, MW, 15-min | same as hourly rows (accrue from 2026-07-27) | daily | imbalance/intraday research |
 
 Notes on specific rows:
 

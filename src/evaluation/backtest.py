@@ -40,42 +40,50 @@ def walk_forward_backtest(
     train_window_days: int = 365,
     refit_every_days: int = 7,
     tz: str = LOCAL_TZ,
-    train_cutoff: str = "decision_0900",
+    target_availability: str = "realtime",
 ) -> BacktestResult:
     """Predict every local day of `x` from `test_start` onward, walking forward.
 
-    `train_cutoff` encodes WHEN the training target becomes observable:
-    - "decision_0900" (default, physical actuals like LOAD): the target
-      for D-1 hours 09:00-23:00 does not exist at the 09:00 D-1 decision
-      moment, so training stops at 09:00 D-1 (validation finding E2).
-    - "target_published" (day-ahead PRICES): D-1's full 24h price vector
-      was fixed at the D-2 auction (~13:00) and is public long before
-      09:00 D-1 — training may use everything through the end of D-1.
-      Cutting it at 09:00 costs real skill AND breaks context-based
-      zero-shot models (validation follow-up, 2026-07-27).
+    target_availability sets how much target history training may use at
+    the 09:00 D-1 decision moment:
+
+    - "realtime": the target is observed live (load actuals). Hours from
+      09:00 D-1 onward do not exist yet, so training stops strictly
+      before that moment (validation E2).
+    - "day_ahead": the target is published one day ahead (DA auction
+      prices clear on D-2 for delivery day D-1). The full D-1 curve is
+      already public at 09:00 D-1, so training uses every day before the
+      target day.
     """
+    if target_availability not in ("realtime", "day_ahead"):
+        raise ValueError(f"unknown target_availability: {target_availability!r}")
     if x.index.tz is None:
         raise ValueError("x must have a tz-aware index")
-    if train_cutoff not in ("decision_0900", "target_published"):
-        raise ValueError(f"unknown train_cutoff: {train_cutoff}")
     dates = _local_dates(x.index, tz)
     test_days = sorted(set(dates[x.index >= test_start]))
 
     model = None
     last_fit_day: pd.Timestamp | None = None
     preds: list[pd.DataFrame] = []
+    # Coverage accounting: .dropna() can silently delete whole stretches
+    # of training data when one optional feature has ragged history, and
+    # a skipped day is invisible in the output. Both get reported.
+    skipped_days: list = []
+    max_train_rows_dropped = 0
 
     for day in test_days:
-        if train_cutoff == "decision_0900":
-            # 09:00 wall clock is safe to localize: DST switches at 02-03.
+        window_mask = dates >= day - pd.Timedelta(days=train_window_days)
+        if target_availability == "day_ahead":
+            train_mask = (dates < day) & window_mask
+        else:
+            # The decision moment is 09:00 local on D-1. `dates < day` alone
+            # would let the training target include D-1 hours 09:00-23:00,
+            # which do not exist yet for a live-observed target (validation
+            # finding E2, 2026-07-27). 09:00 wall clock is safe to localize:
+            # DST switches at 02:00-03:00.
             decision = pd.Timestamp(
                 f"{day - timedelta(days=1)} 09:00").tz_localize(tz)
-            upper = x.index < decision.tz_convert("UTC")
-        else:  # target_published: everything through the end of D-1
-            upper = dates < day
-        train_mask = (
-            upper & (dates >= day - pd.Timedelta(days=train_window_days))
-        )
+            train_mask = (x.index < decision.tz_convert("UTC")) & window_mask
         needs_refit = (
             model is None
             or (pd.Timestamp(day) - pd.Timestamp(last_fit_day)).days >= refit_every_days
@@ -84,7 +92,11 @@ def walk_forward_backtest(
             x_tr = x[train_mask].dropna()
             y_tr = y.reindex(x_tr.index).dropna()
             x_tr = x_tr.reindex(y_tr.index)
+            max_train_rows_dropped = max(
+                max_train_rows_dropped, int(train_mask.sum()) - len(x_tr)
+            )
             if len(x_tr) < 24 * 30:
+                skipped_days.append(day)
                 continue  # not enough history yet; skip day, keep walking
             model = model_factory()
             model.fit(x_tr, y_tr)
@@ -93,11 +105,20 @@ def walk_forward_backtest(
         day_mask = dates == day
         x_day = x[day_mask].dropna()
         if x_day.empty:
+            skipped_days.append(day)
             continue
         preds.append(model.predict(x_day))
 
     if not preds:
         raise ValueError("Backtest produced no predictions — not enough data?")
+    if skipped_days:
+        print(f"backtest: {len(skipped_days)} of {len(test_days)} test days "
+              f"skipped (first {skipped_days[0]}, last {skipped_days[-1]}) — "
+              "thin history or all-NaN features")
+    if max_train_rows_dropped:
+        print(f"backtest: up to {max_train_rows_dropped} training rows per "
+              "refit dropped by NaN filtering — check optional-feature "
+              "history if this is large")
     out = pd.concat(preds).sort_index()
     return BacktestResult(model_name=model_factory().name, predictions=out)
 

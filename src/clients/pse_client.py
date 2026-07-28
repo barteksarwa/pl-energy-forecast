@@ -4,7 +4,14 @@ Entity kse-load: 15-min actual load + the TSO's own demand forecast.
 Data exists from 2024-06-14 (v2 launch). The forecast for day D publishes
 around 09:00 local on D-1 — the same moment as our forecast cutoff.
 
-Returns hourly, UTC tz-aware, MW, hour-beginning labels (ENTSO-E convention).
+Two views of every entity:
+- `*_native`: the 15-min series as PSE publishes it. PL settles
+  imbalance on 15-min periods and SDAC is moving to 15-min MTU —
+  throwing the native resolution away at ingest would close that door.
+- hourly (`fetch_entity_hourly`, `fetch_kse_load`): mean-aggregated,
+  what the current hourly models consume.
+
+All UTC tz-aware, MW, period-beginning labels (ENTSO-E convention).
 """
 
 from __future__ import annotations
@@ -40,41 +47,46 @@ def _fetch_entity(entity: str, flt: str) -> list[dict]:
     return rows
 
 
-def fetch_entity_hourly(
+def fetch_entity_native(
     entity: str, value_cols: dict[str, str], start_date: str, end_date: str
 ) -> pd.DataFrame:
-    """Generic 15-min entity → hourly UTC frame. value_cols: api_name → out_name."""
+    """Generic entity at native 15-min resolution. value_cols: api → out name.
+
+    dtime_utc marks the END of each 15-min period; shifted to period
+    start so rows are period-beginning.
+    """
     flt = f"business_date ge '{start_date}' and business_date le '{end_date}'"
     rows = _fetch_entity(entity, flt)
     if not rows:
-        return pd.DataFrame(columns=list(value_cols.values()))
+        return pd.DataFrame(
+            columns=list(value_cols.values()),
+            index=pd.DatetimeIndex([], tz="UTC", name="time"),
+        )
     df = pd.DataFrame(rows)
     ts = pd.to_datetime(df["dtime_utc"], utc=True) - pd.Timedelta(minutes=15)
-    out = pd.DataFrame(
+    return pd.DataFrame(
         {out: pd.to_numeric(df[api], errors="coerce").to_numpy()
          for api, out in value_cols.items()},
         index=pd.DatetimeIndex(ts, name="time"),
     ).sort_index()
-    return out.resample("1h").mean()
+
+
+def fetch_entity_hourly(
+    entity: str, value_cols: dict[str, str], start_date: str, end_date: str
+) -> pd.DataFrame:
+    """Generic entity → hourly UTC frame (mean over the four 15-min periods)."""
+    return fetch_entity_native(entity, value_cols, start_date, end_date).resample(
+        "1h").mean()
+
+
+KSE_LOAD_COLS = {"load_actual": "load_mw", "load_fcst": "tso_forecast_mw"}
+
+
+def fetch_kse_load_native(start_date: str, end_date: str) -> pd.DataFrame:
+    """15-min load_mw + tso_forecast_mw for [start_date, end_date] local days."""
+    return fetch_entity_native("kse-load", KSE_LOAD_COLS, start_date, end_date)
 
 
 def fetch_kse_load(start_date: str, end_date: str) -> pd.DataFrame:
-    """Hourly load_mw + tso_forecast_mw for [start_date, end_date] local days.
-
-    dtime_utc marks the END of each 15-min period; we shift to period start
-    before resampling so hourly rows are hour-beginning.
-    """
-    flt = f"business_date ge '{start_date}' and business_date le '{end_date}'"
-    rows = _fetch_entity("kse-load", flt)
-    if not rows:
-        return pd.DataFrame(columns=["load_mw", "tso_forecast_mw"])
-    df = pd.DataFrame(rows)
-    ts = pd.to_datetime(df["dtime_utc"], utc=True) - pd.Timedelta(minutes=15)
-    out = pd.DataFrame(
-        {
-            "load_mw": pd.to_numeric(df["load_actual"], errors="coerce").to_numpy(),
-            "tso_forecast_mw": pd.to_numeric(df["load_fcst"], errors="coerce").to_numpy(),
-        },
-        index=pd.DatetimeIndex(ts, name="time"),
-    ).sort_index()
-    return out.resample("1h").mean()
+    """Hourly load_mw + tso_forecast_mw for [start_date, end_date] local days."""
+    return fetch_kse_load_native(start_date, end_date).resample("1h").mean()

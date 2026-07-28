@@ -8,17 +8,23 @@ The git history is the live track record.
 
 **Headline results (2-year walk-forward, leakage-proof):**
 
-- **Load: beats the Polish TSO.** Ridge combiner 2.08% MAPE vs PSE's own
-  day-ahead forecast at 2.23%.
+- **Load: beats the Polish TSO — in backtest.** Ridge combiner 2.08%
+  MAPE vs PSE's own day-ahead forecast at 2.23%, 2-year walk-forward.
+  What ships daily is still the seasonal-naive incumbent: the ridge
+  challenger runs in shadow until it passes the pre-agreed promotion
+  gate. That is the point — promotion is earned live, not claimed from
+  a backtest.
 - **Price: a four-model ensemble is the new best.** CRPS-weighted blend
   of LightGBM + LEAR + a zero-shot foundation model + an archived TFT as
-  diversity donor: MAE 16.89 EUR/MWh, 39% better than seasonal naive
-  (DM p=2.3e-09 vs the 3-member blend). LightGBM alone matches the LEAR
-  standard (its MAE edge is not significant, p=0.056 — we say so).
+  diversity donor: MAE 16.88 EUR/MWh, 40% better than seasonal naive
+  (DM p=2.6e-09 vs the 3-member blend, one-window artifact). LightGBM
+  vs the LEAR standard: we said "matches, not beats" while the edge was
+  not significant (p=0.056); the corrected 2-yr rerun now clears the
+  bar (p=1.9e-03) — both artifacts kept.
 - **Calibrated uncertainty.** P10/P90 bands conformally calibrated to
   ~80% empirical coverage — including the blend (double-conformal).
 - **Forecasts priced in EUR.** A battery-arbitrage backtest converts
-  MAE into money: the 4-member ensemble captures 92.9% of
+  MAE into money: the 4-member ensemble captures 92.8% of
   perfect-foresight value. Full writeup: `docs/BENCHMARK.md`.
 
 ## The two products
@@ -56,18 +62,19 @@ Honest findings the table forces:
 
 PL day-ahead auction price (SDAC), EUR/MWh, forecast before gate closure.
 
-2-year walk-forward (`reports/figures/backtest_price/metrics_summary.csv`):
+2-year walk-forward (master tables + per-run artifacts:
+`docs/BENCHMARK.md`, `reports/backtests/`):
 
 | Model | MAE (EUR/MWh) | rMAE | Band coverage (nominal 80%) | P&L capture |
 |---|---|---|---|---|
-| **Ensemble (4-member, + TFT donor)** | **16.9** | **0.605** | **80.0%** | **0.929** |
-| Ensemble (3-member variant, CRPS + CQR) | 17.3 | 0.622 | 79.9% | 0.926 |
-| LightGBM quantile + conformal | 17.8 | 0.640 | 78.6% | 0.915 |
-| LEAR + conformal (published daily) | 18.5 | 0.662 | 79.5% | 0.911 |
+| **Ensemble (4-member, + TFT donor)** | **16.9** | **0.604** | **80.0%** | **0.928** |
+| Ensemble (3-member variant, CRPS + CQR) | 17.3 | 0.621 | 79.9% | 0.926 |
+| LightGBM quantile + conformal | 17.8 | 0.640 | 78.5% | 0.915 |
+| LEAR + conformal (published daily) | 18.5 | 0.662 | 79.5% | 0.912 |
 | TFT-730 (3-seed ensemble) | 19.5 | 0.699 | 80.9% raw | — |
-| Chronos-Bolt zero-shot + CQR | 21.9 | 0.787 | 79.9% | 0.891 |
+| Chronos-Bolt zero-shot + CQR | 21.8 | 0.783 | 79.9% | 0.891 |
 | PatchTST-730 (3-seed, trained) | 22.3 | 0.797 | 77.1% raw | — |
-| TimesFM 2.5 zero-shot | 22.5 | 0.807 | 80.7% raw | 0.881 |
+| TimesFM 2.5 zero-shot | 22.4 | 0.803 | 80.9% raw | 0.881 |
 | Naive (same hour yesterday) | 27.9 | 1.000 | 53.1% | 0.814 |
 
 P&L capture = share of perfect-foresight battery-arbitrage profit
@@ -76,16 +83,19 @@ findings, and honest negatives: `docs/BENCHMARK.md`.
 
 ![Model comparison](reports/figures/backtest_price/01_metrics_comparison.png)
 
-- LEAR = the industry-standard LASSO price baseline (Ziel & Weron 2018),
-  implemented properly: 24 per-hour models, full D-1 price vector,
-  variance-stabilized target.
+- LEAR = the industry-standard LASSO price baseline (Ziel & Weron
+  2018). Ours is a simplified variant: 24 per-hour models, full D-1
+  price vector, variance-stabilized target — but fewer lagged
+  day-vectors than the canonical 96-regressor set, and CV-selected
+  penalty instead of AIC. Deviations listed in the model card; making
+  it fully faithful is on the roadmap.
 - The **solar forecast is price driver #1** — top SHAP attribution AND
   largest retrain-ablation cost (+3.5 EUR/MWh MAE when dropped). Two
   independent methods, same answer: the merit order, measured.
 - Spikes are the open front: all models run ~3x pooled MAE on the top-5%
   priciest hours. Documented, not hidden. Three unconditional band fixes
   failed honestly; the shipped answer is a conditional spike classifier
-  (AUC 0.966) that flags risky hours in the daily report.
+  (AUC 0.967) that flags risky hours in the daily report.
 - **Foundation models, measured.** Chronos-Bolt zero-shot beats our
   trained PatchTST with zero training — and still joins the product
   only as an ensemble member. Moirai's covariate mode is significantly
@@ -122,23 +132,25 @@ in advance. Every non-obvious choice is logged in `docs/DECISIONS.md`.
 - **Baselines first.** Nothing ships without beating seasonal naive and
   the external benchmark. Losing models stay in the tables.
 - **Walk-forward only.** Every reported number is out-of-sample,
-  day-ahead, weekly refits, 2 years of test data (17,480 hours).
+  day-ahead, weekly refits, 2 years of test data (~17.5k hours; exact
+  count per run in each artifact).
 - **Desk-style review pack.** Drift, cumulative edge, hourly error
   profile, quantile calibration, worst-day post-mortems, monthly bias:
   `reports/figures/backtests/` (with a how-to-read README).
 - **Four bugs found by our own defenses**, each documented with the
   measured impact: DST leakage, asinh blowup, solar-growth extrapolation
   (38,000 EUR/MWh predictions → z-clip guard), gap-permanence.
-- **Model-risk discipline: we invited an independent review.** An
-  agent-based audit traced every headline number to its artifact and
-  red-teamed the code. It confirmed 31 findings — mostly documentation
-  drift after regenerated runs, plus 2 real protocol bugs. Both bugs
-  fixed with regression tests. Follow-up analysis then narrowed one
-  finding: the flagged training hours are PUBLIC for prices (fixed at
-  the previous day's auction), so the price tables were never
-  flattered — the retraction is documented, and the load-side impact
-  is still to be bounded. No modeling conclusion was overturned.
-  Full review: `docs/VALIDATION.md`.
+- **Model-risk discipline: we audited ourselves, adversarially.** An
+  LLM-based audit (three passes: trace every headline number to its
+  artifact, red-team the code for leakage, then a refuter pass that
+  had to fail to kill each finding) confirmed 31 findings — mostly
+  documentation drift after regenerated runs, plus 2 real code bugs
+  against the stated cutoff, both fixed with regression tests. One
+  (the training-mask cutoff) was later scope-narrowed: it applies to
+  the live-observed load target, not the day-ahead-published price —
+  price tables stand as-is; load tables carry a small shared caveat
+  until rerun. No modeling conclusion was overturned. Full review and
+  amendment: `docs/VALIDATION.md`.
 
 ## Stack
 
@@ -150,10 +162,12 @@ DuckDB · GitHub Actions · ENTSO-E API · Open-Meteo
 | Thing | Status |
 |---|---|
 | Cron (05:30 UTC) | LIVE on the public repo since 2026-07-23, committing daily reports |
+| Published load forecast | **seasonal naive (incumbent)** — ridge champion runs in shadow until it passes the 14-day promotion gate; challenger fetch outage under repair |
+| Published price forecast | LEAR + conformal band, daily |
 | Shadow runs (load + price) | running; the 07-19→21 outage hole stays in the tallies |
-| 4-member ensemble (+ TFT) | new best price forecast; promotion pending owner (TFT inference cost) |
-| Independent validation | done 2026-07-27; 2 protocol bugs fixed, impact bounded (docs/VALIDATION.md) |
-| Price-chain re-runs | running — rebuilding stored predictions under the task-aware cutoff |
+| 4-member ensemble (+ TFT) | new best price forecast in backtest; promotion pending owner (TFT inference cost) |
+| Adversarial audit | done 2026-07-27; 31 findings remediated; cutoff finding scope-narrowed to load same day (docs/VALIDATION.md) |
+| Corrected-protocol re-runs | price: rerun under the target-aware cutoff (artifacts in reports/backtests/); load: pending |
 | Data store | wiped by a git accident 2026-07-24, fully rebuilt same day from APIs; all numbers reproduced (DECISIONS) |
 
 Updated 2026-07-27. Outages and accidents are part of ops reality;

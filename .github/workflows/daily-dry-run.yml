@@ -74,3 +74,17 @@ jobs:
           git commit -m "ops: daily report $(date -u +%F)"
           git pull --rebase origin main
           git push
+
+      # The pipeline swallows sub-step failures into report "oddities" by
+      # design (one broken feed must not kill the report). This check is
+      # the counterweight: a MISSING report, or one whose core steps all
+      # failed, turns the run red instead of a silent green checkmark.
+      # Runs AFTER the commit so the track record survives a red day.
+      - name: Verify today's report exists and is not hollow
+        run: |
+          report="reports/daily/$(date -u +%F).md"
+          test -f "$report" || { echo "::error::$report was not written"; exit 1; }
+          if grep -q "Price step failed" "$report" && grep -q "Challenger failed" "$report"; then
+            echo "::error::both the price step and the challenger failed — see $report"
+            exit 1
+          fi

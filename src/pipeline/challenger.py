@@ -39,8 +39,15 @@ def live_weighted_weather(cfg: Config) -> pd.DataFrame:
     return add_degree_signals(population_weighted(frames, weights))
 
 
-def challenger_forecast(cfg: Config, today_local: pd.Timestamp) -> pd.DataFrame:
-    """Train on trailing year, forecast tomorrow. Returns p10/p50/p90 frame."""
+def challenger_forecast(
+    cfg: Config, today_local: pd.Timestamp,
+) -> tuple[pd.DataFrame, list[str]]:
+    """Train on trailing year, forecast tomorrow.
+
+    Returns (p10/p50/p90 frame, top-3 plain-word drivers of that
+    forecast). Drivers are exact for the linear challenger:
+    |coef * standardized feature|, averaged over tomorrow's hours.
+    """
     tz = cfg.timezone_local
     tomorrow = shift_local_day(today_local, 1, tz)
 
@@ -69,5 +76,8 @@ def challenger_forecast(cfg: Config, today_local: pd.Timestamp) -> pd.DataFrame:
     tso_for_pred = persist_24h(tso, hours)
     x_tomorrow = build_features(hours, load, live_weighted_weather(cfg), cutoff,
                                 tso=tso_for_pred)
-    x_tomorrow = x_tomorrow[x_train.columns]
-    return model.predict(x_tomorrow.ffill())
+    x_tomorrow = x_tomorrow[x_train.columns].ffill()
+
+    from src.interpretability.linear_drivers import linear_drivers
+
+    return model.predict(x_tomorrow), linear_drivers(model, x_tomorrow.dropna())

@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import argparse
 import sys
-from datetime import timedelta
 
 import pandas as pd
 from sklearn.metrics import brier_score_loss, roc_auc_score
@@ -39,11 +38,12 @@ def walk_forward_proba(
     model, last_fit, out = None, None, []
     for day in test_days:
         if model is None or (pd.Timestamp(day) - pd.Timestamp(last_fit)).days >= refit_days:
-            # target is the day-ahead PRICE: D-1's prices were fixed at
-            # the D-2 auction, so the full D-1 day is known at decision
-            # time — day-boundary cutoff is correct here (validation
-            # follow-up 2026-07-27; the 09:00 rule applies to actuals)
-            tr = (dates < day) & (dates >= day - pd.Timedelta(days=train_days))
+            # Spike labels derive from the DA price, which clears one day
+            # ahead: the full D-1 curve is public at the 09:00 D-1 decision
+            # moment. `dates < day` is therefore leak-free here (E2 scope
+            # narrowed to live-observed targets, 2026-07-27).
+            tr = ((dates < day)
+                  & (dates >= day - pd.Timedelta(days=train_days)))
             x_tr = x[tr].dropna()
             model = SpikeClassifier(seed=seed)
             model.fit(x_tr, y.reindex(x_tr.index))

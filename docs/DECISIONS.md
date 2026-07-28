@@ -152,7 +152,7 @@ Why: aggregate capacity unavailability is too coarse. Individual outage identity
 
 **2026-07-17 — Fuel features (TTF/EUA proxy) adopted for LEAR**
 Context: winter 2024/25 LEAR monthly bias −15.9 EUR/MWh in January. Gas prices were high; LEAR saw no fuel signal.
-Decision: TTF index (LNG import proxy via ENTSO-E) and EUA-tracking ETF added to LEAR feature matrix. LGBM: no improvement (trees already carry the slow level via price lags).
+Decision: TTF futures (yfinance `TTF=F` daily close) and an EUA-tracking ETC (`CO2.MI`, a tracker proxy — not EUA settlement prices) added to LEAR feature matrix. LGBM: no improvement (trees already carry the slow level via price lags).
 Why: LEAR reduced winter bias to −4.6 EUR/MWh; Jan MAE −2.5 EUR/MWh. Gain concentrated in exactly the months where the mechanism predicts it: high-gas regime. Merit-order mechanism, measured.
 
 **2026-07-17 — Shadow tally started for both load and price**
@@ -261,3 +261,8 @@ Why: mirrors real desk practice before the 12:00 day-ahead auction. Leaves margi
 Context: owner knows deep learning; jobs demand explainability.
 Decision: LightGBM quantile + SHAP is the "production" model. LSTM/transformer are challengers.
 Why: EU energy employers ask "why is the forecast high today?" every single morning.
+
+**2026-07-27 — Training cutoff is target-aware (E2 scope narrowed)**
+Context: the E2 fix cut ALL training at 09:00 D-1. For price this broke zero-shot wrappers (15-h misalignment, Chronos MAE 55.9 vs 21.9) and contradicted the E1 feature fix.
+Decision: `walk_forward_backtest(target_availability=...)` — "day_ahead" for DA price (full D-1 known, auction clears D-2), "realtime" (09:00 D-1) for load actuals. FM wrappers align by timestamp.
+Why: publication time, not delivery time, decides what training may see. DA prices publish a day ahead.

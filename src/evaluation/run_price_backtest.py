@@ -35,6 +35,7 @@ def assemble_price_features(
     price: pd.Series, load: pd.Series, tso: pd.Series, tz: str,
     start: pd.Timestamp, end: pd.Timestamp, res: pd.DataFrame | None = None,
     outages: pd.DataFrame | None = None, fuel: pd.DataFrame | None = None,
+    full_price_vectors: bool = False,
 ) -> pd.DataFrame:
     """Cutoff-safe X for every local day in [start, end]. One build per day."""
     frames = []
@@ -47,6 +48,7 @@ def assemble_price_features(
             build_price_features(
                 hours, price, load, price_cutoff, load_cutoff, tso=tso, res=res,
                 outages=outages, fuel=fuel,
+                full_price_vectors=full_price_vectors,
             )
         )
         day = shift_local_day(day, 1, tz)
@@ -132,6 +134,9 @@ def main() -> int:
     parser.add_argument("--refit-days", type=int, default=7,
                         help="refit cadence in days (1 for zero-shot "
                              "foundation models — refits are free)")
+    parser.add_argument("--full-price-vectors", action="store_true",
+                        help="add the D-2/D-3/D-7 24-hour price vectors "
+                             "(canonical LEAR regressor set; lear_full)")
     args = parser.parse_args()
     # Model imports are conditional: lightgbm and timesfm-torch crash
     # when loaded into one process on macOS (duplicate OpenMP runtimes),
@@ -180,6 +185,7 @@ def main() -> int:
         price, load, tso, tz,
         pd.Timestamp(first.date(), tz=tz), pd.Timestamp(last.date(), tz=tz),
         res=res, outages=outages, fuel=fuel,
+        full_price_vectors=args.full_price_vectors,
     )
     y = price.reindex(x.index)
     if args.drop_prefix:
@@ -196,9 +202,10 @@ def main() -> int:
                 REGISTRY[name], x, y, test_start.tz_convert("UTC"),
                 train_window_days=args.train_days,
                 refit_every_days=args.refit_days,
-                # D-1 prices are fixed at the D-2 auction — fully public
-                # at the 09:00 D-1 decision moment (see backtest.py)
-                train_cutoff="target_published",
+                # DA prices for delivery day D-1 clear at auction on D-2,
+                # so the full D-1 curve is public at the 09:00 D-1
+                # decision moment.
+                target_availability="day_ahead",
             )
         )
 

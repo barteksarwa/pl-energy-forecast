@@ -31,7 +31,8 @@ import pandas as pd
 import torch
 
 from src.config import load_config
-from src.models.deep.data import apply_covariate_stats, standardize_covariates
+from src.models.deep.data import standardize_covariates
+from src.models.deep.price_data import PRICE_FUT_COLS as FUT_FEATURE_NAMES
 from src.models.deep.price_data import build_price_samples
 from src.models.deep.tft import TFT
 from src.models.deep.train import device, train_variant
@@ -39,12 +40,6 @@ from src.models.deep.train import device, train_variant
 TZ = "Europe/Warsaw"
 SEED = 42
 TRAIN_END = "2026-01-01"   # temporal split: train <, val >=
-FUT_FEATURE_NAMES = [
-    "hour_sin", "hour_cos", "doy_sin", "doy_cos",
-    "is_weekend", "is_holiday", "is_bridge_day",
-    "solar_fcst_mw", "wind_on_fcst_mw", "wind_off_fcst_mw",
-    "tso_forecast_mw", "anchor_price_lag168",
-]
 
 
 def _load_data():

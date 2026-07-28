@@ -29,9 +29,7 @@ import sys
 import time
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
-import torch
 
 from src.config import load_config
 from src.models.deep.data import apply_covariate_stats, standardize_covariates
@@ -196,7 +194,6 @@ def main() -> int:
 
     if args.walkforward and len(df) > 0:
         all_dates = sorted(set(price.index.tz_convert(TZ).date))
-        last = all_dates[-2]
         test_start = pd.Timestamp("2024-07-16").date()
         test_days = [d for d in all_dates if d >= test_start]
 

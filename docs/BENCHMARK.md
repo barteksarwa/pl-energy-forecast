@@ -19,14 +19,13 @@ story around them. Blog draft; arXiv-style expansion is the stretch goal.
 1. **Hard information cutoff.** Only data observable at 09:00 D-1.
    Enforced by asserts and tests, incl. the 25-hour DST day that broke
    a naive "minus 24 hours" lag once. Documented bug, fixed, tested.
-   The 2026-07-27 validation review flagged the backtest training mask
-   reaching past this cutoff (D-1 09:00-23:00). The fix shipped with a
-   regression test, then follow-up analysis narrowed the finding: D-1
-   prices are PUBLIC at decision time (fixed at the D-2 auction), so
-   the price cutoff is now task-aware (`target_published` vs
-   `decision_0900`) and the price tables were never flattered. The
-   load-side impact is still to be bounded. The cutoff is tested in
-   both modes, not just stated.
+   The 2026-07-27 validation review flagged the training mask for
+   using D-1 hours 09:00-23:00. Scope was narrowed the same day: DA
+   prices for D-1 clear at auction on D-2, so the full D-1 curve is
+   public at 09:00 D-1 — no leak for the price target. The engine is
+   now target-aware (`target_availability`): price trains through D-1,
+   load stops at 09:00 D-1. Both modes regression-tested (see §6 and
+   the VALIDATION.md amendment).
 2. **Walk-forward only.** Rolling refits (weekly for trained models,
    daily context for zero-shot). No random splits. Test period
    2024-07 → 2026-07, ~17.7k hours.
@@ -64,32 +63,35 @@ P&L (1 MW / 2 MWh / 0.85 RTE / 1 cycle, day-ahead only).
 
 | Model | MAE | rMAE | Coverage (80% nom.) | P&L capture |
 |---|---|---|---|---|
-| **4-member ensemble (+ TFT, CQR)** | **16.89** | **0.605** | **80.0%** | **0.929** |
-| Ensemble, 3-member variant (CRPS-weighted + CQR) | 17.34 | 0.622 | 79.9% | 0.926 |
+| **4-member ensemble (+ TFT, CQR)** | **16.88** | **0.604** | **80.0%** | **0.928** |
+| Ensemble, 3-member variant (CRPS-weighted + CQR) | 17.33 | 0.621 | 79.9% | 0.926 |
 | LGBM 1095d window (candidate) | 17.38 | 0.623 | 78.7% | — |
-| LGBM 365d + CQR (champion) | 17.84 | 0.640 | 78.6% | 0.915 |
-| LEAR + CQR (industry standard) | 18.46 | 0.662 | 79.5% | 0.911 |
+| LGBM 365d + CQR (champion) | 17.83 | 0.640 | 78.5% | 0.915 |
+| LEAR + CQR (industry standard) | 18.46 | 0.662 | 79.5% | 0.912 |
 | TFT-730 3-seed ensemble | 19.52 | 0.699 | 80.9% raw | — |
-| Chronos-Bolt zero-shot + CQR | 21.93 | 0.787 | 79.9% | 0.891 |
+| Chronos-Bolt zero-shot + CQR | 21.82 | 0.783 | 79.9% | 0.891 |
 | PatchTST-730 3-seed (trained) | 22.25 | 0.797 | 77.1% raw | — |
-| TimesFM 2.5 zero-shot | 22.52 | 0.807 | 80.7% raw | 0.881 |
+| TimesFM 2.5 zero-shot | 22.38 | 0.803 | 80.9% raw | 0.881 |
 | Moirai univariate zero-shot | 23.69 | 0.849 | 77.0% raw | — |
 | Moirai + covariates zero-shot | 24.86 | 0.890 | 75.5% raw | — |
 | Naive (same hour yesterday) | 27.88 | 1.000 | 53.1% | 0.814 |
 
 The 4-member row adds an archived TFT (3-seed, 730d) as a diversity
 donor. It is scored on the 17,456 h intersection where all members
-overlap — the TFT window ends 2026-07-14. New best on every gate
-(DM p=2.3e-09 vs the 3-member blend; source `docs/RESULTS.md`).
+overlap — the TFT window ends 2026-07-14. On that SAME window the
+3-member blend scores 17.36, so the gate delta is −0.48 (gate 0.10),
+DM p=2.6e-09 (`reports/backtests/2026-07-28_stats_tests_ens_dm.csv`).
+New best on every gate.
 
-Notes on provenance: ensemble/LGBM/LEAR/FM rows from the regenerated
-2026-07-24 runs (window ends 2026-07-24); TFT/PatchTST/Moirai rows from
-their documented campaign runs (TFT/PatchTST windows end 2026-07-15;
-Moirai was regenerated 2026-07-24 on the same window as the FMs above);
+Notes on provenance: ensemble/LGBM/LEAR/FM rows from the 2026-07-27
+corrected-protocol rerun (window ends 2026-07-24, 17,720 h;
+target-aware cutoff, timestamp-aligned FM wrappers);
+TFT/PatchTST/Moirai rows from their documented campaign runs
+(TFT/PatchTST windows end 2026-07-15; Moirai regenerated 2026-07-24);
 1095d row from
 the deep-history campaign — its matched-window comparison is against
 365d = 17.87 on the SAME 07-14-ending window (delta 0.49), not against
-the 17.84 above. Sources in `docs/RESULTS.md`.
+the 17.83 above. Sources in `docs/RESULTS.md`.
 
 ## 5. Findings
 
@@ -98,7 +100,7 @@ the 17.84 above. Sources in `docs/RESULTS.md`.
    replacing it.
 2. **Ensemble diversity beats member strength.** A zero-shot univariate
    FM that is 4 MAE worse than the champion still improves the blend
-   (17.34 vs 17.84, DM p=2.5e-04). Skill-weighting adds only 0.12 MAE
+   (17.33 vs 17.83, DM p=4.1e-04). Skill-weighting adds only ~0.1 MAE
    over equal weights — the diversity does the work.
 3. **Training window is a first-class hyperparameter.** 365→1095 days
    is worth −0.49 MAE for free (DM p=0.0009). Half the "deep models
@@ -116,14 +118,19 @@ the 17.84 above. Sources in `docs/RESULTS.md`.
    framing is what a desk should use ("~850 EUR/yr per MW per 0.5 MAE").
 7. **Spikes are conditional, not a band-width problem.** Three
    unconditional calibration methods failed to move spike coverage.
-   The working answer is a conditional spike classifier (AUC 0.966),
+   The working answer is a conditional spike classifier (AUC 0.967),
    shipped as a daily-report flag in plain words.
-8. **The champion's edge over LEAR is not significant** (DM p=0.056).
-   We say "matches or slightly beats". The ensemble's edge IS
-   significant.
+8. **Significance is a moving target — claim it only with an artifact.**
+   On the 07-22 run the champion's edge over LEAR was NOT significant
+   (p=0.056) and we said "matches, not beats". On the 07-27
+   corrected-protocol run it clears the bar (p=1.9e-03,
+   `2026-07-28_stats_tests_ens_dm.csv`) — three more test weeks plus
+   the DST data fix moved it. Both artifacts kept; the discipline of
+   not claiming early is the story.
 9. **A dead model can still be the best donor.** TFT lost solo and was
-   archived. Added to the blend it gives the new best (16.89 vs 17.34,
-   DM p=2.3e-09), because deep-model errors decorrelate from
+   archived. Added to the blend it gives the new best (16.88 vs 17.36
+   on one window, DM p=2.6e-09, artifact above), because deep-model
+   errors decorrelate from
    trees/linear/FM. A second FM (TimesFM) added nothing (+0.57). What
    the blend wants is a different error STRUCTURE, not another strong
    member.
@@ -139,20 +146,20 @@ code. It is the audit a model-risk function would run.
 
 - **31 confirmed findings** (adversarial: every finding had to survive a
   refuter). 24 were documentation drifts — stale citations and
-  hand-transcription errors after regenerated runs. All 24 fixed.
-- **2 real protocol bugs** in the code, fixed with regression tests: the
-  backtest training mask reached past the 09:00 cutoff, and the D-1 price
-  vector picked up the D-2 shape on the day after spring DST.
-- **Impact assessed, then narrowed.** Cutting the flagged hours cost
-  the champion 0.11 MAE (17.95 vs 17.84) — but follow-up analysis
-  showed those hours are PUBLIC for prices (D-2 auction), so the
-  finding is retracted for the price task and the price tables were
-  never flattered. It stands for the load task, where the impact is
-  not yet bounded. The production daily loop never had the defect —
-  it runs after gate closure and cannot see the future.
-- The price prediction store is being rebuilt under the task-aware
-  cutoff; a load-side bounding run is the open item. Full review:
-  `docs/VALIDATION.md`.
+  hand-transcription errors after regenerated runs. 23 fixed, one (A5) disclosed with a tightened note.
+- **2 real code bugs** against the stated cutoff, fixed with regression
+  tests: the training mask ignored the 09:00 decision moment, and the
+  D-1 price vector picked up the D-2 shape on the day after spring DST.
+- **Cutoff finding later scope-narrowed (same day).** DA prices publish
+  one day ahead (auction on D-2 for delivery day D-1), so the full D-1
+  curve is public at the 09:00 D-1 decision moment — the mask was never
+  a leak for the PRICE target. The earlier "~0.11 MAE shared optimism"
+  bound (champion 17.95 under the over-strict mask vs 17.84) is
+  withdrawn for price; price tables stand as-is. The finding stays real
+  for the live-observed LOAD target; load tables carry that small
+  shared caveat until rerun. The production daily loop never had the
+  defect either way.
+- Full review and amendment: `docs/VALIDATION.md`.
 
 No finding overturned a modeling conclusion. The gap was documentation
 drift, not concealment.
@@ -165,7 +172,7 @@ drift, not concealment.
 | Asymmetric CQR | no spike-coverage gain | model_selection 10 |
 | GPD/EVT upper tail | no spike-coverage gain | model_selection 13 |
 | Moirai covariate mode | WORSE than univariate (DM-sig.) | learning 24 |
-| LGBM "beats" LEAR | p=0.056 — not significant | RESULTS, stats tests |
+| LGBM "beats" LEAR (07-22 run) | p=0.056 then; p=1.9e-03 on the 07-27 rerun | RESULTS, stats tests |
 | load_lags in price model | dead weight (−0.12 MAE without) | DECISIONS 07-22 |
 | Chronos fine-tune | gate closed (rMAE 0.787 > 0.75) | DECISIONS 07-23 |
 | Outage features | flat | backlog, PLAN |
@@ -195,7 +202,7 @@ drift, not concealment.
   - P&L: `uv run python -m src.evaluation.run_pnl`
 - **Determinism:** LGBM/LEAR deterministic given data; deep models
   report 3-seed ensembles; zero-shot FMs deterministic single passes.
-- **Tests:** `make test` (102 tests; leakage, DST, metrics, conformal,
+- **Tests:** `make test` (125 tests; leakage, DST, metrics, conformal,
   ensemble, P&L accounting).
 
 *Written 2026-07-24 (Phase 7). Update alongside RESULTS.md.*

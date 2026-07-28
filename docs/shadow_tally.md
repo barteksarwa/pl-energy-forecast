@@ -5,6 +5,14 @@ Valid day = forecast produced + committed + scored next morning.
 A failed day does not count and does not reset the streak.
 Promotion goes to DECISIONS.md and flips the relevant config/publisher.
 
+## Maintenance note (2026-07-27)
+
+Tally NOT updated since 2026-07-21 even though the cron has produced
+valid bot-committed days since 07-21 on the public repo. The honesty
+artifact went stale exactly when the pipeline started working — bad
+look, said out loud. Next ops session: score the 07-21 → onward days
+from `reports/daily/` and resume the streak count here.
+
 ## Outage log
 
 Cron DOWN 2026-07-18 → 2026-07-21. Local repo lost its git remote; CI

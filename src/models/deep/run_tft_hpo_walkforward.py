@@ -29,7 +29,6 @@ from pathlib import Path
 import numpy as np
 import optuna
 import pandas as pd
-import torch
 
 from src.config import load_config
 from src.models.deep.data import apply_covariate_stats, standardize_covariates
