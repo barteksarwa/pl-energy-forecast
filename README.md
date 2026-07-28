@@ -68,7 +68,7 @@ PL day-ahead auction price (SDAC), EUR/MWh, forecast before gate closure.
 | Model | MAE (EUR/MWh) | rMAE | Band coverage (nominal 80%) | P&L capture |
 |---|---|---|---|---|
 | **Ensemble (4-member, + TFT donor)** | **16.9** | **0.604** | **80.0%** | **0.928** |
-| Ensemble (3-member variant, CRPS + CQR) | 17.3 | 0.621 | 79.9% | 0.926 |
+| Ensemble (3-member variant, CRPS + CQR) | 17.3 | 0.621 | 79.9% | 0.928 |
 | LightGBM quantile + conformal | 17.8 | 0.640 | 78.5% | 0.915 |
 | LEAR + conformal (published daily) | 18.5 | 0.662 | 79.5% | 0.912 |
 | TFT-730 (3-seed ensemble) | 19.5 | 0.699 | 80.9% raw | — |

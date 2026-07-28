@@ -64,7 +64,7 @@ P&L (1 MW / 2 MWh / 0.85 RTE / 1 cycle, day-ahead only).
 | Model | MAE | rMAE | Coverage (80% nom.) | P&L capture |
 |---|---|---|---|---|
 | **4-member ensemble (+ TFT, CQR)** | **16.88** | **0.604** | **80.0%** | **0.928** |
-| Ensemble, 3-member variant (CRPS-weighted + CQR) | 17.33 | 0.621 | 79.9% | 0.926 |
+| Ensemble, 3-member variant (CRPS-weighted + CQR) | 17.33 | 0.621 | 79.9% | 0.928 |
 | LGBM 1095d window (candidate) | 17.38 | 0.623 | 78.7% | — |
 | LGBM 365d + CQR (champion) | 17.83 | 0.640 | 78.5% | 0.915 |
 | LEAR + CQR (industry standard) | 18.46 | 0.662 | 79.5% | 0.912 |

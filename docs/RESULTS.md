@@ -206,7 +206,7 @@ Weights: inverse trailing-60d crps3, past-only, equal-weight warm-up.
 |---|---|---|---|---|
 | **ens_crps_cqr** | **17.33** | **0.621** | **79.9%** | **85.2** |
 | ens_crps (raw blend) | 17.33 | 0.621 | 83.9% | 85.5 |
-| ens_equal | 17.44 | 0.625 | 83.9% | 86.1 |
+| ens_equal | 17.43 | 0.625 | 83.9% | 86.1 |
 | LGBM champion (365d) | 17.83 | 0.640 | 78.5% | 90.7 |
 | LGBM (1095d window) | 17.35 | 0.622 | — | — |
 
@@ -223,7 +223,7 @@ Weights: inverse trailing-60d crps3, past-only, equal-weight warm-up.
   `ens_crps_cqr` is the promotion candidate.
 - Moirai (both variants) excluded by the pre-declared member rule
   (best FM only). See FM section: covariates HURT zero-shot Moirai
-  (24.87 vs 23.70, DM p=8.3e-06 —
+  (24.86 vs 23.69, DM p=8.3e-06 —
   `2026-07-28_stats_tests_fm_dm.csv`) — covariate skill needs training.
 - Sources: `reports/backtests/2026-07-27_price_ensemble_summary.md`,
   `2026-07-24_price_moirai2yr_summary.csv`.
