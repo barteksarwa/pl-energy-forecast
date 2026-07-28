@@ -8,32 +8,37 @@ Updated: 2026-07-27.
 
 ## Load — day-ahead national load (MW)
 
-2-year walk-forward. Test 2024-07-16 → 2026-07-14, 17,450 hours.
-Source: `reports/backtests/2026-07-16_2yr_summary.md`.
+2-year walk-forward under the corrected 09:00 D-1 cutoff (finding E2).
+Test 2024-07-16 → 2026-07-24, 17,690 hours. Rerun 2026-07-28.
+Source: `reports/backtests/2026-07-28_fcst_tso_load2yr_cutoff_summary.csv`.
 
 | Model | MAPE | Skill vs naive |
 |---|---|---|
-| **ridge_tso** (champion) | **2.08%** | 0.63 |
-| lgbm_tso | 2.12% | 0.62 |
-| TSO forecast (benchmark) | 2.23% | 0.60 |
-| ridge (no TSO input) | 4.05% | 0.29 |
-| seasonal naive | 5.59% | 0.00 |
+| **ridge_tso** (champion) | **2.16%** | 0.61 |
+| lasso_ar + TSO | 2.16% | 0.61 |
+| TSO forecast (benchmark) | 2.25% | 0.60 |
+| seasonal naive | 5.58% | 0.00 |
 
-- `_tso` models correct the TSO forecast. TSO-free variants were tested too.
-- We beat the TSO benchmark by 0.15 pp. Small but consistent.
+- `_tso` models correct the TSO forecast. We still beat the benchmark;
+  the edge is 0.09 pp under the corrected protocol.
+- Pre-correction run (window to 07-14): ridge_tso 2.08, lgbm_tso 2.12,
+  TSO 2.23, ridge-no-TSO 4.05, naive 5.59
+  (`2026-07-16_2yr_summary.md`). The E2 load bias is now BOUNDED:
+  protocol + ten extra test days together moved the champion 2.08 →
+  2.16 and the TSO 2.23 → 2.25 — ordering unchanged. lgbm_tso and the
+  deep challengers keep their old-protocol numbers until rerun.
 - 12-month table (incl. lstm_attn 2.43%): `reports/backtests/2026-07-15_overnight_readout.md`.
+- Rerun side-finding: the engine's new coverage accounting reports up
+  to 4,502 training rows per refit dropped by NaN filtering — weather
+  forecast-archive holes. Follow-up: quantify and patch the archive.
 
-> **Protocol note (2026-07-27, amended same day).** The validation
+> **Protocol note (2026-07-27, closed 2026-07-28).** The validation
 > review flagged the training mask for including D-1 hours 09:00-23:00
-> (finding E2). The scope was later narrowed: DA prices for delivery
-> day D-1 clear at auction on D-2, so the full D-1 curve is public at
-> the 09:00 D-1 decision moment — no leak for the PRICE target. Price
-> tables below stand as-is (the earlier "~0.11 shared bias" caveat is
-> withdrawn). The finding stays real for the live-observed LOAD target:
-> the engine now cuts load training at 09:00 D-1
-> (`target_availability="realtime"`); load tables above predate that
-> cutoff and carry a small optimistic bias, shared by every trained
-> model, until rerun. Full story: `docs/VALIDATION.md`, amendment.
+> (finding E2). Scope was narrowed the same day: DA prices for D-1
+> clear at auction on D-2, so the PRICE tables were never affected.
+> The LOAD tables carried the caveat until the corrected rerun above —
+> both sides of E2 are now measured and closed. Full story:
+> `docs/VALIDATION.md`, amendment.
 
 ## Price — day-ahead auction price (EUR/MWh)
 

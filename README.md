@@ -8,8 +8,10 @@ The git history is the live track record.
 
 **Headline results (2-year walk-forward, leakage-proof):**
 
-- **Load: beats the Polish TSO — in backtest.** Ridge combiner 2.08%
-  MAPE vs PSE's own day-ahead forecast at 2.23%, 2-year walk-forward.
+- **Load: beats the Polish TSO — in backtest.** Ridge combiner 2.16%
+  MAPE vs PSE's own day-ahead forecast at 2.25%, 2-year walk-forward
+  under the corrected information cutoff (the pre-correction run read
+  2.08 vs 2.23 — both artifacts kept).
   What ships daily is still the seasonal-naive incumbent: the ridge
   challenger runs in shadow until it passes the pre-agreed promotion
   gate. That is the point — promotion is earned live, not claimed from
@@ -33,16 +35,18 @@ The git history is the live track record.
 
 Hourly load for the PL bidding zone, decided at 09:00 D-1, P10/P50/P90.
 
-2-year walk-forward, 17,450 test hours
-(`reports/backtests/2026-07-16_2yr_summary.csv`):
+2-year walk-forward, 17,690 test hours, corrected 09:00 cutoff
+(`reports/backtests/2026-07-28_fcst_tso_load2yr_cutoff_summary.csv`;
+LightGBM and no-TSO rows keep the pre-correction run,
+`2026-07-16_2yr_summary.csv`):
 
 | Model | MAPE | MAE (MW) | Skill vs naive |
 |---|---|---|---|
-| **Ridge + TSO forecast (combiner)** | **2.08%** | **374** | **0.63** |
-| LightGBM + TSO forecast | 2.12% | 384 | 0.62 |
-| PSE (TSO) day-ahead forecast | 2.23% | 401 | 0.60 |
-| Ridge (no TSO) | 4.05% | 710 | 0.29 |
-| Seasonal naive (same hour last week) | 5.59% | 1005 | 0.00 |
+| **Ridge + TSO forecast (combiner)** | **2.16%** | **387** | **0.61** |
+| LightGBM + TSO forecast (pre-correction run) | 2.12% | 384 | 0.62 |
+| PSE (TSO) day-ahead forecast | 2.25% | 403 | 0.60 |
+| Ridge (no TSO, pre-correction run) | 4.05% | 710 | 0.29 |
+| Seasonal naive (same hour last week) | 5.58% | 1003 | 0.00 |
 
 Deep challengers, evaluated on the 12-month campaign
 (`2026-07-15_overnight_readout.md`, `2026-07-14_fcst_summary.csv`,

@@ -161,8 +161,32 @@ def lookup(
 # identical hour set. Checked below like everything else.
 
 ENS4_WIN = "reports/backtests/2026-07-28_ens4_window_metrics.csv"
+LOAD_2YR = "reports/backtests/2026-07-28_fcst_tso_load2yr_cutoff_summary.csv"
 
 CHECKS: list[Check] = [
+    # -- load master numbers (corrected-cutoff rerun) --------------------
+    Check("results_load_ridge_mape", "docs/RESULTS.md",
+          r"\| \*\*ridge_tso\*\* \(champion\) \| \*\*(\d+\.\d+)%\*\*",
+          LOAD_2YR, "ridge", "mape_pct"),
+    Check("results_load_tso_mape", "docs/RESULTS.md",
+          r"\| TSO forecast \(benchmark\) \| (\d+\.\d+)%",
+          LOAD_2YR, "tso_forecast", "mape_pct"),
+    Check("results_load_naive_mape", "docs/RESULTS.md",
+          r"\| seasonal naive \| (\d+\.\d+)%",
+          LOAD_2YR, "seasonal_naive", "mape_pct"),
+    Check("readme_load_ridge_mape", "README.md",
+          r"\| \*\*Ridge \+ TSO forecast \(combiner\)\*\* \| \*\*(\d+\.\d+)%\*\*",
+          LOAD_2YR, "ridge", "mape_pct"),
+    Check("readme_load_ridge_mae", "README.md",
+          r"\| \*\*Ridge \+ TSO forecast \(combiner\)\*\* \| \*\*\d+\.\d+%\*\* "
+          r"\| \*\*(\d+)\*\*",
+          LOAD_2YR, "ridge", "mae"),
+    Check("readme_load_headline_mape", "README.md",
+          r"Ridge combiner (\d+\.\d+)%",
+          LOAD_2YR, "ridge", "mape_pct"),
+    Check("benchmark_load_ridge_mape", "docs/BENCHMARK.md",
+          r"\| \*\*Ridge \+ TSO \(combiner\)\*\* \| \*\*(\d+\.\d+)%\*\*",
+          LOAD_2YR, "ridge", "mape_pct"),
     # -- ens4 / ens3 on the shared intersection window -------------------
     Check("results_ens4_capture", "docs/RESULTS.md",
           r"\| \*\*ens4_tft \(CQR\)\*\* \|.*\| \*\*(\d+\.\d+)\*\* \|",

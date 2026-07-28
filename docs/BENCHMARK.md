@@ -42,16 +42,16 @@ story around them. Blog draft; arXiv-style expansion is the stretch goal.
    EUR through a battery-arbitrage backtest (schedule on P50 at D-1,
    settle at actuals).
 
-## 3. Master table — load (2-yr walk-forward, 17,450 h)
+## 3. Master table — load (2-yr walk-forward, 17,690 h, corrected cutoff)
 
 | Model | MAPE | Skill vs naive |
 |---|---|---|
-| **Ridge + TSO (combiner)** | **2.08%** | 0.63 |
-| LightGBM + TSO | 2.12% | 0.62 |
-| TSO day-ahead forecast | 2.23% | 0.60 |
+| **Ridge + TSO (combiner)** | **2.16%** | 0.61 |
+| LightGBM + TSO (pre-correction run) | 2.12% | 0.62 |
+| TSO day-ahead forecast | 2.25% | 0.60 |
 | LSTM-attention + TSO (12-mo) | 2.43% | — |
-| Ridge (no TSO) | 4.05% | 0.29 |
-| Seasonal naive | 5.59% | 0.00 |
+| Ridge (no TSO, pre-correction run) | 4.05% | 0.29 |
+| Seasonal naive | 5.58% | 0.00 |
 
 The story in one line: once the public TSO forecast is an input, a
 ridge combiner beats every one of seven deep architectures we built.
