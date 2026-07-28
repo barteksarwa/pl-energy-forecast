@@ -70,6 +70,7 @@ class Check:
     key_column: str | None = None  # None = the CSV's first column
     mode: str = "round"  # "round" | "sig"
     filters: tuple[tuple[str, str], ...] = ()
+    scale: float = 1.0  # artifact value multiplier (e.g. 100 for a % quote)
 
 
 @dataclass
@@ -153,16 +154,41 @@ def lookup(
 # the checks
 # --------------------------------------------------------------------
 #
-# Deliberately NOT checked, because no artifact holds them:
-#   * the 4-member ensemble's P&L capture (0.928 in RESULTS/BENCHMARK/README).
-#     `src/evaluation/run_pnl.py` excludes TFT by design (two-window rule),
-#     so no P&L run covers ens4_tft.
-#   * ens3 rescored on the 17,456 h TFT intersection (17.36 / 0.621 / 79.9%
-#     / 85.2 / 0.926 in the RESULTS 4-member table). The DM artifact has that
-#     comparison; no summary CSV has the row.
-# Both are flagged in the audit follow-up. Do not invent a source for them.
+# The two formerly-unverifiable numbers (ens4 P&L capture, ens3 on the
+# 17,456 h intersection) now have a dedicated artifact:
+# reports/backtests/2026-07-28_ens4_window_metrics.csv, produced by
+# src/evaluation/run_ens4_window_metrics.py — both blends scored on the
+# identical hour set. Checked below like everything else.
+
+ENS4_WIN = "reports/backtests/2026-07-28_ens4_window_metrics.csv"
 
 CHECKS: list[Check] = [
+    # -- ens4 / ens3 on the shared intersection window -------------------
+    Check("results_ens4_capture", "docs/RESULTS.md",
+          r"\| \*\*ens4_tft \(CQR\)\*\* \|.*\| \*\*(\d+\.\d+)\*\* \|",
+          ENS4_WIN, "ens4_tft", "capture_rate"),
+    Check("results_ens3win_mae", "docs/RESULTS.md",
+          r"\| ens3 \(same 17,456h window\) \| (\d+\.\d+)",
+          ENS4_WIN, "ens3", "mae"),
+    Check("results_ens3win_winkler", "docs/RESULTS.md",
+          r"\| ens3 \(same 17,456h window\) \| \d+\.\d+ \| \d+\.\d+ \| "
+          r"\d+\.\d+% \| (\d+\.\d+)",
+          ENS4_WIN, "ens3", "winkler"),
+    Check("results_ens3win_capture", "docs/RESULTS.md",
+          r"\| ens3 \(same 17,456h window\) \| \d+\.\d+ \| \d+\.\d+ \| "
+          r"\d+\.\d+% \| \d+\.\d+ \| (\d+\.\d+)",
+          ENS4_WIN, "ens3", "capture_rate"),
+    Check("benchmark_ens4_capture", "docs/BENCHMARK.md",
+          r"\| \*\*4-member ensemble \(\+ TFT, CQR\)\*\* \|.*\| "
+          r"\*\*(\d+\.\d+)\*\* \|",
+          ENS4_WIN, "ens4_tft", "capture_rate"),
+    Check("readme_ens4_capture", "README.md",
+          r"\| \*\*Ensemble \(4-member, \+ TFT donor\)\*\* \|.*\| "
+          r"\*\*(\d+\.\d+)\*\* \|",
+          ENS4_WIN, "ens4_tft", "capture_rate"),
+    Check("readme_ens4_capture_prose", "README.md",
+          r"ensemble captures (\d+\.\d+)% of",
+          ENS4_WIN, "ens4_tft", "capture_rate", scale=100.0),
     # -- RESULTS price table vs the conformal summary --------------------
     Check("results_price_lgbm_mae", RESULTS,
           r"\*\*LGBM quantile \+ CQR\*\* \(champion\) \| \*\*(\d+\.\d+)\*\*",
@@ -600,7 +626,7 @@ def run_checks(checks: list[Check], root: Path = ROOT) -> list[Failure]:
             value = lookup(
                 frames[check.artifact], check.key_column, check.row,
                 check.column, check.filters,
-            )
+            ) * check.scale
         except KeyError as exc:
             failures.append(Failure(check, f"{check.artifact}: {exc}"))
             continue

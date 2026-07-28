@@ -235,13 +235,13 @@ the 17,456h intersection (TFT window ends 2026-07-14).
 
 | Model | MAE | rMAE | Coverage | Winkler | P&L capture |
 |---|---|---|---|---|---|
-| **ens4_tft (CQR)** | **16.88** | **0.604** | **80.0%** | **82.6** | **0.928** |
-| ens3 (same 17,456h window) | 17.36 | 0.621 | 79.9% | 85.2 | 0.926 |
+| **ens4_tft (CQR)** | **16.88** | **0.604** | **80.0%** | **82.6** | **0.931** |
+| ens3 (same 17,456h window) | 17.35 | 0.621 | 79.9% | 85.5 | 0.927 |
 | ens_equal (4 members) | 16.93 | 0.606 | 85.7% raw | 83.8 | — |
 | TFT-730 ens-3 alone | 19.53 | 0.699 | 79.4% | 97.5 | — |
 
 - One window for the gate: ens3 rescored on the SAME 17,456h
-  intersection (17.36) — an earlier draft compared against ens3's
+  intersection (17.35) — an earlier draft compared against ens3's
   17,696h run, mixing windows (review finding). Gate still passes:
   −0.48 MAE (gate 0.10), DM p=2.6e-09
   (`2026-07-28_stats_tests_ens_dm.csv`), wins 2024/25/26, coverage
@@ -256,7 +256,10 @@ the 17,456h intersection (TFT window ends 2026-07-14).
   count or member strength.
 - Operational cost is the promotion question: 3-seed TFT in the
   daily loop = MPS inference + monthly refits (~hours/month).
-- Source: `reports/backtests/2026-07-27_price_ensemble_tft_summary.md`.
+- Sources: `reports/backtests/2026-07-27_price_ensemble_tft_summary.md`;
+  same-window gate + capture artifact:
+  `2026-07-28_ens4_window_metrics.csv` (both blends and naive scored
+  on the identical hour set — P&L capture 0.931 vs 0.927).
 
 **Blend on 1095d members (2026-07-24) — tested, NOT adopted.**
 Pre-declared gates: beat ens-365 (17.34) with DM p<0.05, coverage

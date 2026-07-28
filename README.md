@@ -24,7 +24,7 @@ The git history is the live track record.
 - **Calibrated uncertainty.** P10/P90 bands conformally calibrated to
   ~80% empirical coverage — including the blend (double-conformal).
 - **Forecasts priced in EUR.** A battery-arbitrage backtest converts
-  MAE into money: the 4-member ensemble captures 92.8% of
+  MAE into money: the 4-member ensemble captures 93.1% of
   perfect-foresight value. Full writeup: `docs/BENCHMARK.md`.
 
 ## The two products
@@ -67,7 +67,7 @@ PL day-ahead auction price (SDAC), EUR/MWh, forecast before gate closure.
 
 | Model | MAE (EUR/MWh) | rMAE | Band coverage (nominal 80%) | P&L capture |
 |---|---|---|---|---|
-| **Ensemble (4-member, + TFT donor)** | **16.9** | **0.604** | **80.0%** | **0.928** |
+| **Ensemble (4-member, + TFT donor)** | **16.9** | **0.604** | **80.0%** | **0.931** |
 | Ensemble (3-member variant, CRPS + CQR) | 17.3 | 0.621 | 79.9% | 0.928 |
 | LightGBM quantile + conformal | 17.8 | 0.640 | 78.5% | 0.915 |
 | LEAR + conformal (published daily) | 18.5 | 0.662 | 79.5% | 0.912 |

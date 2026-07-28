@@ -63,7 +63,7 @@ P&L (1 MW / 2 MWh / 0.85 RTE / 1 cycle, day-ahead only).
 
 | Model | MAE | rMAE | Coverage (80% nom.) | P&L capture |
 |---|---|---|---|---|
-| **4-member ensemble (+ TFT, CQR)** | **16.88** | **0.604** | **80.0%** | **0.928** |
+| **4-member ensemble (+ TFT, CQR)** | **16.88** | **0.604** | **80.0%** | **0.931** |
 | Ensemble, 3-member variant (CRPS-weighted + CQR) | 17.33 | 0.621 | 79.9% | 0.928 |
 | LGBM 1095d window (candidate) | 17.38 | 0.623 | 78.7% | — |
 | LGBM 365d + CQR (champion) | 17.83 | 0.640 | 78.5% | 0.915 |
@@ -79,9 +79,12 @@ P&L (1 MW / 2 MWh / 0.85 RTE / 1 cycle, day-ahead only).
 The 4-member row adds an archived TFT (3-seed, 730d) as a diversity
 donor. It is scored on the 17,456 h intersection where all members
 overlap — the TFT window ends 2026-07-14. On that SAME window the
-3-member blend scores 17.36, so the gate delta is −0.48 (gate 0.10),
+3-member blend scores 17.35, so the gate delta is −0.48 (gate 0.10),
 DM p=2.6e-09 (`reports/backtests/2026-07-28_stats_tests_ens_dm.csv`).
-New best on every gate.
+New best on every gate. Its capture (0.931) comes from the same-window
+P&L artifact `2026-07-28_ens4_window_metrics.csv` — the main P&L table
+is a different (17,720 h) window, so the two capture columns are not
+directly comparable row-to-row.
 
 Notes on provenance: ensemble/LGBM/LEAR/FM rows from the 2026-07-27
 corrected-protocol rerun (window ends 2026-07-24, 17,720 h;
@@ -128,7 +131,7 @@ the 17.83 above. Sources in `docs/RESULTS.md`.
    the DST data fix moved it. Both artifacts kept; the discipline of
    not claiming early is the story.
 9. **A dead model can still be the best donor.** TFT lost solo and was
-   archived. Added to the blend it gives the new best (16.88 vs 17.36
+   archived. Added to the blend it gives the new best (16.88 vs 17.35
    on one window, DM p=2.6e-09, artifact above), because deep-model
    errors decorrelate from
    trees/linear/FM. A second FM (TimesFM) added nothing (+0.57). What
