@@ -21,31 +21,18 @@ OUT.mkdir(parents=True, exist_ok=True)
 
 PREDS_DIR = Path("data/processed/backtest_preds_price_res")
 PRICE_PATH = Path("data/processed/price_da_eur.parquet")
+# TFT hourly preds survive under reports/ (data/ was rebuilt 07-24)
+TFT_PREDS = Path("reports/sensitivity/tft/preds_tft730_2yr_ens3.parquet")
 
-# Models to include — (label, parquet stem, color, linestyle)
+# Models to include — (label, parquet stem or full path, color, linestyle).
+# Every plotted number is COMPUTED from these stored predictions — no
+# hand-copied aggregate tables (they went stale once; review finding).
 MODELS = [
     ("LGBM+CQR", "lgbm_quantile_conformal", "#2ecc71", "-"),
     ("LEAR+CQR", "lear_conformal", "#3498db", "--"),
-    ("TFT ens-3", "tft_hpo_ens", "#e67e22", "-."),
+    ("TFT ens-3", TFT_PREDS, "#e67e22", "-."),
     ("Naive 1-day", "price_naive_yesterday", "#95a5a6", ":"),
 ]
-
-# PatchTST aggregate only (no hourly preds saved)
-PATCHTST_AGG = {
-    "mae": 22.98,
-    "rmse": None,
-    "rmae": 0.823,
-    "coverage_80_pct": 69.5,
-}
-
-# Aggregate stats from 2yr backtest CSVs
-AGG_STATS = {
-    "LGBM+CQR": {"mae": 17.87, "rmse": 28.78, "rmae": 0.640, "coverage_80_pct": 78.7},
-    "LEAR+CQR": {"mae": 18.23, "rmse": 32.78, "rmae": 0.653, "coverage_80_pct": 79.4},
-    "TFT ens-3": {"mae": 19.71, "rmse": 32.24, "rmae": 0.706, "coverage_80_pct": 79.6},
-    "Naive 1-day": {"mae": 27.93, "rmse": 39.54, "rmae": 1.000, "coverage_80_pct": None},
-    "PatchTST": {"mae": 22.98, "rmse": None, "rmae": 0.823, "coverage_80_pct": 69.5},
-}
 
 plt.rcParams.update({
     "figure.dpi": 150,
@@ -61,7 +48,7 @@ def load_data() -> tuple[pd.Series, dict[str, pd.DataFrame]]:
     actual = pd.read_parquet(PRICE_PATH)["price_da_eur"]
     preds = {}
     for label, stem, _, _ in MODELS:
-        path = PREDS_DIR / f"{stem}.parquet"
+        path = stem if isinstance(stem, Path) else PREDS_DIR / f"{stem}.parquet"
         df = pd.read_parquet(path)
         df.index = pd.to_datetime(df.index, utc=True)
         preds[label] = df

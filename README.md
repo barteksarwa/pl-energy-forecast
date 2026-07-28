@@ -16,13 +16,15 @@ The git history is the live track record.
   a backtest.
 - **Price: a four-model ensemble is the new best.** CRPS-weighted blend
   of LightGBM + LEAR + a zero-shot foundation model + an archived TFT as
-  diversity donor: MAE 16.89 EUR/MWh, 39% better than seasonal naive.
-  LightGBM alone matches the LEAR standard (its MAE edge is not
-  significant, p=0.056 — we say so).
+  diversity donor: MAE 16.88 EUR/MWh, 40% better than seasonal naive
+  (DM p=2.6e-09 vs the 3-member blend, one-window artifact). LightGBM
+  vs the LEAR standard: we said "matches, not beats" while the edge was
+  not significant (p=0.056); the corrected 2-yr rerun now clears the
+  bar (p=1.9e-03) — both artifacts kept.
 - **Calibrated uncertainty.** P10/P90 bands conformally calibrated to
   ~80% empirical coverage — including the blend (double-conformal).
 - **Forecasts priced in EUR.** A battery-arbitrage backtest converts
-  MAE into money: the 4-member ensemble captures 92.9% of
+  MAE into money: the 4-member ensemble captures 92.8% of
   perfect-foresight value. Full writeup: `docs/BENCHMARK.md`.
 
 ## The two products
@@ -65,14 +67,14 @@ PL day-ahead auction price (SDAC), EUR/MWh, forecast before gate closure.
 
 | Model | MAE (EUR/MWh) | rMAE | Band coverage (nominal 80%) | P&L capture |
 |---|---|---|---|---|
-| **Ensemble (4-member, + TFT donor)** | **16.9** | **0.605** | **80.0%** | **0.929** |
-| Ensemble (3-member variant, CRPS + CQR) | 17.3 | 0.622 | 79.9% | 0.926 |
-| LightGBM quantile + conformal | 17.8 | 0.640 | 78.6% | 0.915 |
-| LEAR + conformal (published daily) | 18.5 | 0.662 | 79.5% | 0.911 |
+| **Ensemble (4-member, + TFT donor)** | **16.9** | **0.604** | **80.0%** | **0.928** |
+| Ensemble (3-member variant, CRPS + CQR) | 17.3 | 0.621 | 79.9% | 0.926 |
+| LightGBM quantile + conformal | 17.8 | 0.640 | 78.5% | 0.915 |
+| LEAR + conformal (published daily) | 18.5 | 0.662 | 79.5% | 0.912 |
 | TFT-730 (3-seed ensemble) | 19.5 | 0.699 | 80.9% raw | — |
-| Chronos-Bolt zero-shot + CQR | 21.9 | 0.787 | 79.9% | 0.891 |
+| Chronos-Bolt zero-shot + CQR | 21.8 | 0.783 | 79.9% | 0.891 |
 | PatchTST-730 (3-seed, trained) | 22.3 | 0.797 | 77.1% raw | — |
-| TimesFM 2.5 zero-shot | 22.5 | 0.807 | 80.7% raw | 0.881 |
+| TimesFM 2.5 zero-shot | 22.4 | 0.803 | 80.9% raw | 0.881 |
 | Naive (same hour yesterday) | 27.9 | 1.000 | 53.1% | 0.814 |
 
 P&L capture = share of perfect-foresight battery-arbitrage profit
@@ -93,7 +95,7 @@ findings, and honest negatives: `docs/BENCHMARK.md`.
 - Spikes are the open front: all models run ~3x pooled MAE on the top-5%
   priciest hours. Documented, not hidden. Three unconditional band fixes
   failed honestly; the shipped answer is a conditional spike classifier
-  (AUC 0.966) that flags risky hours in the daily report.
+  (AUC 0.967) that flags risky hours in the daily report.
 - **Foundation models, measured.** Chronos-Bolt zero-shot beats our
   trained PatchTST with zero training — and still joins the product
   only as an ensemble member. Moirai's covariate mode is significantly

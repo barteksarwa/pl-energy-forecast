@@ -1,0 +1,6 @@
+a_better,b,dm_stat,p_one_sided,window
+ens4_tft,ens3,-5.84,2.605e-09,17456h ens4 intersection
+ens3,lgbm,-3.346,4.101e-04,17456h ens4 intersection
+ens4_tft,lgbm,-6.738,8.015e-12,17456h ens4 intersection
+lgbm,lear,-2.868,2.067e-03,17456h ens4 intersection
+lgbm,lear,-2.889,1.935e-03,17720h full 07-27 run

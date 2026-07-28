@@ -37,14 +37,14 @@ Source: `reports/backtests/2026-07-16_2yr_summary.md`.
 
 ## Price — day-ahead auction price (EUR/MWh)
 
-2-year walk-forward. Test 2024-07-16 → 2026-07-23, 17,696 hours
-(regenerated 2026-07-24 after the data-store rebuild; the deep rows
-keep their campaign windows ending 2026-07-14 — noted).
-Source: `reports/backtests/2026-07-24_price_conformal_summary.csv`.
+2-year walk-forward. Test 2024-07-16 → 2026-07-24, 17,720 hours
+(rerun 2026-07-27 under the target-aware cutoff protocol; the deep
+rows keep their campaign windows ending 2026-07-14 — noted).
+Source: `reports/backtests/2026-07-27_price_conformal_summary.csv`.
 
 | Model | MAE | rMAE | 80% band coverage |
 |---|---|---|---|
-| **LGBM quantile + CQR** (champion) | **17.84** | **0.640** | 78.6% |
+| **LGBM quantile + CQR** (champion) | **17.83** | **0.640** | 78.5% |
 | LEAR + CQR | 18.46 | 0.662 | 79.5% |
 | TFT ens-3 (365d windows, to 07-14) | 19.71 | 0.706 | 79.6% |
 | PatchTST (365d windows, to 07-14) | 22.98 | 0.823 | 69.5% |
@@ -52,7 +52,10 @@ Source: `reports/backtests/2026-07-24_price_conformal_summary.csv`.
 
 - rMAE = MAE relative to naive. Below 1.0 beats naive.
 - CQR = conformalized quantile regression. Fixes band coverage honestly.
-- LEAR wins interval quality (Winkler 88.8 vs 90.3). LGBM wins MAE.
+- LEAR wins interval quality (Winkler 88.9 vs 90.7). LGBM wins MAE —
+  and the edge IS significant on this corrected run (DM p=1.9e-03,
+  `2026-07-28_stats_tests_ens_dm.csv`); see the significance section
+  for the history of this claim.
 - Validation note (2026-07-27): this table previously mixed the older
   07-14-window run with newer artifacts across docs. It now cites one
   run; the independent review caught it (`docs/VALIDATION.md`).
@@ -148,29 +151,33 @@ champion also sees RES/TSO/calendar. The gap measures what covariates
 
 | Model | MAE (2-yr) | rMAE | Coverage (+CQR) |
 |---|---|---|---|
-| Champion LGBM (365d) | 17.84 | 0.640 | 78.6% |
+| Champion LGBM (365d) | 17.83 | 0.640 | 78.5% |
 | TFT-730 ens-3 (to 07-14) | 19.52 | 0.699 | 80.9% raw |
-| **Chronos-Bolt zero-shot** | **21.93** | **0.787** | 79.9% |
+| **Chronos-Bolt zero-shot** | **21.82** | **0.783** | 79.9% |
 | PatchTST-730 ens-3 (trained!, to 07-14) | 22.25 | 0.797 | 77.1% raw |
-| TimesFM 2.5 zero-shot | 22.52 | 0.807 | 80.7% raw |
+| TimesFM 2.5 zero-shot | 22.38 | 0.803 | 80.9% raw |
 | Naive | 27.88 | 1.000 | — |
 
 - A pretrained model with NO training on our data and NO covariates
   beats our trained PatchTST. Sic transit patch attention.
-- Chronos beats TimesFM (DM p=0.0095). TimesFM's raw band is the best
-  calibrated of any model out of the box (80.7% vs nominal 80%).
-- Champion beats both FMs at p<1e-6; DM artifact for all FM pairs:
-  `reports/backtests/2026-07-27_stats_tests_fm_dm.csv` (computed
-  2026-07-27 — the earlier "all gaps DM-significant" line predated
-  the artifact; the independent review caught it).
+- Chronos beats TimesFM (DM p=0.012). TimesFM's raw band is the best
+  calibrated of any model out of the box (80.9% vs nominal 80%).
+- Champion beats both FMs at p<1e-25; DM artifact for all FM pairs on
+  the 07-27 rerun preds: `2026-07-28_stats_tests_fm_dm.csv` (an earlier
+  "all gaps DM-significant" line predated any artifact; the review
+  caught it, and the artifact is now regenerated with each rerun).
 - Phase 6 fine-tune gate (rMAE < 0.75): closed.
-- Sources: `reports/backtests/2026-07-24_price_chronos2yr_summary.md`,
-  `2026-07-24_price_timesfm2yr_summary.md`.
+- Sources: `reports/backtests/2026-07-27_price_chronos2yr_summary.md`,
+  `2026-07-27_price_timesfm2yr_summary.md`. FM wrappers align
+  forecasts by timestamp since 2026-07-27 (the 09:00-cutoff incident —
+  `docs/VALIDATION.md` amendment); the small MAE shifts vs the 07-24
+  run (21.93 → 21.82) come from the corrected protocol + window.
 
 **Spike classifier** (2-yr walk-forward, top-5% hours, train-window
-labels): AUC 0.966, Brier 0.034, precision@2 0.736. Gate 0.80 passed —
-promoted to a daily-report line. Deterministic model; seed sweep
-vacuous (42 and 7 bit-identical).
+labels): AUC 0.967, Brier 0.034, precision@2 0.743 (07-27 rerun,
+`2026-07-27_spike_screen.md`; the original 07-23 run scored 0.966 /
+0.736). Gate 0.80 passed — promoted to a daily-report line.
+Deterministic model; seed sweep vacuous (42 and 7 bit-identical).
 
 Reliability check (2026-07-23, `src/evaluation/spike_reliability.py`):
 - Stable across regimes: ROC-AUC 0.964-0.969 in each of 2024/25/26.
@@ -189,14 +196,15 @@ Weights: inverse trailing-60d crps3, past-only, equal-weight warm-up.
 
 | Model | MAE (2-yr) | rMAE | Coverage | Winkler |
 |---|---|---|---|---|
-| **ens_crps_cqr** | **17.34** | **0.622** | **79.9%** | **85.2** |
-| ens_crps (raw blend) | 17.34 | 0.622 | 83.9% | 85.5 |
-| ens_equal | 17.45 | 0.626 | 84.0% | 86.2 |
-| LGBM champion (365d) | 17.84 | 0.640 | 78.6% | 90.3 |
+| **ens_crps_cqr** | **17.33** | **0.621** | **79.9%** | **85.2** |
+| ens_crps (raw blend) | 17.33 | 0.621 | 83.9% | 85.5 |
+| ens_equal | 17.44 | 0.625 | 83.9% | 86.1 |
+| LGBM champion (365d) | 17.83 | 0.640 | 78.5% | 90.7 |
 | LGBM (1095d window) | 17.35 | 0.622 | — | — |
 
-- ALL pre-declared gates pass: −0.50 MAE (gate 0.15), DM p=2.5e-04,
-  wins every test year (2024/25/26), Winkler improves.
+- ALL pre-declared gates pass: −0.50 MAE (gate 0.15), DM p=4.1e-04
+  (`2026-07-28_stats_tests_ens_dm.csv`), wins every test year
+  (2024/25/26), Winkler improves.
 - The diversity does the work: a zero-shot univariate FM adds skill to
   two structural models even though it is 4 MAE worse alone.
 - Over-coverage FIXED (2026-07-24): a second rolling-CQR pass on the
@@ -207,9 +215,9 @@ Weights: inverse trailing-60d crps3, past-only, equal-weight warm-up.
   `ens_crps_cqr` is the promotion candidate.
 - Moirai (both variants) excluded by the pre-declared member rule
   (best FM only). See FM section: covariates HURT zero-shot Moirai
-  (24.87 vs 23.70, DM p=8e-06 —
-  `2026-07-27_stats_tests_fm_dm.csv`) — covariate skill needs training.
-- Sources: `reports/backtests/2026-07-24_price_ensemble_summary.md`,
+  (24.87 vs 23.70, DM p=8.3e-06 —
+  `2026-07-28_stats_tests_fm_dm.csv`) — covariate skill needs training.
+- Sources: `reports/backtests/2026-07-27_price_ensemble_summary.md`,
   `2026-07-24_price_moirai2yr_summary.csv`.
 
 **4-member blend with TFT (2026-07-27) — NEW BEST price forecast.**
@@ -219,12 +227,20 @@ the 17,456h intersection (TFT window ends 2026-07-14).
 
 | Model | MAE | rMAE | Coverage | Winkler | P&L capture |
 |---|---|---|---|---|---|
-| **ens4_tft (CQR)** | **16.89** | **0.605** | **80.0%** | **82.6** | **0.929** |
-| ens3 (shipped candidate) | 17.34 | 0.622 | 79.9% | 85.2 | 0.926 |
+| **ens4_tft (CQR)** | **16.88** | **0.604** | **80.0%** | **82.6** | **0.928** |
+| ens3 (same 17,456h window) | 17.36 | 0.621 | 79.9% | 85.2 | 0.926 |
+| ens_equal (4 members) | 16.93 | 0.606 | 85.7% raw | 83.8 | — |
 | TFT-730 ens-3 alone | 19.53 | 0.699 | 79.4% | 97.5 | — |
 
-- All pre-declared gates smashed: −0.45 MAE (gate 0.10),
-  DM p=2.3e-09, wins 2024/25/26, coverage nominal, Winkler best ever.
+- One window for the gate: ens3 rescored on the SAME 17,456h
+  intersection (17.36) — an earlier draft compared against ens3's
+  17,696h run, mixing windows (review finding). Gate still passes:
+  −0.48 MAE (gate 0.10), DM p=2.6e-09
+  (`2026-07-28_stats_tests_ens_dm.csv`), wins 2024/25/26, coverage
+  nominal, Winkler best ever.
+- Honest decomposition: equal weights already give 16.93 on this
+  window — CRPS weighting buys the last 0.06; the TFT member does the
+  heavy lifting.
 - The lesson: TFT lost solo (archived 2026-07-21) but is the best
   diversity donor tested — deep-model errors decorrelate from
   trees/linear/FM. TimesFM (4th member, FM like Chronos) added
@@ -232,8 +248,7 @@ the 17,456h intersection (TFT window ends 2026-07-14).
   count or member strength.
 - Operational cost is the promotion question: 3-seed TFT in the
   daily loop = MPS inference + monthly refits (~hours/month).
-- Sources: `reports/backtests/2026-07-27_price_ensemble_tft_summary.md`,
-  DM in the session log 2026-07-27.
+- Source: `reports/backtests/2026-07-27_price_ensemble_tft_summary.md`.
 
 **Blend on 1095d members (2026-07-24) — tested, NOT adopted.**
 Pre-declared gates: beat ens-365 (17.34) with DM p<0.05, coverage
@@ -282,16 +297,16 @@ by ≥0.10 MAE on both years.
 
 1 MW / 2 MWh / 0.85 round-trip / 1 cycle/day. Schedule from P50 at
 D-1 (per-day LP), settle at actual DA prices. Day-ahead only.
-Same 722 days for every model. Capture = P&L / perfect-foresight P&L.
-(Numbers re-checked against the artifact 2026-07-27 after the
-validation review flagged a stale copy of the pre-regeneration run.)
+Same 723 days for every model. Capture = P&L / perfect-foresight P&L.
+(07-27 corrected-protocol rerun; the review earlier caught a stale
+copy of the pre-regeneration run in this table.)
 
 | Model | EUR/day | Capture | Loss days |
 |---|---|---|---|
 | Perfect foresight | 221 | 1.000 | 0% |
-| **ens_crps_cqr** | **205** | **0.926** | 1.8% |
-| LGBM champion | 203 | 0.915 | 2.1% |
-| LEAR | 202 | 0.911 | 1.4% |
+| **ens_crps_cqr** | **206** | **0.928** | 1.4% |
+| LGBM champion | 203 | 0.915 | 1.5% |
+| LEAR | 202 | 0.912 | 1.5% |
 | Chronos zero-shot | 197 | 0.891 | 2.6% |
 | TimesFM zero-shot | 195 | 0.881 | 2.6% |
 | Naive (yesterday) | 180 | 0.814 | 4.4% |
@@ -299,9 +314,10 @@ validation review flagged a stale copy of the pre-regeneration run.)
 - MAE rank == capture rank, no flips (PLAN watch item closed).
 - Value compresses: naive is 10.6 MAE worse yet captures 81% —
   storage needs hour ORDERING, not price level.
-- Ensemble edge over champion: +2.35 EUR/day/MW (~860 EUR/yr/MW; artifact 2026-07-24_pnl_summary.csv gives 2.353).
+- Ensemble edge over champion: +2.93 EUR/day/MW (~1,070 EUR/yr/MW;
+  artifact gives 205.575 vs 202.642).
   Pays for its complexity at portfolio scale, not on one battery.
-- Sources: `reports/backtests/2026-07-24_pnl_summary.md`,
+- Sources: `reports/backtests/2026-07-27_pnl_summary.md`,
   `reports/figures/pnl/cumulative_pnl.png`. Engine:
   `src/evaluation/pnl.py` (9 accounting tests, DST-aware).
 
@@ -312,14 +328,21 @@ bands. Source: `reports/backtests/2026-07-22_stats_tests.md`.
 
 | Claim | DM p (one-sided) | Verdict |
 |---|---|---|
+| ens4_tft beats ens3 | 2.6e-09 | significant (`2026-07-28_stats_tests_ens_dm.csv`) |
+| ens3 beats champion | 4.1e-04 | significant (same artifact) |
 | 1095d window beats 365d | 0.0009 | significant — promotion evidence solid |
-| LGBM beats LEAR (2-yr) | 0.056 | **NOT significant at 5%** |
+| LGBM beats LEAR (2-yr) | 1.9e-03 | significant on the 07-27 corrected run — see history below |
 | LGBM beats TFT-730 ens-3 | 8.7e-09 | significant |
 | LGBM beats naive | ~1e-70 | significant |
 
-- Honest correction: the champion's MAE edge over LEAR (17.87 vs 18.24)
-  does not clear the 5% significance bar on daily losses. Say "matches
-  or slightly beats LEAR", not "beats".
+- History of the LEAR claim, kept on purpose: on the 07-22 run
+  (17.87 vs 18.24, pre-E1-DST-fix data, window to 07-14) the edge was
+  NOT significant (p=0.056) and every doc said "matches, not beats".
+  On the 07-27 corrected-protocol run (17.83 vs 18.46, 17,720 h) it
+  clears the bar (p=1.9e-03). Three more test weeks + the D-1
+  price-vector DST fix moved it. Both numbers have artifacts; the
+  0.056 stays quoted here because the discipline — not claiming the
+  edge before the data supported it — is the point.
 - Bands: LEAR passes Kupiec (unconditional coverage), LGBM marginally
   fails (21.1% violations vs nominal 20%). BOTH fail Christoffersen
   hard — violations cluster on consecutive hours/days. Same lesson as

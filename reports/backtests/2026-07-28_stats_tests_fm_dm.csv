@@ -1,0 +1,5 @@
+a_better,b,dm_stat,p_one_sided,window
+chronos,timesfm,-2.271,1.159e-02,"fresh 07-27 preds, 17720h"
+lgbm,chronos,-10.465,6.251e-26,"fresh 07-27 preds, 17720h"
+lgbm,timesfm,-13.156,7.909e-40,"fresh 07-27 preds, 17720h"
+moirai_zs,moirai_cov,-4.305,8.333e-06,07-24 moirai regen preds
