@@ -4,9 +4,14 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-07-28 — Faithful LEAR (lear_full) tested: WORSE — simplified variant stays**
+Context: review flagged our LEAR as ~1/3 of canonical (only D-1 day-vector, ordinal DoW, CV penalty). Built lear_full: D-2/3/7 day-vectors (~96 price regressors), one-hot DoW/month, LassoLarsIC(AIC). Expectation: LEAR improves, LGBM edge shrinks.
+Decision: hypothesis FAILED. Same matrix, same 2-yr walk-forward: lear_full 19.18 MAE vs simplified lear 18.51 (+0.67). Canonical regressor set + AIC overfits/underselects on PL data at 365d windows. Simplified variant stays the baseline; card and README updated to state the deviations are measured as harmless-to-better, not shortcuts. Artifact: reports/backtests/2026-07-28_price_learfull_summary.csv.
+Why: the honest defense of a simplification is testing the faithful version and losing. Now we have the number.
+
 **2026-07-27 — Validation E2 partially RETRACTED: not a leak for the price task; cutoff made task-aware**
 Context: re-running the price chain under the blanket 09:00 cutoff broke Chronos (MAE 55.9 — context horizon misaligned) and that smell forced a market-mechanics re-derivation. D-1 day-ahead prices clear at the D-2 auction (~13:00) — they are fully public at the 09:00 D-1 decision moment.
-Decision: `walk_forward_backtest` now takes `train_cutoff`: "target_published" (price — full D-1 legal) vs "decision_0900" (load and other physical actuals — E2 stands). Price runners and the spike screen use published mode; the "~0.11 flattery" claim is retracted for price (those hours were legitimate); the load tables' E2 impact remains unbounded until a load re-run. Tests cover both modes (119 green).
+Decision: `walk_forward_backtest` now takes a target-availability mode: price (full D-1 legal, published day-ahead) vs load and other physical actuals (09:00 D-1 — E2 stands). Two sessions built this in parallel with different parameter names; unified at merge to `target_availability="day_ahead"/"realtime"`. Price runners and the spike screen use day_ahead; the "~0.11 flattery" claim is retracted for price (those hours were legitimate); the load tables' E2 impact remains unbounded until a load re-run. Tests cover both modes.
 Why: the review was right about the rule and wrong about one target's information timeline; the desk's job is to know its market. An independent finding that survives adversarial review can STILL fall to domain mechanics — documented in full rather than silently absorbed.
 
 **2026-07-27 — Idea sprint: BOA and rolling spike threshold rejected; conformal fixes adopted**

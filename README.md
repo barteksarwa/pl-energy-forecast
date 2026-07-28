@@ -85,10 +85,11 @@ findings, and honest negatives: `docs/BENCHMARK.md`.
 
 - LEAR = the industry-standard LASSO price baseline (Ziel & Weron
   2018). Ours is a simplified variant: 24 per-hour models, full D-1
-  price vector, variance-stabilized target — but fewer lagged
-  day-vectors than the canonical 96-regressor set, and CV-selected
-  penalty instead of AIC. Deviations listed in the model card; making
-  it fully faithful is on the roadmap.
+  price vector, variance-stabilized target — fewer lagged day-vectors
+  than the canonical 96-regressor set, CV-selected penalty instead of
+  AIC. We built the faithful version to check ourselves: it LOSES
+  (19.18 vs 18.51 on the same matrix). Deviations and the test are in
+  the model card — measured, not hand-waved.
 - The **solar forecast is price driver #1** — top SHAP attribution AND
   largest retrain-ablation cost (+3.5 EUR/MWh MAE when dropped). Two
   independent methods, same answer: the merit order, measured.

@@ -110,9 +110,13 @@ Honest list; each is a simplification, not an improvement:
   folds are not time-ordered, so penalty selection sees future data
   (fit coefficients do not).
 
-Making the variant faithful (day-vectors, dummies, AIC) is on the
-roadmap; expect the LEAR baseline to improve and the LGBM edge to
-shrink accordingly.
+**Tested 2026-07-28 — the faithful version LOSES.** `lear_full`
+(D-2/3/7 day-vectors ≈96 price regressors, one-hot DoW/month,
+LassoLarsIC) scored 19.18 vs 18.51 for this simplified variant on the
+same matrix and window (`2026-07-28_price_learfull_summary.csv`,
+DECISIONS 2026-07-28). On PL data at 365-day windows the canonical
+regressor set + AIC hurts. The deviations above are measured as
+harmless-to-better, not shortcuts — that is the defense.
 
 ## Status
 
