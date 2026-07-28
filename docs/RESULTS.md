@@ -93,6 +93,14 @@ Loss decomposition, TFT gap to champion:
   Weather +0.08 pp, calendar +0.03 pp, lags +0.00 pp.
 - Price champion (1-yr window): RES forecast +4.12, price history +2.02,
   TSO load +0.58, calendar +0.39, load lags −0.08 (dead weight).
+- Fresh rerun (last 180 days, corrected protocol, 2026-07-28): price
+  history +3.46, RES +3.39, calendar +0.59, TSO load +0.47, load lags
+  +0.03. Artifact: `2026-07-28_price_group_ablation.csv`.
+- The RES ablation also bounds the DISCLOSED look-ahead: the ENTSO-E
+  RES series publishes ~18:00 D-1 (after gate; standard EPF proxy —
+  DECISIONS 2026-07-16). Everything that proxy is worth is +3.39
+  EUR/MWh; the flattery vs a bidder's own 09:00 RES forecast is some
+  fraction of that. Known, quantified, on the table.
 - Ablation verdicts depend on the training window. Documented sign flip:
   PatchTST price-history encoder −0.4 → +2.5 EUR/MWh at 365d → 730d.
 - Tables: `reports/sensitivity/group_ablation.md` (load),
