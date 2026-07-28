@@ -67,12 +67,15 @@ Assumption in one line: a party sizes its day-ahead buy on our P50 price forecas
 How to read the row: *naive cost bound* is the average absolute spread — what you pay if every miss lands on the wrong side. *Mean cost* is what our actual misses cost, sign included.
 
 - Our day-ahead price error is **76 PLN/MWh** (MAE, converted from EUR).
-- The imbalance spread we would face is **150 PLN/MWh** on average.
-- Actual mean cost of a miss: **-8.7 PLN/MWh**, with **50%** of misses landing on the losing side.
+- The imbalance spread we would face is **150 PLN/MWh** on average — about 2.0x our price error.
+- Actual mean cost of a miss: **-8.7 PLN/MWh** — a small net gain versus zero, with **50%** of misses landing on the losing side.
+- Spread of that cost: 317 PLN/MWh. t-statistic of the mean, clustered by day: -2.5. Correlation between our price error and the spread: 0.04.
 
 ## 4. Takeaway
 
-**The imbalance spread is bigger than our whole day-ahead forecast error, and our price forecast gives us no edge on it — direction is a coin flip. So a dedicated imbalance model is worth scoping, but only if it predicts the *sign* of the spread; a better day-ahead price model will not help here.**
+**The imbalance spread is about 2x bigger than our whole day-ahead price error, and our forecast carries almost no information about it (correlation 0.04, 50% of misses lose money). So an imbalance model is worth scoping — but it must predict the *sign* of the spread. A better day-ahead price model will not move this number.**
+
+Our misses are on average slightly lucky (-8.7 PLN/MWh, day-clustered t = -2.5 — too weak to trade on). Do not build a strategy on it yet.
 
 ![spread by hour](../figures/imbalance/spread_by_hour.png)
 

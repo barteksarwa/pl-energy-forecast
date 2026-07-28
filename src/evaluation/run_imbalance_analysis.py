@@ -214,6 +214,9 @@ def summarize_miss_cost(costed: pd.DataFrame) -> dict[str, float]:
         "mean_cost_under_pln": float(under.mean()) if len(under) else float("nan"),
         "mean_cost_over_pln": float(over.mean()) if len(over) else float("nan"),
         "p95_cost_pln": float(cost.quantile(0.95)),
+        "std_cost_pln": float(cost.std()),
+        "t_mean_cost_daily_clustered": daily_clustered_t(cost),
+        "corr_err_spread": float(costed["err_pln"].corr(costed["spread_pln"])),
     }
 
 
@@ -241,7 +244,7 @@ def make_figure(spread: pd.Series, by_hour: pd.DataFrame, path: Path) -> None:
     ax.set_xlabel("Hour of day (Europe/Warsaw, local)")
     ax.set_ylabel("Spread (PLN/MWh)")
     ax.set_title("Balancing minus day-ahead, by hour of day", loc="left")
-    ax.legend(frameon=False, fontsize=8)
+    ax.legend(frameon=False, fontsize=8, loc="upper left")
 
     ax = axes[1]
     lo, hi = spread.quantile(0.01), spread.quantile(0.99)
@@ -254,13 +257,14 @@ def make_figure(spread: pd.Series, by_hour: pd.DataFrame, path: Path) -> None:
     ax.set_title("Spread distribution — fat on both sides", loc="left")
     ax.legend(frameon=False, fontsize=8)
 
-    fig.suptitle(
+    fig.text(
+        0.5, 0.02,
         "PL imbalance v1 — source: PSE csdac (day-ahead) and PSE CEN "
-        "(balancing), hourly means of 15-min data; timestamps stored UTC, "
-        "grouped in local time",
-        fontsize=8, y=0.02,
+        "(balancing), hourly means of 15-min data;\ntimestamps stored in UTC, "
+        "grouped in local time (Europe/Warsaw)",
+        fontsize=8, ha="center", color="#555555",
     )
-    fig.tight_layout(rect=(0, 0.05, 1, 1))
+    fig.tight_layout(rect=(0, 0.09, 1, 1))
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path, dpi=150)
     plt.close(fig)
@@ -274,6 +278,7 @@ def _md_report(
     period: tuple[pd.Timestamp, pd.Timestamp],
     fig_rel: str,
     stamp: str,
+    min_eur: float,
 ) -> str:
     worst = by_hour["mean_abs_pln"].idxmax()
     best_model = min(model_stats, key=lambda m: model_stats[m]["mean_cost_pln"]) \
@@ -334,27 +339,53 @@ def _md_report(
         "*Mean cost* is what our actual misses cost, sign included.", "",
     ]
     if ref:
+        edge = ("a small net gain" if ref["mean_cost_pln"] < 0
+                else "a small net loss")
         lines += [
             f"- Our day-ahead price error is **{ref['mae_pln']:.0f} "
             f"PLN/MWh** (MAE, converted from EUR).",
             f"- The imbalance spread we would face is **"
-            f"{ref['naive_cost_bound_pln']:.0f} PLN/MWh** on average.",
+            f"{ref['naive_cost_bound_pln']:.0f} PLN/MWh** on average — "
+            f"about {ref['naive_cost_bound_pln'] / max(ref['mae_pln'], 1e-9):.1f}x "
+            "our price error.",
             f"- Actual mean cost of a miss: **{ref['mean_cost_pln']:.1f} "
-            f"PLN/MWh**, with **{100 * ref['share_costly_hours']:.0f}%** of "
-            "misses landing on the losing side.", "",
+            f"PLN/MWh** — {edge} versus zero, with **"
+            f"{100 * ref['share_costly_hours']:.0f}%** of misses landing on "
+            "the losing side.",
+            f"- Spread of that cost: {ref['std_cost_pln']:.0f} PLN/MWh. "
+            f"t-statistic of the mean, clustered by day: "
+            f"{ref['t_mean_cost_daily_clustered']:.1f}. Correlation between "
+            f"our price error and the spread: "
+            f"{ref['corr_err_spread']:.2f}.", "",
+        ]
+    lines += ["## 4. Takeaway", ""]
+    if ref:
+        weak = abs(ref["t_mean_cost_daily_clustered"]) < 3.0
+        lines += [
+            "**The imbalance spread is about "
+            f"{ref['naive_cost_bound_pln'] / max(ref['mae_pln'], 1e-9):.0f}x "
+            "bigger than our whole day-ahead price error, and our forecast "
+            "carries almost no information about it "
+            f"(correlation {ref['corr_err_spread']:.2f}, "
+            f"{100 * ref['share_costly_hours']:.0f}% of misses lose money). "
+            "So an imbalance model is worth scoping — but it must predict "
+            "the *sign* of the spread. A better day-ahead price model will "
+            "not move this number.**", "",
+            f"Our misses are on average {'slightly lucky' if ref['mean_cost_pln'] < 0 else 'slightly costly'} "
+            f"({ref['mean_cost_pln']:.1f} PLN/MWh"
+            + (", day-clustered t = "
+               f"{ref['t_mean_cost_daily_clustered']:.1f} — "
+               + ("too weak to trade on" if weak else "worth a second look")
+               + ")")
+            + ". Do not build a strategy on it yet.", "",
         ]
     lines += [
-        "## 4. Takeaway", "",
-        "**The imbalance spread is bigger than our whole day-ahead forecast "
-        "error, and our price forecast gives us no edge on it — direction is "
-        "a coin flip. So a dedicated imbalance model is worth scoping, but "
-        "only if it predicts the *sign* of the spread; a better day-ahead "
-        "price model will not help here.**", "",
         f"![spread by hour]({fig_rel})", "",
         "### Caveats", "",
         "- EUR errors were converted to PLN with the hourly implied rate "
         "`price_da_pln / price_da_eur`. Hours with a EUR price below "
-        "5 EUR/MWh (including negative-price hours) get their local day's "
+        f"{min_eur:.0f} EUR/MWh (including negative-price hours) get their "
+        "local day's "
         "median rate instead — the raw ratio explodes near zero.",
         "- The balancing price is a single settlement price here. Real PSE "
         "settlement has more components.",
@@ -444,7 +475,7 @@ def main() -> int:
     md = _md_report(
         head, by_hour, by_year, model_stats,
         (df.index.min(), df.index.max()),
-        "../figures/imbalance/spread_by_hour.png", stamp,
+        "../figures/imbalance/spread_by_hour.png", stamp, args.min_eur,
     )
     md_path = out_dir / f"{stamp}_imbalance_v1.md"
     md_path.write_text(md)

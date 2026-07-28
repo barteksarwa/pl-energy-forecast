@@ -12,6 +12,7 @@ import pytest
 
 from src.evaluation.run_imbalance_analysis import (
     compute_spread,
+    daily_clustered_t,
     implied_fx_rate,
     miss_cost,
     spread_by_group,
@@ -169,6 +170,21 @@ def test_summarize_miss_cost_decomposition():
 
 def test_summarize_miss_cost_empty():
     assert summarize_miss_cost(pd.DataFrame()) == {}
+
+
+def test_daily_clustering_shrinks_the_t_statistic():
+    """Same value repeated inside a day must not count as new evidence."""
+    idx = pd.date_range("2025-01-01", periods=240, freq="h", tz="UTC")
+    rng = np.random.default_rng(0)
+    day_effect = rng.normal(5.0, 20.0, size=10).repeat(24)
+    cost = pd.Series(day_effect, index=idx)
+    hourly_t = cost.mean() / (cost.std() / np.sqrt(len(cost)))
+    assert abs(daily_clustered_t(cost)) < abs(hourly_t)
+
+
+def test_daily_clustered_t_needs_variation():
+    idx = pd.date_range("2025-01-01", periods=48, freq="h", tz="UTC")
+    assert np.isnan(daily_clustered_t(pd.Series(3.0, index=idx)))
 
 
 # --------------------------------------------------------------------------

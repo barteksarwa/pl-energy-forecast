@@ -154,6 +154,9 @@ miss_cost,ens_crps_cqr_tft,share_under_forecast,0.5433661778185152
 miss_cost,ens_crps_cqr_tft,mean_cost_under_pln,-20.22758803373748
 miss_cost,ens_crps_cqr_tft,mean_cost_over_pln,6.246875235227698
 miss_cost,ens_crps_cqr_tft,p95_cost_pln,298.5
+miss_cost,ens_crps_cqr_tft,std_cost_pln,316.16539662075706
+miss_cost,ens_crps_cqr_tft,t_mean_cost_daily_clustered,-2.3520090349328306
+miss_cost,ens_crps_cqr_tft,corr_err_spread,0.0402673733440099
 miss_cost,lgbm_quantile_conformal,n_hours,17672.0
 miss_cost,lgbm_quantile_conformal,mae_pln,75.97643142730756
 miss_cost,lgbm_quantile_conformal,naive_cost_bound_pln,150.1344529481666
@@ -164,3 +167,6 @@ miss_cost,lgbm_quantile_conformal,share_under_forecast,0.5330466274332277
 miss_cost,lgbm_quantile_conformal,mean_cost_under_pln,-21.04104989384289
 miss_cost,lgbm_quantile_conformal,mean_cost_over_pln,5.368711524478913
 miss_cost,lgbm_quantile_conformal,p95_cost_pln,297.607
+miss_cost,lgbm_quantile_conformal,std_cost_pln,316.67617301076916
+miss_cost,lgbm_quantile_conformal,t_mean_cost_daily_clustered,-2.5432240758501283
+miss_cost,lgbm_quantile_conformal,corr_err_spread,0.03781571327298204
