@@ -66,3 +66,33 @@
 - Backups of pre-incident artifacts: `data/backup_20260727_prechain/`.
 - Full review + remediation trail: VALIDATION.md amendment, DECISIONS
   2026-07-27, this handover.
+
+## Addendum — merge + agent round (later 2026-07-28)
+
+- Branch MERGED into local main (owner call). Both sessions had built
+  the same E2 fix; branch side kept, API unified to
+  `target_availability`, parallel session's day-D guarantee ported as
+  a corruption test. Public main untouched (no common history).
+- Doc-number control shipped: scripts/check_doc_numbers.py, 135
+  checks, CI-enforced. Caught 5 drifts on arrival + 2 more of ours
+  within minutes. The audit's top control gap is closed.
+- ens4 window artifact (`2026-07-28_ens4_window_metrics.csv`): real
+  capture 0.931; the quoted 0.928 was copied across rows. ens3 on the
+  intersection: 17.35 / Winkler 85.5 / capture 0.927.
+- lear_full: faithful LEAR LOSES (19.18 vs 18.51). Simplification now
+  defended by a measurement.
+- Group ablation rerun: RES look-ahead bounded at +3.39 MAE.
+- Imbalance v1: |bal−DA| ≈ 151 PLN/MWh, solar-hour peaked, sign a
+  coin flip, our errors uncorrelated (0.04). Next model must predict
+  spread SIGN.
+- Shadow tally resumed from origin/main bot reports. Load challenger
+  dead since 07-18 on the same Open-Meteo timeout (retry fix in this
+  branch unblocks it). Price shadows: 6 valid days, LGBM ahead.
+- Load rerun done: 2.16% vs TSO 2.25% under the corrected cutoff.
+  E2 closed on BOTH sides; protocol note in RESULTS closed.
+- NEW follow-up: coverage accounting flagged up to 4,502 training
+  rows/refit dropped by NaN filtering in the load matrix
+  (weather-archive holes). Quantify and patch the archive.
+- Public-repo exposure: pushing this branch put the full local
+  history on the public remote as a branch. Owner: delete the remote
+  branch or fold it into the reconciliation decision.
