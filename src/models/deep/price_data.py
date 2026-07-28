@@ -26,6 +26,14 @@ from src.features.calendar import calendar_features
 from src.models.deep.data import FUTURE_CAL_COLS, DaySamples
 from src.pipeline.daily_run import local_day_hours_utc
 
+# Canonical fut-tensor column order, matching the np.column_stack below.
+# Importance/VSN scripts must label by THIS list — two of them once kept
+# their own diverging copies (review finding, 2026-07-27).
+PRICE_FUT_COLS = FUTURE_CAL_COLS + [
+    "solar_fcst_mw", "wind_on_fcst_mw", "wind_off_fcst_mw",
+    "tso_forecast_mw", "price_anchor_lag168",
+]
+
 TARGET_HOURS = 24
 
 

@@ -1,0 +1,2 @@
+seed,auc,brier,precision_at2,spike_days,n_hours,spike_rate
+42,0.9666,0.0341,0.7434,304,17720,0.05

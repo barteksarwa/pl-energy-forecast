@@ -41,12 +41,12 @@ import torch
 
 from src.config import load_config
 from src.models.deep.data import (
-    FUTURE_CAL_COLS,
     DaySamples,
     apply_covariate_stats,
     standardize_covariates,
 )
 from src.models.deep.patchtst import PatchTST
+from src.models.deep.price_data import PRICE_FUT_COLS as FUT_COLS
 from src.models.deep.price_data import build_price_samples
 from src.models.deep.train import QUANTILES, device, pinball, predict_mw, train_variant
 from src.pipeline.daily_run import local_day_hours_utc
@@ -63,11 +63,8 @@ D_MODEL = 64
 TRAIN_END = "2026-01-01"          # screening split boundary
 TEST_START = "2024-07-16"         # walk-forward test period start
 
-# fut column layout, must match build_price_samples order
-FUT_COLS = FUTURE_CAL_COLS + [
-    "solar_fcst_mw", "wind_on_fcst_mw", "wind_off_fcst_mw",
-    "tso_load_fcst", "price_anchor_lag168",
-]
+# fut column layout: FUT_COLS is the canonical order, imported from
+# price_data.py next to the tensor construction — no local copy to drift
 
 # name -> fut column indices; "encoder" zeroes the past-price channel instead
 GROUPS: dict[str, list[int]] = {
