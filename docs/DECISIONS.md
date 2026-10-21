@@ -4,6 +4,11 @@ Three lines per entry: context, decision, why. Newest on top.
 
 ---
 
+**2026-10-21 — Repo cleanup: delete only exact duplicates and dead scripts**
+Context: owner asked to cut redundant files. The 07-21 "docs diet" already removed superseded summaries; `docs/archive/` and `reports/backtests/archive/` from the entry below no longer exist (deleted in c21ee27).
+Decision: removed byte-identical artifacts, two one-shot July shell scripts, one stray empty file. Kept every dated rerun, CSV receipt and campaign runner. List: `docs/handovers/2026-10-21_repo-cleanup.md`.
+Why: dated reruns are the audit trail. Docs cite "the 07-22 run" and "the 07-24 run" as history. Deleting them would hide how numbers moved.
+
 **2026-07-28 — Faithful LEAR (lear_full) tested: WORSE — simplified variant stays**
 Context: review flagged our LEAR as ~1/3 of canonical (only D-1 day-vector, ordinal DoW, CV penalty). Built lear_full: D-2/3/7 day-vectors (~96 price regressors), one-hot DoW/month, LassoLarsIC(AIC). Expectation: LEAR improves, LGBM edge shrinks.
 Decision: hypothesis FAILED. Same matrix, same 2-yr walk-forward: lear_full 19.18 MAE vs simplified lear 18.51 (+0.67). Canonical regressor set + AIC overfits/underselects on PL data at 365d windows. Simplified variant stays the baseline; card and README updated to state the deviations are measured as harmless-to-better, not shortcuts. Artifact: reports/backtests/2026-07-28_price_learfull_summary.csv.
